@@ -1,17 +1,15 @@
-'use client';
+import { Installer } from '@/lib/types';
+import { getTier, parseRating, parseCapabilities, formatPhone } from '@/lib/utils';
 
-import { InstallerWithMeta } from '@/lib/types';
-import { formatPhone, formatDistance } from '@/lib/utils';
-import StarRating from './StarRating';
-
-interface InstallerCardProps {
-  installer: InstallerWithMeta;
-  onClaimClick: () => void;
-  onRemovalClick: (installer: InstallerWithMeta) => void;
+interface InstallerCardStaticProps {
+  installer: Installer;
 }
 
-export default function InstallerCard({ installer, onClaimClick, onRemovalClick }: InstallerCardProps) {
-  const isVerified = installer.tier === 'verified';
+export default function InstallerCardStatic({ installer }: InstallerCardStaticProps) {
+  const tier = getTier(installer.source);
+  const isVerified = tier === 'verified';
+  const rating = parseRating(installer.internal_notes);
+  const capabilities = parseCapabilities(installer.install_capabilities);
 
   return (
     <div className={`card relative ${isVerified ? 'border-green-500/30' : ''}`}>
@@ -36,23 +34,26 @@ export default function InstallerCard({ installer, onClaimClick, onRemovalClick 
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            Suggested Local Installer
+            Listed Installer
           </>
-        )}
-        {installer.distance !== null && (
-          <span className="ml-auto text-xs font-semibold whitespace-nowrap">
-            {formatDistance(installer.distance)}
-          </span>
         )}
       </div>
 
       {/* Card body */}
       <div className="p-4 space-y-3">
-        {/* Business name */}
         <h3 className="text-lg font-bold text-white leading-tight">{installer.business_name}</h3>
 
         {/* Rating */}
-        <StarRating rating={installer.rating} />
+        {rating && (
+          <div className="flex items-center gap-1">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <svg key={i} className={`w-4 h-4 ${i < Math.round(rating) ? 'text-yellow-400' : 'text-gray-600'}`} fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+            ))}
+            <span className="text-sm text-vicrez-muted ml-1">{rating}/5</span>
+          </div>
+        )}
 
         {/* Address */}
         <div className="flex items-start gap-2 text-sm text-gray-300">
@@ -79,9 +80,9 @@ export default function InstallerCard({ installer, onClaimClick, onRemovalClick 
         )}
 
         {/* Capabilities */}
-        {installer.capabilities.length > 0 && (
+        {capabilities.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {installer.capabilities.slice(0, 5).map((cap, i) => (
+            {capabilities.slice(0, 5).map((cap, i) => (
               <span
                 key={i}
                 className="text-xs px-2 py-1 rounded-full bg-vicrez-dark border border-vicrez-border text-gray-400"
@@ -89,9 +90,9 @@ export default function InstallerCard({ installer, onClaimClick, onRemovalClick 
                 {cap}
               </span>
             ))}
-            {installer.capabilities.length > 5 && (
+            {capabilities.length > 5 && (
               <span className="text-xs px-2 py-1 text-vicrez-muted">
-                +{installer.capabilities.length - 5} more
+                +{capabilities.length - 5} more
               </span>
             )}
           </div>
@@ -99,8 +100,7 @@ export default function InstallerCard({ installer, onClaimClick, onRemovalClick 
       </div>
 
       {/* Card footer */}
-      <div className="px-4 pb-4 pt-2 border-t border-vicrez-border space-y-2">
-        {/* Directions & Website buttons */}
+      <div className="px-4 pb-4 pt-2 border-t border-vicrez-border">
         <div className="flex gap-2">
           {installer.lat && installer.lng && (
             <a
@@ -126,24 +126,6 @@ export default function InstallerCard({ installer, onClaimClick, onRemovalClick 
             </a>
           )}
         </div>
-
-        {/* Claim listing (Listed only) */}
-        {!isVerified && (
-          <div className="flex items-center justify-between">
-            <button
-              onClick={onClaimClick}
-              className="text-xs font-medium text-vicrez-red hover:text-white transition-colors"
-            >
-              ✦ Claim This Listing
-            </button>
-            <button
-              onClick={() => onRemovalClick(installer)}
-              className="text-[10px] text-vicrez-muted hover:text-gray-400 transition-colors underline"
-            >
-              Request Removal
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
