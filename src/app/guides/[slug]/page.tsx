@@ -7,6 +7,7 @@ import { generateArticleJsonLd, generateFaqJsonLd } from '@/lib/seo';
 import BodyKitInstallationCostGuide from './body-kit-installation-cost';
 import WidebodyKitInstallationGuide from './widebody-kit-installation-guide';
 import HowToChooseInstallerGuide from './how-to-choose-body-kit-installer';
+import WheelAndTireInstallationGuide from './wheel-and-tire-installation-guide';
 
 interface PageProps {
   params: { slug: string };
@@ -39,6 +40,13 @@ const GUIDES: Record<string, {
     datePublished: '2026-02-01',
     dateModified: '2026-03-19',
     component: HowToChooseInstallerGuide,
+  },
+  'wheel-and-tire-installation-guide': {
+    title: 'Wheel & Tire Installation Guide: Everything You Need to Know (2026)',
+    description: 'Complete guide to aftermarket wheel and tire installation. Costs, fitment specs (bolt pattern, offset, hub bore), TPMS, staggered vs square setups, and how to find an installer near you.',
+    datePublished: '2026-03-19',
+    dateModified: '2026-03-19',
+    component: WheelAndTireInstallationGuide,
   },
 };
 

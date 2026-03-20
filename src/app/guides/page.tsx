@@ -4,12 +4,12 @@ import Footer from '@/components/Footer';
 import Breadcrumbs from '@/components/Breadcrumbs';
 
 export const metadata: Metadata = {
-  title: 'Body Kit Installation Guides & Resources | Vicrez Installers',
+  title: 'Body Kit & Wheel Installation Guides | Vicrez Installers',
   description:
-    'Expert guides on body kit installation costs, widebody kit installation process, and how to choose the right installer. Everything you need to know before your build.',
+    'Expert guides on body kit installation costs, widebody kit installation, wheel & tire installation, and how to choose the right installer. Everything you need to know.',
   openGraph: {
-    title: 'Body Kit Installation Guides & Resources',
-    description: 'Expert guides on body kit installation costs, widebody kit installation, and choosing the right installer.',
+    title: 'Body Kit & Wheel Installation Guides',
+    description: 'Expert guides on body kit installation, wheel & tire installation, and choosing the right installer.',
     type: 'website',
     url: 'https://installers.vicrez.com/guides',
   },
@@ -40,6 +40,13 @@ const GUIDES = [
       'Find the right body kit installer with our expert checklist. Experience, portfolio, reviews, insurance, pricing transparency, and more. Avoid costly mistakes.',
     readTime: '7 min read',
   },
+  {
+    slug: 'wheel-and-tire-installation-guide',
+    title: 'Wheel & Tire Installation Guide: Everything You Need to Know (2026)',
+    description:
+      'Complete guide to aftermarket wheel and tire installation. Costs, fitment specs, TPMS, staggered vs square setups, and how to find an installer near you.',
+    readTime: '10 min read',
+  },
 ];
 
 export default function GuidesIndexPage() {
@@ -52,10 +59,10 @@ export default function GuidesIndexPage() {
 
           <div className="mb-10">
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">
-              Body Kit Installation Guides
+              Body Kit & Wheel Installation Guides
             </h1>
             <p className="text-lg text-gray-300 max-w-2xl leading-relaxed">
-              Everything you need to know about body kit and widebody kit installation.
+              Everything you need to know about body kit, widebody kit, and wheel & tire installation.
               From understanding costs to choosing the right installer, our expert guides
               help you make informed decisions for your build.
             </p>

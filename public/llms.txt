@@ -1,10 +1,10 @@
 # Vicrez Installer Directory
 
-> Find professional body kit and widebody kit installers across the United States. A directory of 6,000+ verified and listed automotive customization shops maintained by Vicrez.
+> Find professional body kit, widebody kit, and wheel & tire installers across the United States. A directory of 6,000+ verified and listed automotive customization shops maintained by Vicrez.
 
 ## About
 
-The Vicrez Installer Directory is a free resource for car enthusiasts looking for professional body kit installation services. We maintain a nationwide database of automotive customization shops that specialize in body kit installation, widebody kit conversions, vinyl wraps, paint/bodywork, and performance modifications.
+The Vicrez Installer Directory is a free resource for car enthusiasts looking for professional body kit and wheel & tire installation services. We maintain a nationwide database of automotive customization shops that specialize in body kit installation, widebody kit conversions, aftermarket wheel and tire installation, vinyl wraps, paint/bodywork, and performance modifications.
 
 Verified installers have been confirmed through the Vicrez dealer network. Listed installers are sourced from publicly available business information and have not been independently verified.
 
@@ -24,6 +24,7 @@ Verified installers have been confirmed through the Vicrez dealer network. Liste
 - Body Kit Installation Cost Guide: https://installers.vicrez.com/guides/body-kit-installation-cost
 - Widebody Kit Installation Guide: https://installers.vicrez.com/guides/widebody-kit-installation-guide
 - How to Choose an Installer: https://installers.vicrez.com/guides/how-to-choose-body-kit-installer
+- Wheel & Tire Installation Guide: https://installers.vicrez.com/guides/wheel-and-tire-installation-guide
 
 ## Body Kit Installation Cost Ranges (2026)
 
@@ -42,9 +43,19 @@ Verified installers have been confirmed through the Vicrez dealer network. Liste
 - Verified and unverified tiers
 - Services: body kits, widebody kits, vinyl wraps, paint/bodywork, performance mods, wheels/tires
 
+## Wheel & Tire Installation Cost Ranges (2026)
+
+- Mount & Balance (standard): $25–$40 per wheel ($100–$160 for set of 4)
+- Mount & Balance (low-profile/run-flat): $35–$60 per wheel
+- TPMS Sensor Programming: $10–$25 per wheel
+- TPMS Sensor Replacement: $40–$80 per wheel
+- Hub-Centric Ring Installation: $5–$15 per wheel
+- Alignment: $80–$150 total
+- Typical Total (mount, balance, TPMS, alignment): $250–$500 for all 4
+
 ## Parent Company
 
-Vicrez (https://www.vicrez.com) — Premium automotive aftermarket parts including body kits, carbon fiber accessories, custom steering wheels, and more.
+Vicrez (https://www.vicrez.com) — Premium automotive aftermarket parts including body kits, aftermarket wheels, VCorsa tires, carbon fiber accessories, custom steering wheels, and more.
 
 ## API
 

@@ -94,7 +94,7 @@ export function generateInstallerJsonLd(installer: Installer) {
         ratingCount: 1,
       },
     }),
-    description: `Professional body kit and automotive customization installer in ${installer.city}, ${installer.state}. Services: ${capabilities.join(', ') || 'Body kits, wraps, performance modifications'}.`,
+    description: `Professional body kit, wheel & tire installation in ${installer.city}, ${installer.state}. Services: ${capabilities.join(', ') || 'Body kits, wheels, tires, wraps, performance modifications'}.`,
     priceRange: '$$',
     image: 'https://www.vicrez.com/image/catalog/vicrez-logo-white-web.png',
   };
@@ -122,6 +122,14 @@ export function generateFaqJsonLd(city?: string, state?: string) {
         acceptedAnswer: {
           '@type': 'Answer',
           text: 'Installation time varies by kit type. A basic lip kit or splitter can be installed in 2–4 hours. Full bumper replacements typically take 1–2 days. A complete widebody kit installation with prep, fitting, and paint can take 1–3 weeks. Your installer will provide a more accurate timeline based on your specific kit and vehicle.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Can these shops install aftermarket wheels and tires?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: `Yes! Many installers in ${location} handle aftermarket wheel and tire installation, including wheel fitment, tire mounting, balancing, TPMS sensor programming, and hub-centric ring installation. Wheel and tire installation typically costs $25–$50 per wheel for mounting and balancing, or $80–$150 if you need TPMS service. Many shops offer package deals when combined with body kit installation.`,
         },
       },
       {
@@ -191,7 +199,7 @@ export function generateOrganizationJsonLd() {
     name: 'Vicrez',
     url: 'https://www.vicrez.com',
     logo: 'https://www.vicrez.com/image/catalog/vicrez-logo-white-web.png',
-    description: 'Premium automotive aftermarket parts. Body kits, carbon fiber accessories, custom steering wheels, and more.',
+    description: 'Premium automotive aftermarket parts. Body kits, aftermarket wheels, VCorsa tires, carbon fiber accessories, custom steering wheels, and more.',
     sameAs: [
       'https://www.facebook.com/vicrez',
       'https://www.instagram.com/vicrez',

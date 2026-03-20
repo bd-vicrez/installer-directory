@@ -70,11 +70,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (data.type === 'city' && data.city) {
     return {
-      title: `Body Kit & Widebody Kit Installation in ${data.city}, ${data.stateAbbr} | Vicrez Installers`,
-      description: `Find ${count} professional body kit installers in ${data.city}, ${data.stateAbbr}. Widebody kits, aero kits, vinyl wraps & more. Get quotes from verified shops near you.`,
+      title: `Body Kit, Widebody Kit & Tire Installation in ${data.city}, ${data.stateAbbr} | Vicrez Installers`,
+      description: `Find ${count} professional body kit & wheel installers in ${data.city}, ${data.stateAbbr}. Widebody kits, tire & wheel installation, aero kits, vinyl wraps & more. Get free quotes.`,
       openGraph: {
-        title: `Body Kit Installation in ${data.city}, ${data.stateAbbr}`,
-        description: `${count} body kit installers in ${data.city}, ${data.stateAbbr}. Find verified shops for widebody kits, aero kits & more.`,
+        title: `Body Kit & Wheel Installation in ${data.city}, ${data.stateAbbr}`,
+        description: `${count} body kit & tire installers in ${data.city}, ${data.stateAbbr}. Widebody kits, wheel & tire installation, aero kits & more.`,
         type: 'website',
         url: `https://installers.vicrez.com/installers/${params.location}`,
       },
@@ -85,8 +85,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   return {
-    title: `Body Kit Installers in ${data.stateName} | Vicrez Installer Directory`,
-    description: `Browse ${count} professional body kit installers across ${data.stateName}. Find widebody kit, aero kit & vinyl wrap installation near you. Get free quotes from verified shops.`,
+    title: `Body Kit & Wheel Installers in ${data.stateName} | Vicrez Installer Directory`,
+    description: `Browse ${count} professional body kit & wheel installers across ${data.stateName}. Widebody kits, tire & wheel installation, vinyl wraps & more. Get free quotes.`,
     openGraph: {
       title: `Body Kit Installers in ${data.stateName}`,
       description: `${count} body kit installers across ${data.stateName}. Professional installation for widebody kits, aero kits & more.`,
@@ -190,17 +190,17 @@ export default async function LocationPage({ params }: PageProps) {
           {/* Hero section */}
           <div className="mb-10">
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">
-              Body Kit Installation in {locationLabel}
+              Body Kit & Wheel Installation in {locationLabel}
             </h1>
             <p className="text-lg text-gray-300 max-w-3xl leading-relaxed">
-              Looking for professional <strong>widebody kit installation</strong> or a trusted <strong>body kit installer near me</strong> in {locationLabel}?
+              Looking for professional <strong>widebody kit installation</strong>, <strong>tire and wheel installation</strong>, or a trusted <strong>body kit installer near me</strong> in {locationLabel}?
               Browse {installers.length} professional installation shops ready to handle everything from lip kits and aero kits
-              to full widebody conversions and vinyl wraps. {verifiedCount > 0 && `${verifiedCount} shops are verified through the Vicrez dealer network.`}
+              to full widebody conversions, <strong>wheel and tire packages</strong>, and vinyl wraps. {verifiedCount > 0 && `${verifiedCount} shops are verified through the Vicrez dealer network.`}
             </p>
             <p className="text-gray-400 mt-3 max-w-3xl">
               Whether you need a professional installation for your new body kit, paint-matched bumper replacement,
-              or custom widebody fender flares, these shops in {locationLabel} have the experience and equipment
-              to get the job done right. Get free quotes and compare services below.
+              custom widebody fender flares, or <strong>aftermarket wheels and tires</strong>, these shops in {locationLabel} have the experience and equipment
+              to get the job done right. Many of our installers also handle wheel fitment, tire mounting, balancing, and TPMS programming. Get free quotes and compare services below.
             </p>
           </div>
 
@@ -231,9 +231,9 @@ export default async function LocationPage({ params }: PageProps) {
             rel="noopener noreferrer"
             className="block mb-8 bg-gradient-to-r from-vicrez-red to-red-700 rounded-xl p-6 text-center hover:from-vicrez-red-dark hover:to-red-800 transition-all"
           >
-            <p className="text-lg font-bold text-white">Shop Body Kits at Vicrez.com</p>
+            <p className="text-lg font-bold text-white">Shop Body Kits, Wheels & Tires at Vicrez.com</p>
             <p className="text-sm text-white/80 mt-1">
-              Premium widebody kits, lip kits, splitters & more — shipped to your installer
+              Premium widebody kits, aftermarket wheels, VCorsa tires, lip kits & more — shipped to your installer
             </p>
           </a>
 
@@ -294,6 +294,11 @@ export default async function LocationPage({ params }: PageProps) {
                 </a>
               </li>
               <li>
+                <a href="/guides/wheel-and-tire-installation-guide" className="text-vicrez-red hover:underline">
+                  Wheel & Tire Installation Guide: What to Know Before You Buy
+                </a>
+              </li>
+              <li>
                 <a href="/directory" className="text-vicrez-red hover:underline">
                   Browse All States in the Installer Directory
                 </a>
@@ -321,6 +326,16 @@ export default async function LocationPage({ params }: PageProps) {
                   Full bumper replacements typically take 1–2 days. A complete widebody kit installation with prep,
                   fitting, and paint can take 1–3 weeks. Your installer will provide a more accurate timeline based
                   on your specific kit and vehicle.
+                </p>
+              </div>
+              <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-5">
+                <h3 className="font-semibold text-white mb-2">Can these shops install aftermarket wheels and tires?</h3>
+                <p className="text-sm text-gray-400 leading-relaxed">
+                  Yes! Many installers in {locationLabel} handle aftermarket wheel and tire installation, including
+                  wheel fitment, tire mounting, balancing, TPMS sensor programming, and hub-centric ring installation.
+                  Wheel and tire installation typically costs $25–$50 per wheel for mounting and balancing, or $80–$150
+                  if you need TPMS service. Many shops offer package deals when combined with body kit installation.
+                  Ask your installer about wheel and tire packages from Vicrez.
                 </p>
               </div>
               <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-5">
