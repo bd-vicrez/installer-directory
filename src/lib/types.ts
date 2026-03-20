@@ -1,5 +1,5 @@
 export interface Installer {
-  id: number;
+  id: string | number;
   slug: string;
   business_name: string;
   street_address: string;

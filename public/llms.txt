@@ -1,0 +1,68 @@
+# Vicrez Installer Directory
+
+> Find professional body kit, widebody kit, and wheel & tire installers across the United States. A directory of 6,000+ verified and listed automotive customization shops maintained by Vicrez.
+
+## About
+
+The Vicrez Installer Directory is a free resource for car enthusiasts looking for professional body kit and wheel & tire installation services. We maintain a nationwide database of automotive customization shops that specialize in body kit installation, widebody kit conversions, aftermarket wheel and tire installation, vinyl wraps, paint/bodywork, and performance modifications.
+
+Verified installers have been confirmed through the Vicrez dealer network. Listed installers are sourced from publicly available business information and have not been independently verified.
+
+## What We Offer
+
+- **Installer Search**: Find body kit installers near any US zip code
+- **Location Pages**: Browse installers by city and state (e.g., Houston TX, Los Angeles CA)
+- **State Directory**: View all installers grouped by state
+- **Installation Guides**: Expert articles on body kit installation costs, widebody kit installation process, and how to choose an installer
+- **Verified Shops**: Installers confirmed through the Vicrez dealer network are marked as "Verified"
+
+## Key Pages
+
+- Homepage / Search: https://installers.vicrez.com
+- Directory (all states): https://installers.vicrez.com/directory
+- Guides Index: https://installers.vicrez.com/guides
+- Body Kit Installation Cost Guide: https://installers.vicrez.com/guides/body-kit-installation-cost
+- Widebody Kit Installation Guide: https://installers.vicrez.com/guides/widebody-kit-installation-guide
+- How to Choose an Installer: https://installers.vicrez.com/guides/how-to-choose-body-kit-installer
+- Wheel & Tire Installation Guide: https://installers.vicrez.com/guides/wheel-and-tire-installation-guide
+
+## Body Kit Installation Cost Ranges (2026)
+
+- Lip Kit Installation: $200–$800
+- Front Bumper Kit: $500–$1,500
+- Full Body Kit (unpainted): $800–$2,500
+- Full Body Kit (with paint): $1,500–$4,000
+- Widebody Kit (basic): $2,000–$5,000
+- Widebody Kit (full conversion with paint): $3,000–$8,000+
+- Carbon Fiber Kit: $1,500–$6,000+
+
+## Coverage
+
+- All 50 US states
+- 6,000+ installer listings
+- Verified and unverified tiers
+- Services: body kits, widebody kits, vinyl wraps, paint/bodywork, performance mods, wheels/tires
+
+## Wheel & Tire Installation Cost Ranges (2026)
+
+- Mount & Balance (standard): $25–$40 per wheel ($100–$160 for set of 4)
+- Mount & Balance (low-profile/run-flat): $35–$60 per wheel
+- TPMS Sensor Programming: $10–$25 per wheel
+- TPMS Sensor Replacement: $40–$80 per wheel
+- Hub-Centric Ring Installation: $5–$15 per wheel
+- Alignment: $80–$150 total
+- Typical Total (mount, balance, TPMS, alignment): $250–$500 for all 4
+
+## Parent Company
+
+Vicrez (https://www.vicrez.com) — Premium automotive aftermarket parts including body kits, aftermarket wheels, VCorsa tires, carbon fiber accessories, custom steering wheels, and more.
+
+## API
+
+- Installer data: https://installers.vicrez.com/api/installers (public, GET)
+- Sitemap: https://installers.vicrez.com/sitemap.xml
+
+## Contact
+
+- Website: https://www.vicrez.com/contact-us
+- B2B / Become a Dealer: https://b2b.vicrez.com

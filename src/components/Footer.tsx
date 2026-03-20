@@ -6,7 +6,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-vicrez-border bg-vicrez-dark mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div>
             <img
@@ -20,9 +20,31 @@ export default function Footer() {
             </p>
           </div>
 
+          {/* Directory */}
+          <div>
+            <h4 className="text-sm font-semibold uppercase tracking-wider mb-4 text-gray-400">Directory</h4>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <a href="/" className="text-vicrez-muted hover:text-white transition-colors">
+                  Find an Installer
+                </a>
+              </li>
+              <li>
+                <a href="/directory" className="text-vicrez-muted hover:text-white transition-colors">
+                  Browse by State
+                </a>
+              </li>
+              <li>
+                <a href="/guides" className="text-vicrez-muted hover:text-white transition-colors">
+                  Installation Guides
+                </a>
+              </li>
+            </ul>
+          </div>
+
           {/* Links */}
           <div>
-            <h4 className="text-sm font-semibold uppercase tracking-wider mb-4 text-gray-400">Links</h4>
+            <h4 className="text-sm font-semibold uppercase tracking-wider mb-4 text-gray-400">Vicrez</h4>
             <ul className="space-y-2 text-sm">
               <li>
                 <a href="https://www.vicrez.com" target="_blank" rel="noopener noreferrer" className="text-vicrez-muted hover:text-white transition-colors">

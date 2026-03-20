@@ -33,8 +33,9 @@ export function parseRating(internalNotes: string | null): number | null {
   return null;
 }
 
-export function parseCapabilities(capString: string): string[] {
+export function parseCapabilities(capString: string | string[]): string[] {
   if (!capString) return [];
+  if (Array.isArray(capString)) return capString.filter(Boolean);
   return capString
     .split(/[,;|]/)
     .map((c) => c.trim())
