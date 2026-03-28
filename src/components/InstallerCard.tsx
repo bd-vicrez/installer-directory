@@ -51,8 +51,19 @@ export default function InstallerCard({ installer, onClaimClick, onRemovalClick 
         {/* Business name */}
         <h3 className="text-lg font-bold text-white leading-tight">{installer.business_name}</h3>
 
+        {/* Permanently Closed Warning */}
+        {installer.google_status === 'CLOSED_PERMANENTLY' && (
+          <div className="px-2 py-1 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-400">
+            ⚠️ This business may be permanently closed
+          </div>
+        )}
+
         {/* Rating */}
-        <StarRating rating={installer.rating} />
+        <StarRating
+          rating={installer.google_rating ?? installer.rating}
+          reviewCount={installer.google_review_count}
+          googlePlaceId={installer.google_place_id}
+        />
 
         {/* Address */}
         <div className="flex items-start gap-2 text-sm text-gray-300">
@@ -125,7 +136,26 @@ export default function InstallerCard({ installer, onClaimClick, onRemovalClick 
               Website
             </a>
           )}
+          {installer.google_place_id && (
+            <a
+              href={`https://www.google.com/maps/place/?q=place_id:${installer.google_place_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary text-xs flex-1 text-center flex items-center justify-center gap-1"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Google Maps
+            </a>
+          )}
         </div>
+        {/* Google attribution */}
+        {installer.google_place_id && (
+          <div className="text-[10px] text-vicrez-muted/50 text-right mt-1">
+            Business data by Google
+          </div>
+        )}
 
         {/* Claim listing (Listed only) */}
         {!isVerified && (
