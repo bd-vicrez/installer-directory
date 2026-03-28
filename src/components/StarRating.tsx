@@ -42,7 +42,7 @@ export default function StarRating({ rating, reviewCount, googlePlaceId }: StarR
           </svg>
         ))}
       </div>
-      <span className="text-xs text-vicrez-muted">
+      <span className="text-xs text-gray-500">
         {rating.toFixed(1)}
         {reviewCount != null && reviewCount > 0 && (
           <>

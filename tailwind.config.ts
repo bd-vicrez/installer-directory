@@ -12,11 +12,11 @@ const config: Config = {
         vicrez: {
           red: '#e31937',
           'red-dark': '#b8142d',
-          dark: '#0a0a0a',
-          card: '#1a1a1a',
-          'card-hover': '#222222',
-          border: '#2a2a2a',
-          muted: '#888888',
+          dark: '#f9fafb',
+          card: '#ffffff',
+          'card-hover': '#f3f4f6',
+          border: '#e5e7eb',
+          muted: '#6b7280',
         },
       },
       fontFamily: {

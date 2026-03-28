@@ -6,35 +6,65 @@
 
 @layer base {
   body {
-    @apply bg-vicrez-dark text-white antialiased;
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+
+  /* Remap text-white to dark text for light theme */
+  .text-white {
+    color: #111827 !important;
+  }
+  .text-white\/80 {
+    color: rgba(17, 24, 39, 0.8) !important;
+  }
+  .text-white\/90 {
+    color: rgba(17, 24, 39, 0.9) !important;
+  }
+  .text-gray-300 {
+    color: #4b5563 !important;
+  }
+  .text-gray-400 {
+    color: #6b7280 !important;
+  }
+  .text-gray-600 {
+    color: #9ca3af !important;
+  }
+
+  /* Keep actual white text on red/dark backgrounds */
+  .bg-vicrez-red .text-white,
+  .bg-vicrez-red-dark .text-white,
+  .btn-primary .text-white,
+  .bg-green-500\/10 .text-white,
+  [class*="bg-vicrez-red"] .text-white {
+    color: #ffffff !important;
   }
 
   ::-webkit-scrollbar {
     width: 8px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-vicrez-dark;
+    @apply bg-gray-100;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-vicrez-border rounded-full;
+    @apply bg-gray-300 rounded-full;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-vicrez-muted;
+    @apply bg-gray-400;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-vicrez-red hover:bg-vicrez-red-dark text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 active:scale-95;
+    @apply bg-vicrez-red hover:bg-vicrez-red-dark font-semibold px-6 py-3 rounded-lg transition-all duration-200 active:scale-95;
+    color: #ffffff !important;
   }
   .btn-secondary {
-    @apply bg-vicrez-card hover:bg-vicrez-card-hover text-white border border-vicrez-border font-medium px-4 py-2 rounded-lg transition-all duration-200;
+    @apply bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 font-medium px-4 py-2 rounded-lg transition-all duration-200;
   }
   .card {
-    @apply bg-vicrez-card border border-vicrez-border rounded-xl overflow-hidden transition-all duration-200 hover:border-vicrez-red/30 hover:shadow-lg hover:shadow-vicrez-red/5;
+    @apply bg-white border border-gray-200 rounded-xl overflow-hidden transition-all duration-200 hover:border-vicrez-red/30 hover:shadow-lg hover:shadow-vicrez-red/5;
   }
   .input-field {
-    @apply bg-vicrez-card border border-vicrez-border rounded-lg px-4 py-3 text-white placeholder:text-vicrez-muted focus:outline-none focus:border-vicrez-red focus:ring-1 focus:ring-vicrez-red transition-all;
+    @apply bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-vicrez-red focus:ring-1 focus:ring-vicrez-red transition-all;
   }
 }
 

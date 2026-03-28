@@ -19,7 +19,7 @@ export default function InstallerCard({ installer, onClaimClick, onRemovalClick 
       <div className={`px-4 py-2 flex items-center gap-2 text-xs font-medium ${
         isVerified
           ? 'bg-green-500/10 text-green-400 border-b border-green-500/20'
-          : 'bg-vicrez-card text-vicrez-muted border-b border-vicrez-border'
+          : 'bg-vicrez-card text-gray-500 border-b border-gray-200'
       }`}>
         {isVerified ? (
           <>
@@ -95,7 +95,7 @@ export default function InstallerCard({ installer, onClaimClick, onRemovalClick 
             {installer.capabilities.slice(0, 5).map((cap, i) => (
               <span
                 key={i}
-                className="text-xs px-2 py-1 rounded-full bg-vicrez-dark border border-vicrez-border text-gray-400"
+                className="text-xs px-2 py-1 rounded-full bg-gray-100 border border-gray-200 text-gray-400"
               >
                 {cap}
               </span>
