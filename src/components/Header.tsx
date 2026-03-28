@@ -6,9 +6,9 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <a href="https://www.vicrez.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3">
           <img
-            src="https://www.vicrez.com/image/catalog/vicrez-logo-web.png"
+            src="https://www.vicrez.com/image/catalog/vicrez-logo-white-web.png"
             alt="Vicrez"
-            className="h-8 w-auto"
+            className="h-8 w-auto brightness-0"
             onError={(e) => {
               (e.target as HTMLImageElement).src = 'https://www.vicrez.com/image/catalog/vicrez-logo-white-web.png';
             }}
