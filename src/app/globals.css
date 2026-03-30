@@ -34,8 +34,16 @@
   .bg-vicrez-red-dark .text-white,
   .btn-primary .text-white,
   .bg-green-500\/10 .text-white,
-  [class*="bg-vicrez-red"] .text-white {
+  [class*="bg-vicrez-red"] .text-white,
+  [class*="from-vicrez-red"] .text-white,
+  [class*="from-vicrez-red"] .text-white\/80,
+  [class*="bg-gradient"] .text-white,
+  [class*="bg-gradient"] .text-white\/80 {
     color: #ffffff !important;
+  }
+  [class*="from-vicrez-red"] .text-white\/80,
+  [class*="bg-gradient"] .text-white\/80 {
+    color: rgba(255, 255, 255, 0.8) !important;
   }
 
   ::-webkit-scrollbar {
