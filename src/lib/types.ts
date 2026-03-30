@@ -1,3 +1,7 @@
+export interface GoogleHours {
+  [day: string]: string;
+}
+
 export interface Installer {
   id: string | number;
   slug: string;
@@ -19,6 +23,15 @@ export interface Installer {
   lat: number | null;
   lng: number | null;
   feedback: string | null;
+  google_place_id: string | null;
+  google_rating: number | null;
+  google_review_count: number | null;
+  google_hours: GoogleHours | null;
+  google_phone: string | null;
+  google_website: string | null;
+  google_status: string | null;
+  google_types: string | null;
+  enriched_at: string | null;
 }
 
 export interface InstallerWithMeta extends Installer {

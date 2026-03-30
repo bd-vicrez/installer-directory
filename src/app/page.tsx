@@ -1,197 +1,127 @@
-'use client';
-
-import { useState, useCallback, useMemo } from 'react';
 import Header from '@/components/Header';
-import Hero from '@/components/Hero';
-import Filters from '@/components/Filters';
-import InstallerCard from '@/components/InstallerCard';
-import ClaimModal from '@/components/ClaimModal';
-import RemovalModal from '@/components/RemovalModal';
 import Footer from '@/components/Footer';
-import { Installer, InstallerWithMeta, GeoLocation } from '@/lib/types';
-import { enrichInstaller, sortInstallers, matchesCapabilityFilter, geocodeZip } from '@/lib/utils';
+import HomeSearch from '@/components/HomeSearch';
+import { queryTopCities, queryAllStatesWithCounts, queryInstallerStats } from '@/lib/db';
+import { STATE_NAMES, toLocationSlug, toStateSlug } from '@/lib/seo';
 
-const PAGE_SIZE = 24;
+const CATEGORIES = [
+  { slug: 'body-kits', label: 'Body Kits' },
+  { slug: 'wheels-and-tires', label: 'Wheels & Tires' },
+  { slug: 'vinyl-wrap', label: 'Vinyl Wrap & Tint' },
+  { slug: 'ppf-installers', label: 'PPF / Clear Bra' },
+  { slug: 'paint-bodywork', label: 'Paint & Bodywork' },
+  { slug: 'performance-mods', label: 'Performance Mods' },
+  { slug: 'widebody-kits', label: 'Widebody Kits' },
+  { slug: 'custom-builds', label: 'Custom Builds' },
+];
 
-export default function HomePage() {
-  const [allInstallers, setAllInstallers] = useState<InstallerWithMeta[]>([]);
-  const [userLocation, setUserLocation] = useState<GeoLocation | null>(null);
-  const [locationLabel, setLocationLabel] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+export default async function HomePage() {
+  const [topCities, states, stats] = await Promise.all([
+    queryTopCities(20),
+    queryAllStatesWithCounts(),
+    queryInstallerStats(),
+  ]);
 
-  // Filters
-  const [capabilityFilter, setCapabilityFilter] = useState('');
-  const [tierFilter, setTierFilter] = useState('');
-  const [radiusFilter, setRadiusFilter] = useState(50);
-
-  // Modals
-  const [claimModalOpen, setClaimModalOpen] = useState(false);
-  const [removalModalOpen, setRemovalModalOpen] = useState(false);
-  const [removalInstaller, setRemovalInstaller] = useState<InstallerWithMeta | null>(null);
-
-  const handleSearch = useCallback(async (zip: string) => {
-    setIsLoading(true);
-    setHasSearched(true);
-    setVisibleCount(PAGE_SIZE);
-
-    try {
-      // Geocode zip and fetch installers in parallel
-      const [geo, res] = await Promise.all([
-        geocodeZip(zip),
-        fetch('https://installers.vicrez.com/api/installers'),
-      ]);
-
-      if (!res.ok) throw new Error('API error');
-
-      const data: Installer[] = await res.json();
-      setUserLocation(geo);
-      setLocationLabel(geo ? `${geo.city}, ${geo.state}` : zip);
-
-      // Enrich with tier, distance, rating
-      const enriched = data
-        .filter((inst) => inst.status !== 'removed')
-        .map((inst) => enrichInstaller(inst, geo));
-
-      const sorted = sortInstallers(enriched);
-      setAllInstallers(sorted);
-    } catch (err) {
-      console.error('Search failed:', err);
-      setAllInstallers([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Apply filters
-  const filteredInstallers = useMemo(() => {
-    let results = allInstallers;
-
-    // Distance filter
-    if (userLocation) {
-      results = results.filter(
-        (inst) => inst.distance !== null && inst.distance <= radiusFilter
-      );
-    }
-
-    // Capability filter
-    if (capabilityFilter) {
-      results = results.filter((inst) => matchesCapabilityFilter(inst, capabilityFilter));
-    }
-
-    // Tier filter
-    if (tierFilter === 'verified') {
-      results = results.filter((inst) => inst.tier === 'verified');
-    }
-
-    return results;
-  }, [allInstallers, capabilityFilter, tierFilter, radiusFilter, userLocation]);
-
-  const visibleInstallers = filteredInstallers.slice(0, visibleCount);
-  const hasMore = visibleCount < filteredInstallers.length;
-
-  const verifiedCount = filteredInstallers.filter((i) => i.tier === 'verified').length;
-  const listedCount = filteredInstallers.filter((i) => i.tier === 'listed').length;
+  const totalInstallers = parseInt(stats?.total || '13000');
+  const verifiedCount = parseInt(stats?.verified || '377');
+  const stateCount = parseInt(stats?.states || '50');
 
   return (
     <>
       <Header />
       <main className="flex-1">
-        <Hero
-          onSearch={handleSearch}
-          isLoading={isLoading}
-          resultCount={hasSearched ? filteredInstallers.length : null}
-          locationLabel={locationLabel}
-        />
+        <HomeSearch />
 
-        {hasSearched && (
-          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <Filters
-              capabilityFilter={capabilityFilter}
-              tierFilter={tierFilter}
-              onCapabilityChange={setCapabilityFilter}
-              onTierChange={setTierFilter}
-              radiusFilter={radiusFilter}
-              onRadiusChange={setRadiusFilter}
-            />
-
-            {/* Results count */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4 text-sm text-vicrez-muted">
-                <span>
-                  <span className="text-white font-semibold">{filteredInstallers.length}</span> results
-                </span>
-                {verifiedCount > 0 && (
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-green-500" />
-                    {verifiedCount} verified
-                  </span>
-                )}
-                {listedCount > 0 && (
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-vicrez-muted" />
-                    {listedCount} listed
-                  </span>
-                )}
+        {/* Stats Bar */}
+        <section className="border-y border-vicrez-border bg-vicrez-card/50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+              <div>
+                <div className="text-3xl font-bold text-white">{totalInstallers.toLocaleString()}+</div>
+                <div className="text-sm text-vicrez-muted mt-1">Installers Nationwide</div>
+              </div>
+              <div>
+                <div className="text-3xl font-bold text-white">{stateCount}</div>
+                <div className="text-sm text-vicrez-muted mt-1">States Covered</div>
+              </div>
+              <div>
+                <div className="text-3xl font-bold text-green-400">{verifiedCount}</div>
+                <div className="text-sm text-vicrez-muted mt-1">Verified Dealers</div>
+              </div>
+              <div>
+                <div className="text-3xl font-bold text-yellow-400">4.2</div>
+                <div className="text-sm text-vicrez-muted mt-1">Avg Google Rating</div>
               </div>
             </div>
+          </div>
+        </section>
 
-            {/* Results grid */}
-            {filteredInstallers.length === 0 ? (
-              <div className="text-center py-16">
-                <svg className="w-16 h-16 mx-auto text-vicrez-muted mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <h3 className="text-xl font-semibold mb-2">No installers found</h3>
-                <p className="text-vicrez-muted max-w-md mx-auto">
-                  Try expanding your search radius, changing filters, or searching a different zip code.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {visibleInstallers.map((installer) => (
-                    <InstallerCard
-                      key={installer.id}
-                      installer={installer}
-                      onClaimClick={() => setClaimModalOpen(true)}
-                      onRemovalClick={(inst) => {
-                        setRemovalInstaller(inst);
-                        setRemovalModalOpen(true);
-                      }}
-                    />
-                  ))}
+        {/* Browse by Category */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <h2 className="text-2xl font-bold text-white mb-6">Browse by Category</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {CATEGORIES.map((cat) => (
+              <a
+                key={cat.slug}
+                href={`/installers/category/${cat.slug}`}
+                className="card p-5 text-center hover:border-vicrez-red/50 transition-colors group"
+              >
+                <div className="text-sm font-medium text-white group-hover:text-vicrez-red transition-colors">
+                  {cat.label}
                 </div>
+              </a>
+            ))}
+          </div>
+        </section>
 
-                {/* Load more */}
-                {hasMore && (
-                  <div className="text-center mt-8">
-                    <button
-                      onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
-                      className="btn-secondary px-8"
-                    >
-                      Load More ({filteredInstallers.length - visibleCount} remaining)
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </section>
-        )}
+        {/* Top Cities */}
+        <section className="border-t border-vicrez-border bg-vicrez-card/30">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <h2 className="text-2xl font-bold text-white mb-6">Top Cities</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {topCities.map((city: any) => (
+                <a
+                  key={`${city.city}-${city.state}`}
+                  href={`/installers/${toLocationSlug(city.city, city.state)}`}
+                  className="flex items-center justify-between px-4 py-3 rounded-lg bg-vicrez-dark border border-vicrez-border hover:border-vicrez-red/50 transition-colors"
+                >
+                  <span className="text-sm text-gray-300 truncate">
+                    {city.city}, {city.state}
+                  </span>
+                  <span className="text-xs text-vicrez-muted ml-2 flex-shrink-0">
+                    {city.count}
+                  </span>
+                </a>
+              ))}
+            </div>
+            <div className="text-center mt-6">
+              <a href="/directory" className="text-sm text-vicrez-red hover:underline">
+                View all cities and states →
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* Browse by State */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <h2 className="text-2xl font-bold text-white mb-6">Browse by State</h2>
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+            {states
+              .filter((s: any) => STATE_NAMES[s.state?.toUpperCase()])
+              .map((s: any) => (
+                <a
+                  key={s.state}
+                  href={`/installers/${toStateSlug(s.state.toUpperCase())}`}
+                  className="text-center px-2 py-2 rounded-lg bg-vicrez-card border border-vicrez-border hover:border-vicrez-red/50 transition-colors"
+                >
+                  <div className="text-sm font-medium text-white">{s.state}</div>
+                  <div className="text-xs text-vicrez-muted">{s.count}</div>
+                </a>
+              ))}
+          </div>
+        </section>
       </main>
       <Footer />
-
-      {/* Modals */}
-      <ClaimModal isOpen={claimModalOpen} onClose={() => setClaimModalOpen(false)} />
-      <RemovalModal
-        isOpen={removalModalOpen}
-        installer={removalInstaller}
-        onClose={() => {
-          setRemovalModalOpen(false);
-          setRemovalInstaller(null);
-        }}
-      />
     </>
   );
 }

@@ -67,3 +67,60 @@ export async function queryTopCities(limit = 50) {
   `, [limit]);
   return rows;
 }
+
+export async function queryInstallerBySlug(slug: string) {
+  const db = getPool();
+  const { rows } = await db.query(
+    `SELECT * FROM installers WHERE slug = $1 AND status != 'removed' LIMIT 1`,
+    [slug]
+  );
+  return rows[0] || null;
+}
+
+export async function queryInstallersByCapability(capability: string, limit = 100) {
+  const db = getPool();
+  const pattern = `%${capability}%`;
+  const { rows } = await db.query(
+    `SELECT * FROM installers
+     WHERE status != 'removed'
+       AND (
+         install_capabilities::text ILIKE $1
+         OR specialize_in ILIKE $1
+         OR shop_type ILIKE $1
+       )
+     ORDER BY google_rating DESC NULLS LAST, google_review_count DESC NULLS LAST
+     LIMIT $2`,
+    [pattern, limit]
+  );
+  return rows;
+}
+
+export async function queryInstallerStats() {
+  const db = getPool();
+  const { rows } = await db.query(`
+    SELECT
+      COUNT(*) FILTER (WHERE status != 'removed') as total,
+      COUNT(*) FILTER (WHERE status != 'removed' AND (
+        source ILIKE '%[New Dealer Form]%'
+        OR source ILIKE '%[CS Sheet]%'
+        OR source ILIKE '%[Vicrez Business Network]%'
+        OR source ILIKE '%Alex Cold Call%'
+        OR source ILIKE '%manual%'
+      )) as verified,
+      COUNT(DISTINCT state) FILTER (WHERE status != 'removed') as states
+    FROM installers
+  `);
+  return rows[0];
+}
+
+export async function queryAllInstallerSlugs(limit = 500) {
+  const db = getPool();
+  const { rows } = await db.query(
+    `SELECT slug FROM installers
+     WHERE status != 'removed' AND slug IS NOT NULL AND slug != ''
+     ORDER BY google_review_count DESC NULLS LAST
+     LIMIT $1`,
+    [limit]
+  );
+  return rows.map((r: any) => r.slug);
+}
