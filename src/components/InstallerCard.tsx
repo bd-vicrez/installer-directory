@@ -48,8 +48,10 @@ export default function InstallerCard({ installer, onClaimClick, onRemovalClick 
 
       {/* Card body */}
       <div className="p-4 space-y-3">
-        {/* Business name */}
-        <h3 className="text-lg font-bold text-white leading-tight">{installer.business_name}</h3>
+        {/* Business name - links to profile */}
+        <a href={`/installer/${installer.slug || installer.id}`} className="block">
+          <h3 className="text-lg font-bold text-white leading-tight hover:text-vicrez-red transition-colors">{installer.business_name}</h3>
+        </a>
 
         {/* Permanently Closed Warning */}
         {installer.google_status === 'CLOSED_PERMANENTLY' && (
@@ -111,6 +113,13 @@ export default function InstallerCard({ installer, onClaimClick, onRemovalClick 
 
       {/* Card footer */}
       <div className="px-4 pb-4 pt-2 border-t border-vicrez-border space-y-2">
+        {/* View Profile */}
+        <a
+          href={`/installer/${installer.slug || installer.id}`}
+          className="block w-full text-center text-xs font-medium py-2 rounded-lg bg-vicrez-red text-white hover:bg-red-700 transition-colors mb-2"
+        >
+          View Full Profile
+        </a>
         {/* Directions & Website buttons */}
         <div className="flex gap-2">
           {installer.lat && installer.lng && (
