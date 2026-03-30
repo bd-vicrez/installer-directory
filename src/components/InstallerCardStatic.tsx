@@ -1,16 +1,29 @@
 import { Installer } from '@/lib/types';
 import { getTier, parseRating, parseCapabilities, formatPhone } from '@/lib/utils';
-import StarRating from './StarRating';
 
 interface InstallerCardStaticProps {
   installer: Installer;
 }
 
+const TAG_COLORS = [
+  'bg-vicrez-red/10 text-vicrez-red border-vicrez-red/20',
+  'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+];
+
 export default function InstallerCardStatic({ installer }: InstallerCardStaticProps) {
   const tier = getTier(installer.source);
   const isVerified = tier === 'verified';
-  const rating = installer.google_rating ?? parseRating(installer.internal_notes);
   const capabilities = parseCapabilities(installer.install_capabilities);
+
+  // Prefer Google rating, fall back to parsed internal notes rating
+  const googleRating = installer.google_rating;
+  const googleReviewCount = installer.google_review_count;
+  const fallbackRating = parseRating(installer.internal_notes);
+  const displayRating = googleRating || fallbackRating;
 
   return (
     <div className={`card relative ${isVerified ? 'border-green-500/30' : ''}`}>
@@ -18,7 +31,7 @@ export default function InstallerCardStatic({ installer }: InstallerCardStaticPr
       <div className={`px-4 py-2 flex items-center gap-2 text-xs font-medium ${
         isVerified
           ? 'bg-green-500/10 text-green-400 border-b border-green-500/20'
-          : 'bg-vicrez-card text-gray-500 border-b border-gray-200'
+          : 'bg-vicrez-card text-vicrez-muted border-b border-vicrez-border'
       }`}>
         {isVerified ? (
           <>
@@ -42,21 +55,30 @@ export default function InstallerCardStatic({ installer }: InstallerCardStaticPr
 
       {/* Card body */}
       <div className="p-4 space-y-3">
-        <h3 className="text-lg font-bold text-white leading-tight">{installer.business_name}</h3>
+        <h3 className="text-lg font-bold text-white leading-tight">
+          {installer.slug ? (
+            <a href={`/installer/${installer.slug}`} className="hover:text-vicrez-red transition-colors">
+              {installer.business_name}
+            </a>
+          ) : (
+            installer.business_name
+          )}
+        </h3>
 
-        {/* Permanently Closed Warning */}
-        {installer.google_status === 'CLOSED_PERMANENTLY' && (
-          <div className="px-2 py-1 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-400">
-            ⚠️ This business may be permanently closed
+        {/* Google Rating */}
+        {displayRating && (
+          <div className="flex items-center gap-1">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <svg key={i} className={`w-4 h-4 ${i < Math.round(displayRating) ? 'text-yellow-400' : 'text-gray-600'}`} fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+            ))}
+            <span className="text-sm text-vicrez-muted ml-1">
+              {displayRating.toFixed(1)}
+              {googleReviewCount ? ` (${googleReviewCount.toLocaleString()})` : ''}
+            </span>
           </div>
         )}
-
-        {/* Rating — Google enriched or fallback */}
-        <StarRating
-          rating={rating}
-          reviewCount={installer.google_review_count}
-          googlePlaceId={installer.google_place_id}
-        />
 
         {/* Address */}
         <div className="flex items-start gap-2 text-sm text-gray-300">
@@ -82,13 +104,13 @@ export default function InstallerCardStatic({ installer }: InstallerCardStaticPr
           </div>
         )}
 
-        {/* Capabilities */}
+        {/* Capabilities as colored tags */}
         {capabilities.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {capabilities.slice(0, 5).map((cap, i) => (
               <span
                 key={i}
-                className="text-xs px-2 py-1 rounded-full bg-gray-100 border border-gray-200 text-gray-400"
+                className={`text-xs px-2 py-1 rounded-full border ${TAG_COLORS[i % TAG_COLORS.length]}`}
               >
                 {cap}
               </span>
@@ -103,8 +125,16 @@ export default function InstallerCardStatic({ installer }: InstallerCardStaticPr
       </div>
 
       {/* Card footer */}
-      <div className="px-4 pb-4 pt-2 border-t border-vicrez-border space-y-2">
+      <div className="px-4 pb-4 pt-2 border-t border-vicrez-border">
         <div className="flex gap-2">
+          {installer.slug && (
+            <a
+              href={`/installer/${installer.slug}`}
+              className="btn-primary text-xs flex-1 text-center"
+            >
+              View Profile
+            </a>
+          )}
           {installer.lat && installer.lng && (
             <a
               href={`https://www.google.com/maps/dir/?api=1&destination=${installer.lat},${installer.lng}`}
@@ -128,26 +158,7 @@ export default function InstallerCardStatic({ installer }: InstallerCardStaticPr
               Website
             </a>
           )}
-          {installer.google_place_id && (
-            <a
-              href={`https://www.google.com/maps/place/?q=place_id:${installer.google_place_id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-secondary text-xs flex-1 text-center flex items-center justify-center gap-1"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              Google Maps
-            </a>
-          )}
         </div>
-        {/* Google attribution */}
-        {installer.google_place_id && (
-          <div className="text-[10px] text-vicrez-muted/50 text-right">
-            Business data by Google
-          </div>
-        )}
       </div>
     </div>
   );

@@ -1,11 +1,23 @@
 import { MetadataRoute } from 'next';
-import { queryAllCitiesWithCounts, queryAllStatesWithCounts } from '@/lib/db';
+import { queryAllCitiesWithCounts, queryAllStatesWithCounts, queryAllInstallerSlugs } from '@/lib/db';
 import { STATE_NAMES, toLocationSlug, toStateSlug } from '@/lib/seo';
 
+const CATEGORY_SLUGS = [
+  'wheels-and-tires',
+  'body-kits',
+  'vinyl-wrap',
+  'ppf-installers',
+  'paint-bodywork',
+  'performance-mods',
+  'widebody-kits',
+  'custom-builds',
+];
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [cities, states] = await Promise.all([
+  const [cities, states, installerSlugs] = await Promise.all([
     queryAllCitiesWithCounts(),
     queryAllStatesWithCounts(),
+    queryAllInstallerSlugs(10000),
   ]);
 
   const now = new Date().toISOString();
@@ -55,6 +67,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
+  const categoryPages: MetadataRoute.Sitemap = CATEGORY_SLUGS.map((slug) => ({
+    url: `https://installers.vicrez.com/installers/category/${slug}`,
+    lastModified: now,
+    changeFrequency: 'weekly' as const,
+    priority: 0.8,
+  }));
+
   const statePages: MetadataRoute.Sitemap = states
     .filter((s: any) => STATE_NAMES[s.state?.toUpperCase()])
     .map((s: any) => ({
@@ -73,5 +92,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     }));
 
-  return [...staticPages, ...statePages, ...cityPages];
+  const installerPages: MetadataRoute.Sitemap = installerSlugs
+    .filter((slug: string) => slug)
+    .map((slug: string) => ({
+      url: `https://installers.vicrez.com/installer/${slug}`,
+      lastModified: now,
+      changeFrequency: 'monthly' as const,
+      priority: 0.5,
+    }));
+
+  return [...staticPages, ...categoryPages, ...statePages, ...cityPages, ...installerPages];
 }
