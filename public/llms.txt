@@ -1,18 +1,35 @@
-# Vicrez Installer Directory
+# Vicrez Installer Network
 
-> Find professional body kit, widebody kit, and wheel & tire installers across the United States. A directory of 6,000+ verified and listed automotive customization shops maintained by Vicrez.
+> Find trusted installers for Vicrez aftermarket parts across the United States. A directory of 6,000+ verified and listed automotive customization shops maintained by Vicrez.
 
 ## About
 
-The Vicrez Installer Directory is a free resource for car enthusiasts looking for professional body kit and wheel & tire installation services. We maintain a nationwide database of automotive customization shops that specialize in body kit installation, widebody kit conversions, aftermarket wheel and tire installation, vinyl wraps, paint/bodywork, and performance modifications.
+The Vicrez Installer Network is a free resource for car enthusiasts looking for professional installation services for the full range of Vicrez products. We maintain a nationwide database of automotive shops that can assist with body kit installation, OE replacement part installation, widebody kit conversions, aerodynamic part installation, fender flare installation, aftermarket wheel and tire installation, vinyl wrap, paint protection film (PPF), window tint, and exterior styling upgrades.
 
 Verified installers have been confirmed through the Vicrez dealer network. Listed installers are sourced from publicly available business information and have not been independently verified.
 
+## Vicrez Product Line
+
+Vicrez sells a full ecosystem of automotive aftermarket products:
+
+- **OE Replacement Body Parts**: Bumpers (front & rear), hoods, fenders, grilles, lights
+- **Widebody Kits**: Full widebody conversion kits for popular vehicles
+- **Aerodynamic Parts**: Front lips, side skirts, rear diffusers, spoilers, splitters
+- **Fender Flares**: Bolt-on and molded fender flares
+- **Aftermarket Wheels**: Custom wheels in various sizes and finishes
+- **Performance Tires**: VCORSA performance tire line
+- **Wheel & Tire Packages**: Pre-configured wheel and tire setups
+- **Vinyl Wrap**: Automotive-grade vinyl wrap in multiple colors and finishes
+- **Paint Protection Film (PPF)**: Clear protective film for paint surfaces
+- **Window Tint**: Automotive window tint film
+- **Exterior Styling Parts & Accessories**: Grilles, trim, badges, and styling accessories
+
 ## What We Offer
 
-- **Installer Search**: Find body kit installers near any US zip code
+- **Installer Search**: Find installers near any US zip code for body kits, bumpers, wheels, tires, wrap, PPF, and more
 - **Location Pages**: Browse installers by city and state (e.g., Houston TX, Los Angeles CA)
 - **State Directory**: View all installers grouped by state
+- **Category Pages**: Browse by service type (body kits, wheels & tires, vinyl wrap, PPF, widebody kits, aero parts, etc.)
 - **Installation Guides**: Expert articles on body kit installation costs, widebody kit installation process, and how to choose an installer
 - **Verified Shops**: Installers confirmed through the Vicrez dealer network are marked as "Verified"
 
@@ -26,6 +43,21 @@ Verified installers have been confirmed through the Vicrez dealer network. Liste
 - How to Choose an Installer: https://installers.vicrez.com/guides/how-to-choose-body-kit-installer
 - Wheel & Tire Installation Guide: https://installers.vicrez.com/guides/wheel-and-tire-installation-guide
 
+## Services Installers May Offer
+
+- OE replacement part installation (bumpers, hoods, fenders, grilles, lights)
+- Body kit and widebody kit installation
+- Front lip, side skirt, and rear diffuser installation
+- Spoiler and aero part installation
+- Fender flare installation
+- Wheel and tire installation
+- Tire mounting and balancing
+- TPMS installation and programming
+- Vinyl wrap installation
+- Paint protection film (PPF) installation
+- Window tint installation
+- Exterior styling upgrades
+
 ## Body Kit Installation Cost Ranges (2026)
 
 - Lip Kit Installation: $200–$800
@@ -35,13 +67,6 @@ Verified installers have been confirmed through the Vicrez dealer network. Liste
 - Widebody Kit (basic): $2,000–$5,000
 - Widebody Kit (full conversion with paint): $3,000–$8,000+
 - Carbon Fiber Kit: $1,500–$6,000+
-
-## Coverage
-
-- All 50 US states
-- 6,000+ installer listings
-- Verified and unverified tiers
-- Services: body kits, widebody kits, vinyl wraps, paint/bodywork, performance mods, wheels/tires
 
 ## Wheel & Tire Installation Cost Ranges (2026)
 
@@ -53,9 +78,31 @@ Verified installers have been confirmed through the Vicrez dealer network. Liste
 - Alignment: $80–$150 total
 - Typical Total (mount, balance, TPMS, alignment): $250–$500 for all 4
 
+## Coverage
+
+- All 50 US states
+- 6,000+ installer listings
+- Verified and unverified tiers
+- Services: body kits, OE bumpers, widebody kits, aero parts, fender flares, wheels, tires, vinyl wrap, PPF, window tint, exterior accessories
+
+## Shop Vicrez Parts
+
+- OE Replacement Bumpers: https://www.vicrez.com/bumpers
+- Widebody Kits: https://www.vicrez.com/body-kits
+- Front Lips: https://www.vicrez.com/front-lips
+- Side Skirts: https://www.vicrez.com/side-skirts
+- Rear Diffusers: https://www.vicrez.com/rear-diffusers
+- Spoilers: https://www.vicrez.com/spoilers
+- Fender Flares: https://www.vicrez.com/fender-flares
+- Wheels: https://www.vicrez.com/wheels
+- Tires: https://www.vicrez.com/tires
+- Wheel & Tire Packages: https://www.vicrez.com/wheel-tire-packages
+- Vinyl Wrap: https://www.vicrez.com/vinyl-wrap
+- Paint Protection Film: https://www.vicrez.com/ppf
+
 ## Parent Company
 
-Vicrez (https://www.vicrez.com) — Premium automotive aftermarket parts including body kits, aftermarket wheels, VCorsa tires, carbon fiber accessories, custom steering wheels, and more.
+Vicrez (https://www.vicrez.com) — Premium automotive aftermarket parts including OE replacement bumpers, body kits, widebody kits, aerodynamic parts, fender flares, aftermarket wheels, VCORSA tires, vinyl wrap, paint protection film, window tint, and exterior styling accessories.
 
 ## API
 

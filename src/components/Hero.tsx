@@ -32,8 +32,8 @@ export default function Hero({ onSearch, isLoading, resultCount, locationLabel }
             <br />Near You
           </h1>
           <p className="text-lg md:text-xl text-vicrez-muted mb-10 max-w-2xl mx-auto">
-            Search our nationwide network of verified body kit installers,
-            wrap shops, and automotive customization professionals.
+            Search our nationwide network of installers for body kits, bumpers,
+            wheels, tires, vinyl wrap, PPF, and aftermarket parts.
           </p>
 
           <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto">

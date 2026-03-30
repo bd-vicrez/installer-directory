@@ -5,13 +5,13 @@ import { queryTopCities, queryAllStatesWithCounts, queryInstallerStats } from '@
 import { STATE_NAMES, toLocationSlug, toStateSlug } from '@/lib/seo';
 
 const CATEGORIES = [
-  { slug: 'body-kits', label: 'Body Kits' },
+  { slug: 'body-kits', label: 'Body Kits & Bumpers' },
   { slug: 'wheels-and-tires', label: 'Wheels & Tires' },
   { slug: 'vinyl-wrap', label: 'Vinyl Wrap & Tint' },
   { slug: 'ppf-installers', label: 'PPF / Clear Bra' },
   { slug: 'paint-bodywork', label: 'Paint & Bodywork' },
-  { slug: 'performance-mods', label: 'Performance Mods' },
   { slug: 'widebody-kits', label: 'Widebody Kits' },
+  { slug: 'aero-parts', label: 'Aero Parts & Spoilers' },
   { slug: 'custom-builds', label: 'Custom Builds' },
 ];
 

@@ -21,8 +21,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const installer: Installer | null = await queryInstallerBySlug(params.slug);
   if (!installer) return { title: 'Installer Not Found' };
 
-  const title = `${installer.business_name} - Body Kit & Wheel Installer in ${installer.city}, ${installer.state}`;
-  const description = `${installer.business_name} in ${installer.city}, ${installer.state}. Professional body kit, wheel & tire installation. ${installer.google_rating ? `Rated ${installer.google_rating}/5 on Google.` : ''} View hours, services & get directions.`;
+  const title = `${installer.business_name} - Vicrez Installer in ${installer.city}, ${installer.state} | Body Kits, Wheels, Wraps & More`;
+  const description = `${installer.business_name} in ${installer.city}, ${installer.state}. Installation services for body kits, bumpers, aero parts, wheels, tires, vinyl wrap, PPF, and aftermarket accessories. ${installer.google_rating ? `Rated ${installer.google_rating}/5 on Google.` : ''} View hours, services & get directions.`;
 
   return {
     title,

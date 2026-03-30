@@ -6,11 +6,11 @@ import { queryAllStatesWithCounts, queryTopCities } from '@/lib/db';
 import { STATE_NAMES, toLocationSlug, toStateSlug } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Body Kit Installer Directory — All States | Vicrez',
-  description: 'Browse body kit installers by state. Find professional widebody kit, aero kit & vinyl wrap installation services nationwide. 6,000+ shops across all 50 states.',
+  title: 'Vicrez Installer Directory — All States | Body Kits, Wheels, Tires, Wrap & PPF',
+  description: 'Browse Vicrez installers by state. Find shops for body kits, OE bumpers, aero parts, wheels, tires, vinyl wrap, PPF, window tint, and exterior accessories. 6,000+ shops across all 50 states.',
   openGraph: {
-    title: 'Body Kit Installer Directory — All States',
-    description: 'Find professional body kit installers in every state. Browse our nationwide directory of 6,000+ verified shops.',
+    title: 'Vicrez Installer Directory — All States',
+    description: 'Find trusted Vicrez installers in every state. Body kits, bumpers, wheels, tires, wrap, PPF & more. 6,000+ shops nationwide.',
     type: 'website',
     url: 'https://installers.vicrez.com/directory',
   },
@@ -36,26 +36,26 @@ export default async function DirectoryPage() {
 
           <div className="mb-10">
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">
-              Body Kit Installer Directory
+              Vicrez Installer Directory
             </h1>
             <p className="text-lg text-gray-300 max-w-3xl leading-relaxed">
-              Browse our nationwide directory of <strong>{totalInstallers.toLocaleString()}+ professional body kit installers</strong> across
-              every state. Whether you need <strong>widebody kit installation</strong>, lip kit fitting, aero kit mounting,
-              vinyl wrapping, or paint-matched bodywork, find a qualified installer near you. Our verified shops have been
-              confirmed through the Vicrez dealer network.
+              Browse our nationwide directory of <strong>{totalInstallers.toLocaleString()}+ professional installers</strong> across
+              every state. Find shops for OE replacement bumpers, body kits, widebody kits, front lips, side skirts, diffusers,
+              spoilers, fender flares, aftermarket wheels, tires, wheel and tire packages, vinyl wrap, paint protection film (PPF),
+              window tint, and exterior styling accessories. Verified shops have been confirmed through the Vicrez dealer network.
             </p>
           </div>
 
           {/* CTA Banner */}
           <a
-            href="https://www.vicrez.com/body-kits"
+            href="https://www.vicrez.com"
             target="_blank"
             rel="noopener noreferrer"
             className="block mb-10 bg-gradient-to-r from-vicrez-red to-red-700 rounded-xl p-6 text-center hover:from-vicrez-red-dark hover:to-red-800 transition-all"
           >
-            <p className="text-lg font-bold text-white">Shop Body Kits at Vicrez.com</p>
+            <p className="text-lg font-bold text-white">Shop Bumpers, Body Kits, Wheels, Tires, Wrap & PPF at Vicrez.com</p>
             <p className="text-sm text-white/80 mt-1">
-              Premium widebody kits, lip kits, splitters & more — shipped nationwide
+              OE replacement parts, widebody kits, aero upgrades, aftermarket wheels, VCORSA tires, vinyl wrap, PPF & more — shipped nationwide
             </p>
           </a>
 

@@ -70,11 +70,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (data.type === 'city' && data.city) {
     return {
-      title: `Body Kit, Widebody Kit & Tire Installation in ${data.city}, ${data.stateAbbr} | Vicrez Installers`,
-      description: `Find ${count} professional body kit & wheel installers in ${data.city}, ${data.stateAbbr}. Widebody kits, tire & wheel installation, aero kits, vinyl wraps & more. Get free quotes.`,
+      title: `Vicrez Installer Network in ${data.city}, ${data.stateAbbr} | Body Kits, Wheels, Tires, Vinyl & PPF`,
+      description: `Find trusted Vicrez installers in ${data.city}, ${data.stateAbbr} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation. Request quotes today.`,
       openGraph: {
-        title: `Body Kit & Wheel Installation in ${data.city}, ${data.stateAbbr}`,
-        description: `${count} body kit & tire installers in ${data.city}, ${data.stateAbbr}. Widebody kits, wheel & tire installation, aero kits & more.`,
+        title: `Vicrez Installer Network in ${data.city}, ${data.stateAbbr} | Body Kits, Wheels, Tires, Vinyl & PPF`,
+        description: `Find trusted Vicrez installers in ${data.city}, ${data.stateAbbr} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation.`,
         type: 'website',
         url: `https://installers.vicrez.com/installers/${params.location}`,
       },
@@ -85,11 +85,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   return {
-    title: `Body Kit & Wheel Installers in ${data.stateName} | Vicrez Installer Directory`,
-    description: `Browse ${count} professional body kit & wheel installers across ${data.stateName}. Widebody kits, tire & wheel installation, vinyl wraps & more. Get free quotes.`,
+    title: `Vicrez Installer Network in ${data.stateName} | Body Kits, Wheels, Tires, Vinyl & PPF`,
+    description: `Find trusted Vicrez installers across ${data.stateName} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation. Request quotes today.`,
     openGraph: {
-      title: `Body Kit Installers in ${data.stateName}`,
-      description: `${count} body kit installers across ${data.stateName}. Professional installation for widebody kits, aero kits & more.`,
+      title: `Vicrez Installer Network in ${data.stateName} | Body Kits, Wheels, Tires, Vinyl & PPF`,
+      description: `Find trusted Vicrez installers across ${data.stateName} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation.`,
       type: 'website',
       url: `https://installers.vicrez.com/installers/${params.location}`,
     },
@@ -190,17 +190,14 @@ export default async function LocationPage({ params }: PageProps) {
           {/* Hero section */}
           <div className="mb-10">
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">
-              Body Kit & Wheel Installation in {locationLabel}
+              Vicrez Installer Network in {locationLabel}
             </h1>
             <p className="text-lg text-gray-300 max-w-3xl leading-relaxed">
-              Looking for professional <strong>widebody kit installation</strong>, <strong>tire and wheel installation</strong>, or a trusted <strong>body kit installer near me</strong> in {locationLabel}?
-              Browse {installers.length} professional installation shops ready to handle everything from lip kits and aero kits
-              to full widebody conversions, <strong>wheel and tire packages</strong>, and vinyl wraps. {verifiedCount > 0 && `${verifiedCount} shops are verified through the Vicrez dealer network.`}
+              Find trusted installers in {locationLabel} for Vicrez aftermarket parts, OE replacement parts, body kits, aerodynamic upgrades, wheels, tires, vinyl wraps, paint protection film, and exterior styling accessories. Whether you need a bumper replacement, spoiler install, front lip install, widebody kit installation, wheel and tire package installation, or vehicle wrap service, the Vicrez Installer Network helps connect you with local shops near you.
+              {verifiedCount > 0 && ` ${verifiedCount} shops are verified through the Vicrez dealer network.`}
             </p>
             <p className="text-gray-400 mt-3 max-w-3xl">
-              Whether you need a professional installation for your new body kit, paint-matched bumper replacement,
-              custom widebody fender flares, or <strong>aftermarket wheels and tires</strong>, these shops in {locationLabel} have the experience and equipment
-              to get the job done right. Many of our installers also handle wheel fitment, tire mounting, balancing, and TPMS programming. Get free quotes and compare services below.
+              Installers in {locationLabel} can assist with bumper installation, hood and fender replacement, widebody kits, front lips, side skirts, rear diffusers, spoilers, fender flares, wheel fitment, tire mounting, balancing, TPMS programming, vinyl wrap installation, window tint, and paint protection film. Compare installers, request quotes, and find a shop for your Vicrez parts and upgrades.
             </p>
           </div>
 
@@ -226,20 +223,20 @@ export default async function LocationPage({ params }: PageProps) {
 
           {/* CTA Banner */}
           <a
-            href="https://www.vicrez.com/body-kits"
+            href="https://www.vicrez.com"
             target="_blank"
             rel="noopener noreferrer"
             className="block mb-8 bg-gradient-to-r from-vicrez-red to-red-700 rounded-xl p-6 text-center hover:from-vicrez-red-dark hover:to-red-800 transition-all"
           >
-            <p className="text-lg font-bold text-white">Shop Body Kits, Wheels & Tires at Vicrez.com</p>
+            <p className="text-lg font-bold text-white">Shop Bumpers, Body Kits, Wheels, Tires, Vinyl Wrap & PPF at Vicrez.com</p>
             <p className="text-sm text-white/80 mt-1">
-              Premium widebody kits, aftermarket wheels, VCorsa tires, lip kits & more — shipped to your installer
+              OE replacement parts, widebody kits, aero parts, aftermarket wheels, VCORSA tires, vinyl wrap, PPF & more — shipped to your installer
             </p>
           </a>
 
           {/* Installer grid */}
           <h2 className="text-xl font-bold text-white mb-6">
-            {type === 'city' ? `All Installers in ${locationLabel}` : `Body Kit Installers Across ${stateName}`}
+            {type === 'city' ? `All Installers in ${locationLabel}` : `Vicrez Installers Across ${stateName}`}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
             {installers
@@ -306,45 +303,118 @@ export default async function LocationPage({ params }: PageProps) {
             </ul>
           </section>
 
+          {/* Services section */}
+          <section className="mb-12">
+            <h2 className="text-xl font-bold text-white mb-4">Services Vicrez Installers May Offer in {locationLabel}</h2>
+            <div className="bg-vicrez-card border border-vicrez-border rounded-xl p-6">
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-300">
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />OE replacement part installation</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />Body kit and widebody kit installation</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />Front lip, side skirt, and rear diffuser installation</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />Spoiler and aero part installation</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />Fender flare installation</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />Wheel and tire installation</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />Tire mounting and balancing</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />TPMS installation and programming</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />Vinyl wrap installation</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />Paint protection film (PPF) installation</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />Window tint installation</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />Exterior styling upgrades</li>
+              </ul>
+            </div>
+          </section>
+
+          {/* Popular parts section */}
+          <section className="mb-12">
+            <h2 className="text-xl font-bold text-white mb-4">Popular Vicrez Parts Installed in {locationLabel}</h2>
+            <div className="bg-vicrez-card border border-vicrez-border rounded-xl p-6">
+              <div className="flex flex-wrap gap-2">
+                {['Front Bumpers', 'Rear Bumpers', 'Hoods', 'Fenders', 'Front Lips', 'Side Skirts', 'Rear Diffusers', 'Spoilers', 'Fender Flares', 'Widebody Kits', 'Wheels', 'Tires', 'Wheel & Tire Packages', 'Vinyl Wrap', 'Paint Protection Film'].map((part) => (
+                  <span key={part} className="px-3 py-1.5 rounded-full text-sm bg-vicrez-dark text-gray-300 border border-vicrez-border">
+                    {part}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Shop Vicrez Parts */}
+          <section className="mb-12 bg-vicrez-card border border-vicrez-border rounded-xl p-6">
+            <h2 className="text-lg font-bold text-white mb-4">Shop Vicrez Parts</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {[
+                { label: 'Shop OE Replacement Bumpers', href: 'https://www.vicrez.com/bumpers' },
+                { label: 'Shop Widebody Kits', href: 'https://www.vicrez.com/body-kits' },
+                { label: 'Shop Front Lips', href: 'https://www.vicrez.com/front-lips' },
+                { label: 'Shop Side Skirts', href: 'https://www.vicrez.com/side-skirts' },
+                { label: 'Shop Rear Diffusers', href: 'https://www.vicrez.com/rear-diffusers' },
+                { label: 'Shop Spoilers', href: 'https://www.vicrez.com/spoilers' },
+                { label: 'Shop Fender Flares', href: 'https://www.vicrez.com/fender-flares' },
+                { label: 'Shop Wheels', href: 'https://www.vicrez.com/wheels' },
+                { label: 'Shop Tires', href: 'https://www.vicrez.com/tires' },
+                { label: 'Shop Wheel & Tire Packages', href: 'https://www.vicrez.com/wheel-tire-packages' },
+                { label: 'Shop Vinyl Wrap', href: 'https://www.vicrez.com/vinyl-wrap' },
+                { label: 'Shop Paint Protection Film', href: 'https://www.vicrez.com/ppf' },
+              ].map((link) => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-vicrez-red hover:underline"
+                >
+                  {link.label} &rarr;
+                </a>
+              ))}
+            </div>
+          </section>
+
           {/* SEO content - FAQ */}
           <section className="mb-12">
             <h2 className="text-xl font-bold text-white mb-6">Frequently Asked Questions</h2>
             <div className="space-y-4">
               <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-5">
-                <h3 className="font-semibold text-white mb-2">How much does body kit installation cost in {locationLabel}?</h3>
+                <h3 className="font-semibold text-white mb-2">How much does it cost to install a body kit in {locationLabel}?</h3>
                 <p className="text-sm text-gray-400 leading-relaxed">
-                  Body kit installation costs in {locationLabel} typically range from $500 to $5,000+, depending on the kit type.
-                  A simple lip kit installation may cost $200–$800, while a full widebody kit conversion with paint
-                  can run $3,000–$8,000+. Factors include kit complexity, paint matching, and local labor rates.
-                  Always get quotes from multiple installers before deciding.
+                  Body kit installation costs in {locationLabel} vary depending on the kit type and complexity.
+                  A front lip or splitter install may run $200–$800, while a full bumper replacement typically costs $500–$1,500.
+                  Widebody kit conversions with paint matching can range from $3,000 to $8,000+. Factors include labor rates,
+                  paint matching, and prep work. We recommend requesting quotes from multiple installers to compare pricing.
                 </p>
               </div>
               <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-5">
-                <h3 className="font-semibold text-white mb-2">How long does body kit installation take?</h3>
+                <h3 className="font-semibold text-white mb-2">Do installers in {locationLabel} install Vicrez bumpers and aero parts?</h3>
                 <p className="text-sm text-gray-400 leading-relaxed">
-                  Installation time varies by kit type. A basic lip kit or splitter can be installed in 2–4 hours.
-                  Full bumper replacements typically take 1–2 days. A complete widebody kit installation with prep,
-                  fitting, and paint can take 1–3 weeks. Your installer will provide a more accurate timeline based
-                  on your specific kit and vehicle.
+                  Many installers in {locationLabel} can install Vicrez OE replacement bumpers, front lips, side skirts,
+                  rear diffusers, spoilers, and fender flares. Services may include test fitting, paint matching, and hardware
+                  installation. Depending on the shop, some may also handle grilles, hoods, fenders, and lighting upgrades.
+                  Contact the shop directly to confirm they can work with your specific Vicrez parts.
                 </p>
               </div>
               <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-5">
-                <h3 className="font-semibold text-white mb-2">Can these shops install aftermarket wheels and tires?</h3>
+                <h3 className="font-semibold text-white mb-2">Can I ship Vicrez parts directly to an installer?</h3>
                 <p className="text-sm text-gray-400 leading-relaxed">
-                  Yes! Many installers in {locationLabel} handle aftermarket wheel and tire installation, including
-                  wheel fitment, tire mounting, balancing, TPMS sensor programming, and hub-centric ring installation.
-                  Wheel and tire installation typically costs $25–$50 per wheel for mounting and balancing, or $80–$150
-                  if you need TPMS service. Many shops offer package deals when combined with body kit installation.
-                  Ask your installer about wheel and tire packages from Vicrez.
+                  Yes, many installers accept direct shipments from Vicrez. You can order your parts at vicrez.com and
+                  have them shipped straight to the installation shop. It&apos;s a good idea to coordinate with the installer
+                  before placing your order so they can prepare for the installation and confirm lead times.
                 </p>
               </div>
               <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-5">
-                <h3 className="font-semibold text-white mb-2">How do I choose a body kit installer in {locationLabel}?</h3>
+                <h3 className="font-semibold text-white mb-2">Do installers offer wheel and tire mounting?</h3>
                 <p className="text-sm text-gray-400 leading-relaxed">
-                  When choosing a body kit installer, look for experience with your specific vehicle make and model,
-                  a portfolio of previous installations, positive reviews, proper insurance and certifications, a clean
-                  professional shop, clear pricing with written estimates, and a warranty on their work. Verified installers
-                  in the Vicrez directory have been confirmed through our dealer network.
+                  Many installers in {locationLabel} offer wheel and tire services including mounting, balancing, TPMS sensor
+                  programming, and hub-centric ring installation. Mounting and balancing typically costs $25–$50 per wheel,
+                  while TPMS service adds $10–$25 per wheel. Some shops also handle alignment and offer package deals
+                  when combined with other installation services.
+                </p>
+              </div>
+              <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-5">
+                <h3 className="font-semibold text-white mb-2">Do installers in {locationLabel} install vinyl wrap and PPF?</h3>
+                <p className="text-sm text-gray-400 leading-relaxed">
+                  Some installers in {locationLabel} offer vinyl wrap installation, window tint, and paint protection film (PPF)
+                  services. Vinyl wraps can range from partial accents to full vehicle color changes. PPF provides a clear
+                  protective layer against rock chips and road debris. Services and pricing vary by shop, so reach out
+                  to individual installers to discuss your project and get a custom quote.
                 </p>
               </div>
             </div>

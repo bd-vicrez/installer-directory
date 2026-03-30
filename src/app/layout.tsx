@@ -3,20 +3,20 @@ import './globals.css';
 import { generateOrganizationJsonLd } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Find Body Kit, Wheel & Tire Installers Near You | Vicrez',
+  title: 'Vicrez Installer Network | Find Body Kit, Wheel, Tire & Wrap Installers Near You',
   description:
-    'Search 6,000+ body kit & wheel installers nationwide. Professional widebody kit, tire & wheel installation, aero kits & more. Get free quotes from verified shops.',
+    'Find trusted installers for Vicrez body kits, OE replacement bumpers, widebody kits, aero parts, wheels, tires, vinyl wrap, PPF, window tint, and exterior accessories. Browse 6,000+ shops nationwide and request free quotes.',
   openGraph: {
-    title: 'Find Body Kit, Wheel & Tire Installers Near You | Vicrez',
-    description: 'Search 6,000+ body kit & wheel installers nationwide. Professional widebody kit, tire & wheel installation, aero kits & more. Get free quotes.',
+    title: 'Vicrez Installer Network | Find Body Kit, Wheel, Tire & Wrap Installers Near You',
+    description: 'Find trusted installers for Vicrez body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts. Browse 6,000+ shops nationwide.',
     type: 'website',
     url: 'https://installers.vicrez.com',
-    siteName: 'Vicrez Installer Directory',
+    siteName: 'Vicrez Installer Network',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Find Body Kit, Wheel & Tire Installers Near You | Vicrez',
-    description: 'Search 6,000+ body kit & wheel installers nationwide. Get free quotes from verified shops.',
+    title: 'Vicrez Installer Network | Find Body Kit, Wheel, Tire & Wrap Installers Near You',
+    description: 'Find trusted installers for Vicrez body kits, bumpers, wheels, tires, vinyl wrap, PPF, and more. 6,000+ shops nationwide.',
   },
   robots: 'index, follow',
   metadataBase: new URL('https://installers.vicrez.com'),

@@ -94,7 +94,7 @@ export function generateInstallerJsonLd(installer: Installer) {
         ratingCount: 1,
       },
     }),
-    description: `Professional body kit, wheel & tire installation in ${installer.city}, ${installer.state}. Services: ${capabilities.join(', ') || 'Body kits, wheels, tires, wraps, performance modifications'}.`,
+    description: `Professional aftermarket parts installation in ${installer.city}, ${installer.state}. Services may include: ${capabilities.join(', ') || 'body kits, bumpers, aero parts, wheels, tires, vinyl wrap, PPF, window tint, and exterior upgrades'}.`,
     priceRange: '$$',
     image: 'https://www.vicrez.com/image/catalog/vicrez-logo-white-web.png',
   };
@@ -110,34 +110,42 @@ export function generateFaqJsonLd(city?: string, state?: string) {
     mainEntity: [
       {
         '@type': 'Question',
-        name: 'How much does body kit installation cost?',
+        name: `How much does it cost to install a body kit in ${location}?`,
         acceptedAnswer: {
           '@type': 'Answer',
-          text: `Body kit installation costs in ${location} typically range from $500 to $5,000+, depending on the kit type. A simple lip kit installation may cost $200–$800, while a full widebody kit conversion with paint can run $3,000–$8,000+. Factors include kit complexity, paint matching, and labor rates in your area. Always get quotes from multiple installers before deciding.`,
+          text: `Body kit installation costs in ${location} vary depending on the kit type and complexity. A front lip or splitter install may run $200–$800, while a full bumper replacement typically costs $500–$1,500. Widebody kit conversions with paint matching can range from $3,000 to $8,000+. We recommend requesting quotes from multiple installers to compare pricing.`,
         },
       },
       {
         '@type': 'Question',
-        name: 'How long does body kit installation take?',
+        name: `Do installers in ${location} install Vicrez bumpers and aero parts?`,
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Installation time varies by kit type. A basic lip kit or splitter can be installed in 2–4 hours. Full bumper replacements typically take 1–2 days. A complete widebody kit installation with prep, fitting, and paint can take 1–3 weeks. Your installer will provide a more accurate timeline based on your specific kit and vehicle.',
+          text: `Many installers in ${location} can install Vicrez OE replacement bumpers, front lips, side skirts, rear diffusers, spoilers, and fender flares. Services may include test fitting, paint matching, and hardware installation. Depending on the shop, some may also handle grilles, hoods, fenders, and lighting upgrades.`,
         },
       },
       {
         '@type': 'Question',
-        name: 'Can these shops install aftermarket wheels and tires?',
+        name: 'Can I ship Vicrez parts directly to an installer?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: `Yes! Many installers in ${location} handle aftermarket wheel and tire installation, including wheel fitment, tire mounting, balancing, TPMS sensor programming, and hub-centric ring installation. Wheel and tire installation typically costs $25–$50 per wheel for mounting and balancing, or $80–$150 if you need TPMS service. Many shops offer package deals when combined with body kit installation.`,
+          text: `Yes, many installers accept direct shipments from Vicrez. You can order your parts at vicrez.com and have them shipped straight to the installation shop. Coordinate with the installer before placing your order so they can prepare for the installation and confirm lead times.`,
         },
       },
       {
         '@type': 'Question',
-        name: 'How do I choose a body kit installer?',
+        name: 'Do installers offer wheel and tire mounting?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: `When choosing a body kit installer in ${location}, look for: (1) experience with your specific vehicle make and model, (2) a portfolio of previous installations, (3) positive reviews from past customers, (4) proper insurance and certifications, (5) a clean, professional shop environment, (6) clear pricing with written estimates, and (7) a warranty on their work. Verified installers in the Vicrez directory have been confirmed through our dealer network.`,
+          text: `Many installers in ${location} offer wheel and tire services including mounting, balancing, TPMS sensor programming, and hub-centric ring installation. Mounting and balancing typically costs $25–$50 per wheel, while TPMS service adds $10–$25 per wheel. Some shops also handle alignment and offer package deals when combined with other installation services.`,
+        },
+      },
+      {
+        '@type': 'Question',
+        name: `Do installers in ${location} install vinyl wrap and PPF?`,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: `Some installers in ${location} offer vinyl wrap installation, window tint, and paint protection film (PPF) services. Vinyl wraps can range from partial accents to full vehicle color changes. PPF provides a clear protective layer against rock chips and road debris. Services and pricing vary by shop, so reach out to individual installers for a custom quote.`,
         },
       },
     ],
@@ -199,7 +207,7 @@ export function generateOrganizationJsonLd() {
     name: 'Vicrez',
     url: 'https://www.vicrez.com',
     logo: 'https://www.vicrez.com/image/catalog/vicrez-logo-white-web.png',
-    description: 'Premium automotive aftermarket parts. Body kits, aftermarket wheels, VCorsa tires, carbon fiber accessories, custom steering wheels, and more.',
+    description: 'Premium automotive aftermarket parts including OE replacement bumpers, body kits, widebody kits, aero parts, fender flares, aftermarket wheels, VCORSA tires, vinyl wrap, paint protection film, window tint, and exterior styling accessories.',
     sameAs: [
       'https://www.facebook.com/vicrez',
       'https://www.instagram.com/vicrez',

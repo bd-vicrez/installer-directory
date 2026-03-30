@@ -8,8 +8,8 @@ const CATEGORY_SLUGS = [
   'vinyl-wrap',
   'ppf-installers',
   'paint-bodywork',
-  'performance-mods',
   'widebody-kits',
+  'aero-parts',
   'custom-builds',
 ];
 
