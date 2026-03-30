@@ -343,18 +343,18 @@ export default async function LocationPage({ params }: PageProps) {
             <h2 className="text-lg font-bold text-white mb-4">Shop Vicrez Parts</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {[
-                { label: 'Shop OE Replacement Bumpers', href: 'https://www.vicrez.com/bumpers' },
-                { label: 'Shop Widebody Kits', href: 'https://www.vicrez.com/body-kits' },
-                { label: 'Shop Front Lips', href: 'https://www.vicrez.com/front-lips' },
-                { label: 'Shop Side Skirts', href: 'https://www.vicrez.com/side-skirts' },
+                { label: 'Shop OE Replacements', href: 'https://www.vicrez.com/vicrez-oe-replacements-parts-store' },
+                { label: 'Shop Widebody Kits', href: 'https://www.vicrez.com/vicrez-widebody-kits' },
+                { label: 'Shop Front Lips', href: 'https://www.vicrez.com/front-splitters' },
+                { label: 'Shop Side Skirts', href: 'https://www.vicrez.com/front-splitters' },
                 { label: 'Shop Rear Diffusers', href: 'https://www.vicrez.com/rear-diffusers' },
                 { label: 'Shop Spoilers', href: 'https://www.vicrez.com/spoilers' },
-                { label: 'Shop Fender Flares', href: 'https://www.vicrez.com/fender-flares' },
-                { label: 'Shop Wheels', href: 'https://www.vicrez.com/wheels' },
-                { label: 'Shop Tires', href: 'https://www.vicrez.com/tires' },
-                { label: 'Shop Wheel & Tire Packages', href: 'https://www.vicrez.com/wheel-tire-packages' },
-                { label: 'Shop Vinyl Wrap', href: 'https://www.vicrez.com/vinyl-wrap' },
-                { label: 'Shop Paint Protection Film', href: 'https://www.vicrez.com/ppf' },
+                { label: 'Shop Fender Flares', href: 'https://www.vicrez.com/vicrez-widebody-kits' },
+                { label: 'Shop Wheels', href: 'https://www.vicrez.com/custom-wheels' },
+                { label: 'Shop Tires', href: 'https://www.vicrez.com/index.php?route=product/search&search=vcorsa' },
+                { label: 'Shop Wheel & Tire Packages', href: 'https://www.vicrez.com/index.php?route=product/search&search=tire%20package' },
+                { label: 'Shop Vinyl Wrap', href: 'https://www.vicrez.com/vicrez-vinyl-wrap' },
+                { label: 'Shop Paint Protection Film', href: 'https://www.vicrez.com/vicrez-pre-cut-ppf' },
               ].map((link) => (
                 <a
                   key={link.label}

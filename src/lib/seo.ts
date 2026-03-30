@@ -32,21 +32,43 @@ export function stateAbbrFromSlug(slug: string): string | null {
 }
 
 export function parseCityStateSlug(slug: string): { city: string; stateAbbr: string } | null {
-  // Format: "houston-tx", "new-york-ny", "los-angeles-ca"
   const parts = slug.split('-');
   if (parts.length < 2) return null;
 
+  // Try 2-letter abbreviation at end: "houston-tx", "new-york-ny"
   const lastPart = parts[parts.length - 1].toUpperCase();
   if (STATE_NAMES[lastPart]) {
     const city = parts.slice(0, -1).join(' ');
     return { city, stateAbbr: lastPart };
   }
 
+  // Try full state name at end: "miami-florida", "houston-texas", "new-york-city-new-york"
+  // Check last 1, 2, or 3 parts as state name
+  for (let i = 1; i <= Math.min(3, parts.length - 1); i++) {
+    const stateParts = parts.slice(-i).join(' ').toLowerCase();
+    const abbr = STATE_ABBR_FROM_NAME[stateParts];
+    if (abbr) {
+      const city = parts.slice(0, -i).join(' ');
+      if (city) return { city, stateAbbr: abbr };
+    }
+  }
+
   return null;
 }
 
+function normalizeStateToAbbr(state: string): string {
+  if (!state) return '';
+  const upper = state.toUpperCase().trim();
+  // Already an abbreviation
+  if (upper.length === 2 && STATE_NAMES[upper]) return upper;
+  // Full state name
+  const abbr = STATE_ABBR_FROM_NAME[state.toLowerCase().trim()];
+  return abbr || state.toLowerCase();
+}
+
 export function toLocationSlug(city: string, state: string): string {
-  return `${city.toLowerCase().replace(/\s+/g, '-')}-${state.toLowerCase()}`;
+  const stateAbbr = normalizeStateToAbbr(state);
+  return `${city.toLowerCase().replace(/\s+/g, '-')}-${stateAbbr.toLowerCase()}`;
 }
 
 export function toStateSlug(stateAbbr: string): string {
