@@ -16,6 +16,12 @@ export default function Header() {
         </a>
         <nav className="flex items-center gap-4">
           <a
+            href="https://installers.vicrez.com/"
+            className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            Find Installers
+          </a>
+          <a
             href="https://www.vicrez.com"
             target="_blank"
             rel="noopener noreferrer"
