@@ -24,7 +24,7 @@ export default async function HomePage() {
 
   const totalInstallers = parseInt(stats?.total || '13000');
   const verifiedCount = parseInt(stats?.verified || '377');
-  const stateCount = parseInt(stats?.states || '50');
+  const stateCount = Math.min(parseInt(stats?.states || '50'), 50);
 
   return (
     <>
