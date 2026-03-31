@@ -198,7 +198,7 @@ export default function AdminInstallersPage() {
       phone: inst.phone || '',
       email: inst.email || '',
       website: inst.website || '',
-      install_capabilities: inst.install_capabilities || '',
+      install_capabilities: Array.isArray(inst.install_capabilities) ? inst.install_capabilities.join(', ') : (inst.install_capabilities || ''),
       shop_type: inst.shop_type || '',
       specialize_in: inst.specialize_in || '',
       source: inst.source || '',
@@ -219,7 +219,7 @@ export default function AdminInstallersPage() {
       phone: inst.phone || '',
       email: inst.email || '',
       website: inst.website || '',
-      install_capabilities: inst.install_capabilities || '',
+      install_capabilities: Array.isArray(inst.install_capabilities) ? inst.install_capabilities.join(', ') : (inst.install_capabilities || ''),
       shop_type: inst.shop_type || '',
       specialize_in: inst.specialize_in || '',
       source: inst.source || '',
@@ -362,7 +362,9 @@ export default function AdminInstallersPage() {
               </tr>
             ) : (
               installers.map((inst) => {
-                const caps = (inst.install_capabilities || '').split(/[,;|]/).map((c) => c.trim()).filter(Boolean);
+                const rawCaps = inst.install_capabilities;
+                const capsStr = Array.isArray(rawCaps) ? rawCaps.join(', ') : (typeof rawCaps === 'string' ? rawCaps : '');
+                const caps = capsStr.split(/[,;|]/).map((c: string) => c.trim().replace(/^[{"]+|[}"]+$/g, '')).filter(Boolean);
                 return (
                   <tr
                     key={inst.id}
