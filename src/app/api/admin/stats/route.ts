@@ -63,13 +63,13 @@ export async function GET(request: NextRequest) {
     db.query(`
       SELECT COUNT(*) as count
       FROM installers
-      WHERE status != 'removed' AND date_added >= NOW() - INTERVAL '7 days'
+      WHERE status != 'removed' AND date_added IS NOT NULL AND date_added != '' AND date_added::timestamp >= NOW() - INTERVAL '7 days'
     `),
     // Added this month
     db.query(`
       SELECT COUNT(*) as count
       FROM installers
-      WHERE status != 'removed' AND date_added >= NOW() - INTERVAL '30 days'
+      WHERE status != 'removed' AND date_added IS NOT NULL AND date_added != '' AND date_added::timestamp >= NOW() - INTERVAL '30 days'
     `),
   ]);
 
