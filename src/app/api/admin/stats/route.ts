@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
 
   const db = getPool();
 
+  try {
   const [countsRes, statesRes, capsRes, recentRes, weekRes, monthRes] = await Promise.all([
     // Total, verified, listed, removed counts
     db.query(`
@@ -35,11 +36,11 @@ export async function GET(request: NextRequest) {
       ORDER BY count DESC
       LIMIT 15
     `),
-    // Top capabilities (parse comma-separated field)
+    // Top capabilities (parse comma-separated field, handle NULLs)
     db.query(`
       SELECT LOWER(TRIM(cap)) as name, COUNT(*) as count
       FROM installers,
-      LATERAL unnest(string_to_array(install_capabilities, ',')) AS cap
+      LATERAL unnest(string_to_array(COALESCE(install_capabilities, ''), ',')) AS cap
       WHERE status != 'removed' AND TRIM(cap) != ''
       GROUP BY LOWER(TRIM(cap))
       ORDER BY count DESC
@@ -82,4 +83,8 @@ export async function GET(request: NextRequest) {
     topCapabilities: capsRes.rows.map((r: any) => ({ name: r.name, count: parseInt(r.count) })),
     recentAdditions: recentRes.rows,
   });
+  } catch (err: any) {
+    console.error('Admin stats error:', err);
+    return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
+  }
 }
