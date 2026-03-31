@@ -40,7 +40,12 @@ export async function GET(request: NextRequest) {
     db.query(`
       SELECT LOWER(TRIM(cap)) as name, COUNT(*) as count
       FROM installers,
-      LATERAL unnest(string_to_array(COALESCE(install_capabilities, ''), ',')) AS cap
+      LATERAL unnest(
+        CASE
+          WHEN install_capabilities IS NULL OR install_capabilities::text = '' THEN ARRAY[]::text[]
+          ELSE string_to_array(install_capabilities::text, ',')
+        END
+      ) AS cap
       WHERE status != 'removed' AND TRIM(cap) != ''
       GROUP BY LOWER(TRIM(cap))
       ORDER BY count DESC
