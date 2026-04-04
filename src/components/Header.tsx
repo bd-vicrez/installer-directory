@@ -22,14 +22,6 @@ export default function Header() {
             Find Installers
           </a>
           <a
-            href="https://www.vicrez.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-          >
-            Shop Vicrez
-          </a>
-          <a
             href="https://b2b.vicrez.com"
             target="_blank"
             rel="noopener noreferrer"
