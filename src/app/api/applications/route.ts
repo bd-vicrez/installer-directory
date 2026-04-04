@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     try {
       const searchQuery = `${body.business_name} ${body.city} ${body.state}`;
       const googleResponse = await fetch(
-        `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(searchQuery)}&inputtype=textquery&fields=place_id,rating,user_ratings_total&key=AIzaSyCcZECk3LZo0U2S9GPAP1vlhk0hRJwj3JM`
+        `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(searchQuery)}&inputtype=textquery&fields=place_id,rating,user_ratings_total&key=${process.env.GOOGLE_PLACES_API_KEY}`
       );
       
       if (googleResponse.ok) {

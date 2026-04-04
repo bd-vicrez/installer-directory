@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const TOKEN_SECRET = 'vicrez-admin-secret-2026';
+const TOKEN_SECRET = process.env.ADMIN_SECRET || 'vicrez-admin-secret-2026';
 const ADMIN_USER = 'admin';
 
 export function generateToken(): string {

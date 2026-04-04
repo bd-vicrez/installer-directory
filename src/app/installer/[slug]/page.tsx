@@ -7,6 +7,7 @@ import { generateInstallerJsonLd, STATE_NAMES, toStateSlug, toLocationSlug } fro
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import CtaBanner from '@/components/CtaBanner';
 
 interface PageProps {
   params: { slug: string };
@@ -310,6 +311,8 @@ export default async function InstallerPage({ params }: PageProps) {
             </div>
           </div>
         </div>
+
+        <CtaBanner />
       </main>
       <Footer />
     </>

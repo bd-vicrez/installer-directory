@@ -37,7 +37,7 @@ export default function HomeSearch() {
     try {
       const [geo, res] = await Promise.all([
         geocodeZip(zip),
-        fetch('https://installers.vicrez.com/api/installers'),
+        fetch('/api/installers'),
       ]);
 
       if (!res.ok) throw new Error('API error');

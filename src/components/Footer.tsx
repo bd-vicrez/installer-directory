@@ -42,6 +42,11 @@ export default function Footer() {
                   Installation Guides
                 </a>
               </li>
+              <li>
+                <a href="/apply" className="text-gray-500 hover:text-gray-900 transition-colors">
+                  List Your Shop
+                </a>
+              </li>
             </ul>
           </div>
 

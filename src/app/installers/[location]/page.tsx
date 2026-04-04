@@ -4,6 +4,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import InstallerCardStatic from '@/components/InstallerCardStatic';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import CtaBanner from '@/components/CtaBanner';
 import {
   parseCityStateSlug,
   stateAbbrFromSlug,
@@ -420,6 +421,8 @@ export default async function LocationPage({ params }: PageProps) {
             </div>
           </section>
         </div>
+
+        <CtaBanner />
       </main>
       <Footer />
     </>

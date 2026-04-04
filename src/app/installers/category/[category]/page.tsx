@@ -7,6 +7,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import InstallerCardStatic from '@/components/InstallerCardStatic';
+import CtaBanner from '@/components/CtaBanner';
 
 interface CategoryConfig {
   title: string;
@@ -199,6 +200,8 @@ export default async function CategoryPage({ params }: PageProps) {
             </div>
           )}
         </div>
+
+        <CtaBanner />
       </main>
       <Footer />
     </>

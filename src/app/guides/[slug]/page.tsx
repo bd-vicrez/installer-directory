@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import CtaBanner from '@/components/CtaBanner';
 import { generateArticleJsonLd, generateFaqJsonLd } from '@/lib/seo';
 import BodyKitInstallationCostGuide from './body-kit-installation-cost';
 import WidebodyKitInstallationGuide from './widebody-kit-installation-guide';
@@ -155,6 +156,8 @@ export default function GuidePage({ params }: PageProps) {
             </div>
           </section>
         </div>
+
+        <CtaBanner />
       </main>
       <Footer />
     </>

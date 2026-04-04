@@ -55,9 +55,8 @@ export default function RemovalModal({ isOpen, installer, onClose }: RemovalModa
 
       if (!res.ok) throw new Error('Failed to submit');
       setSubmitted(true);
-    } catch {
-      // If the API doesn't exist yet, show success anyway (graceful degradation)
-      setSubmitted(true);
+    } catch (err) {
+      setError('Something went wrong. Please try again or contact support@vicrez.com.');
     } finally {
       setSubmitting(false);
     }

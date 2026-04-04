@@ -21,6 +21,7 @@ export default function Header() {
           >
             Find Installers
           </a>
+          <a href="/apply" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">List Your Shop</a>
           <a
             href="https://b2b.vicrez.com"
             target="_blank"

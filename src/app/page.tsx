@@ -1,7 +1,7 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import HomeSearch from '@/components/HomeSearch';
-import { queryTopCities, queryAllStatesWithCounts, queryInstallerStats } from '@/lib/db';
+import { queryTopCities, queryAllStatesWithCounts, queryInstallerStats, getPool } from '@/lib/db';
 import { STATE_NAMES, toLocationSlug, toStateSlug } from '@/lib/seo';
 
 const CATEGORIES = [
@@ -16,15 +16,17 @@ const CATEGORIES = [
 ];
 
 export default async function HomePage() {
-  const [topCities, states, stats] = await Promise.all([
+  const [topCities, states, stats, ratingResult] = await Promise.all([
     queryTopCities(20),
     queryAllStatesWithCounts(),
     queryInstallerStats(),
+    getPool().query("SELECT ROUND(AVG(google_rating)::numeric, 1) as avg_rating FROM installers WHERE status != 'removed' AND google_rating IS NOT NULL"),
   ]);
 
   const totalInstallers = parseInt(stats?.total || '13000');
   const verifiedCount = parseInt(stats?.verified || '377');
   const stateCount = Math.min(parseInt(stats?.states || '50'), 50);
+  const avgRating = ratingResult.rows[0]?.avg_rating || '4.2';
 
   return (
     <>
@@ -49,7 +51,7 @@ export default async function HomePage() {
                 <div className="text-sm text-vicrez-muted mt-1">Verified Dealers</div>
               </div>
               <div>
-                <div className="text-3xl font-bold text-yellow-400">4.2</div>
+                <div className="text-3xl font-bold text-yellow-400">{avgRating}</div>
                 <div className="text-sm text-vicrez-muted mt-1">Avg Google Rating</div>
               </div>
             </div>
@@ -71,6 +73,15 @@ export default async function HomePage() {
                 </div>
               </a>
             ))}
+          </div>
+        </section>
+
+        {/* CTA Banner */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-gradient-to-r from-vicrez-red/10 to-vicrez-red/5 border border-vicrez-red/20 rounded-xl p-8 text-center">
+            <h2 className="text-xl font-bold text-white mb-2">Own a Body Shop?</h2>
+            <p className="text-vicrez-muted mb-4">Join 13,000+ installers in the Vicrez network. Get listed for free and connect with customers.</p>
+            <a href="/apply" className="btn-primary inline-block">Apply to Join →</a>
           </div>
         </section>
 
