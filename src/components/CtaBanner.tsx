@@ -5,7 +5,7 @@ export default function CtaBanner() {
         Need Parts for Your Build?
       </h2>
       <p className="text-white/80 mb-6 max-w-2xl mx-auto">
-        Shop body kits, widebody kits, wheels, wheel & tire packages, all-season performance tires, rear diffusers, OE replacement parts, hoods, steering wheels, vinyl wrap, PPF, and more at Vicrez.com. Free shipping on orders over $149.
+        Vicrez is your source for premium aftermarket parts, performance wheels and tires, widebody kits, aero components, vinyl wrap, paint protection film, and OE replacement parts. Whether you&apos;re upgrading performance, styling your build, or replacing damaged parts, Vicrez delivers precision fitment, aggressive styling, and fast shipping. Free shipping on orders over $149.
       </p>
       <a
         href="https://www.vicrez.com"
