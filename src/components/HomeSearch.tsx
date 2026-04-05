@@ -29,22 +29,70 @@ export default function HomeSearch() {
   const [removalModalOpen, setRemovalModalOpen] = useState(false);
   const [removalInstaller, setRemovalInstaller] = useState<InstallerWithMeta | null>(null);
 
-  const handleSearch = useCallback(async (zip: string) => {
+  const handleSearch = useCallback(async (input: string, coords?: { lat: number; lng: number }) => {
     setIsLoading(true);
     setHasSearched(true);
     setVisibleCount(PAGE_SIZE);
 
     try {
-      const [geo, res] = await Promise.all([
-        geocodeZip(zip),
-        fetch('/api/installers'),
-      ]);
-
+      let geo: GeoLocation | null = null;
+      
+      // If coordinates are provided directly (from geolocation)
+      if (coords) {
+        geo = coords;
+        setLocationLabel('Your Location');
+      } 
+      // If input is a 5-digit zip code
+      else if (/^\d{5}$/.test(input.trim())) {
+        geo = await geocodeZip(input.trim());
+        setLocationLabel(geo ? `${geo.city}, ${geo.state}` : input);
+      }
+      // If input is a city name, geocode it
+      else {
+        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY || 'AIzaSyCcZECk3LZo0U2S9GPAP1vlhk0hRJwj3JM';
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(input)}&key=${apiKey}`
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.results && data.results.length > 0) {
+            const result = data.results[0];
+            const location = result.geometry.location;
+            const addressComponents = result.address_components;
+            
+            let city = '';
+            let state = '';
+            
+            for (const component of addressComponents) {
+              if (component.types.includes('locality')) {
+                city = component.long_name;
+              } else if (component.types.includes('administrative_area_level_1')) {
+                state = component.short_name;
+              }
+            }
+            
+            geo = {
+              lat: location.lat,
+              lng: location.lng,
+              city: city || input.split(',')[0]?.trim(),
+              state: state || input.split(',')[1]?.trim()
+            };
+            
+            setLocationLabel(`${city}, ${state}`);
+          } else {
+            throw new Error('Location not found');
+          }
+        } else {
+          throw new Error('Geocoding failed');
+        }
+      }
+      
+      const res = await fetch('/api/installers');
       if (!res.ok) throw new Error('API error');
 
       const data: Installer[] = await res.json();
       setUserLocation(geo);
-      setLocationLabel(geo ? `${geo.city}, ${geo.state}` : zip);
 
       const enriched = data
         .filter((inst) => inst.status !== 'removed')

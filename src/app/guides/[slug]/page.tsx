@@ -9,6 +9,9 @@ import BodyKitInstallationCostGuide from './body-kit-installation-cost';
 import WidebodyKitInstallationGuide from './widebody-kit-installation-guide';
 import HowToChooseInstallerGuide from './how-to-choose-body-kit-installer';
 import WheelAndTireInstallationGuide from './wheel-and-tire-installation-guide';
+import VinylWrapCostGuide from './vinyl-wrap-cost-guide';
+import PPFInstallationGuide from './ppf-installation-guide';
+import CoiloverInstallationGuide from './coilover-installation-guide';
 
 interface PageProps {
   params: { slug: string };
@@ -48,6 +51,27 @@ const GUIDES: Record<string, {
     datePublished: '2026-03-19',
     dateModified: '2026-03-19',
     component: WheelAndTireInstallationGuide,
+  },
+  'vinyl-wrap-cost-guide': {
+    title: 'How Much Does a Vinyl Wrap Cost? Complete 2026 Guide',
+    description: 'Comprehensive vinyl wrap cost breakdown by type. Full vehicle wraps ($2,500-$7,000), partial wraps, material costs, DIY vs professional installation, and how to choose a wrap shop.',
+    datePublished: '2026-01-15',
+    dateModified: '2026-04-04',
+    component: VinylWrapCostGuide,
+  },
+  'ppf-installation-guide': {
+    title: 'PPF Installation Guide: Cost, Process & How to Find an Installer (2026)',
+    description: 'Complete paint protection film guide. Partial front ($1,500-$3,000) vs full vehicle coverage, installation process, material quality, and choosing certified PPF installers.',
+    datePublished: '2026-01-20',
+    dateModified: '2026-04-04',
+    component: PPFInstallationGuide,
+  },
+  'coilover-installation-guide': {
+    title: 'Coilover Installation Guide: Cost, Process & What to Expect (2026)',
+    description: 'Comprehensive coilover installation guide. Installation costs ($550-$1,800), process overview, alignment requirements, DIY vs professional installation, and finding suspension specialists.',
+    datePublished: '2026-02-10',
+    dateModified: '2026-04-04',
+    component: CoiloverInstallationGuide,
   },
 };
 

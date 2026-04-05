@@ -8,6 +8,8 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import CtaBanner from '@/components/CtaBanner';
+import QuoteButton from '@/components/QuoteButton';
+import ShareButtons from '@/components/ShareButtons';
 
 interface PageProps {
   params: { slug: string };
@@ -216,6 +218,18 @@ export default async function InstallerPage({ params }: PageProps) {
                 )}
               </div>
 
+              {/* Quote Request */}
+              <QuoteButton 
+                installer={{
+                  id: installer.id.toString(),
+                  business_name: installer.business_name,
+                  city: installer.city,
+                  state: installer.state,
+                  email: installer.email || '',
+                  phone: phone || installer.phone || ''
+                }}
+              />
+
               {/* Capabilities */}
               {capabilities.length > 0 && (
                 <div className="card p-6">
@@ -283,6 +297,12 @@ export default async function InstallerPage({ params }: PageProps) {
                   <p className="text-gray-300">{installer.shop_type}</p>
                 </div>
               )}
+
+              {/* Share Buttons */}
+              <ShareButtons 
+                url={`https://installers.vicrez.com/installer/${params.slug}`}
+                businessName={installer.business_name}
+              />
 
               {/* Quick links */}
               <div className="card p-6">

@@ -3,20 +3,78 @@
 import { useState } from 'react';
 
 interface HeroProps {
-  onSearch: (zip: string) => void;
+  onSearch: (input: string, coords?: { lat: number; lng: number }) => void;
   isLoading: boolean;
   resultCount: number | null;
   locationLabel: string | null;
 }
 
 export default function Hero({ onSearch, isLoading, resultCount, locationLabel }: HeroProps) {
-  const [zip, setZip] = useState('');
+  const [input, setInput] = useState('');
+  const [locationLoading, setLocationLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (zip.trim().length === 5) {
-      onSearch(zip.trim());
+    if (input.trim()) {
+      onSearch(input.trim());
     }
+  };
+
+  const handleUseLocation = async () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser');
+      return;
+    }
+
+    setLocationLoading(true);
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          
+          // Reverse geocode to get city name
+          const apiKey = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY || 'AIzaSyCcZECk3LZo0U2S9GPAP1vlhk0hRJwj3JM';
+          const response = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.results && data.results.length > 0) {
+              const result = data.results[0];
+              const addressComponents = result.address_components;
+              
+              let city = '';
+              let state = '';
+              
+              for (const component of addressComponents) {
+                if (component.types.includes('locality')) {
+                  city = component.long_name;
+                } else if (component.types.includes('administrative_area_level_1')) {
+                  state = component.short_name;
+                }
+              }
+              
+              const locationName = city && state ? `${city}, ${state}` : 'Your Location';
+              setInput(locationName);
+            }
+          }
+          
+          onSearch('', { lat: latitude, lng: longitude });
+        } catch (error) {
+          console.error('Reverse geocoding failed:', error);
+          onSearch('', { lat: position.coords.latitude, lng: position.coords.longitude });
+        } finally {
+          setLocationLoading(false);
+        }
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        alert('Unable to get your location. Please enter a zip code or city manually.');
+        setLocationLoading(false);
+      }
+    );
   };
 
   return (
@@ -36,57 +94,83 @@ export default function Hero({ onSearch, isLoading, resultCount, locationLabel }
             wheels, tires, vinyl wrap, PPF, and aftermarket parts.
           </p>
 
-          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto">
-            <div className="relative flex-1">
-              <svg
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-vicrez-muted"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+          <div className="max-w-lg mx-auto">
+            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <svg
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-vicrez-muted"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Enter zip code or city, state"
+                  className="input-field w-full pl-12 text-lg"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading || !input.trim()}
+                className="btn-primary text-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]{5}"
-                maxLength={5}
-                value={zip}
-                onChange={(e) => setZip(e.target.value.replace(/\D/g, '').slice(0, 5))}
-                placeholder="Enter your zip code"
-                className="input-field w-full pl-12 text-lg"
-                required
-              />
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Searching…
+                  </>
+                ) : (
+                  'Search'
+                )}
+              </button>
+            </form>
+            
+            {/* Use Location Button */}
+            <div className="text-center mt-4">
+              <button
+                onClick={handleUseLocation}
+                disabled={locationLoading || isLoading}
+                className="btn-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto"
+              >
+                {locationLoading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Getting location…
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Use My Location
+                  </>
+                )}
+              </button>
             </div>
-            <button
-              type="submit"
-              disabled={isLoading || zip.length !== 5}
-              className="btn-primary text-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Searching…
-                </>
-              ) : (
-                'Search'
-              )}
-            </button>
-          </form>
+          </div>
 
           {resultCount !== null && locationLabel && (
             <p className="mt-6 text-vicrez-muted">

@@ -47,6 +47,27 @@ const GUIDES = [
       'Complete guide to aftermarket wheel and tire installation. Costs, fitment specs, TPMS, staggered vs square setups, and how to find an installer near you.',
     readTime: '10 min read',
   },
+  {
+    slug: 'vinyl-wrap-cost-guide',
+    title: 'How Much Does a Vinyl Wrap Cost? Complete 2026 Guide',
+    description:
+      'Comprehensive vinyl wrap cost breakdown by vehicle size and type. Full wraps ($2,500-$7,000), partial wraps, material quality, DIY vs professional installation, and choosing the right wrap shop.',
+    readTime: '12 min read',
+  },
+  {
+    slug: 'ppf-installation-guide',
+    title: 'PPF Installation Guide: Cost, Process & How to Find an Installer (2026)',
+    description:
+      'Complete paint protection film guide covering partial front coverage ($1,500-$3,000) vs full vehicle protection, installation process, material quality, and finding certified installers.',
+    readTime: '10 min read',
+  },
+  {
+    slug: 'coilover-installation-guide',
+    title: 'Coilover Installation Guide: Cost, Process & What to Expect (2026)',
+    description:
+      'Comprehensive coilover installation guide including costs ($550-$1,800), installation process, alignment requirements, DIY considerations, and finding qualified suspension shops.',
+    readTime: '9 min read',
+  },
 ];
 
 export default function GuidesIndexPage() {
@@ -59,10 +80,10 @@ export default function GuidesIndexPage() {
 
           <div className="mb-10">
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">
-              Body Kit & Wheel Installation Guides
+              Automotive Installation Guides
             </h1>
             <p className="text-lg text-gray-300 max-w-2xl leading-relaxed">
-              Everything you need to know about body kit, widebody kit, and wheel & tire installation.
+              Everything you need to know about body kit, suspension, vinyl wrap, PPF, and wheel installation.
               From understanding costs to choosing the right installer, our expert guides
               help you make informed decisions for your build.
             </p>
