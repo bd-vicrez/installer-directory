@@ -5,7 +5,7 @@ export default function CtaBanner() {
         Need Parts for Your Build?
       </h2>
       <p className="text-white/80 mb-6 max-w-2xl mx-auto">
-        Shop body kits, widebody kits, wheels, tires, rear diffusers, hoods, steering wheels, vinyl wrap, PPF, and more at Vicrez.com. Free shipping on orders over $149.
+        Shop body kits, widebody kits, wheels, all-season performance tires, rear diffusers, OE replacement parts, hoods, steering wheels, vinyl wrap, PPF, and more at Vicrez.com. Free shipping on orders over $149.
       </p>
       <a
         href="https://www.vicrez.com"
