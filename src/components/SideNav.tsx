@@ -73,11 +73,12 @@ export default function SideNav() {
           onClick={() => setIsOpen(!isOpen)}
           className={`absolute left-0 top-1/2 -translate-y-1/2 flex items-center justify-center
             w-10 h-10 rounded-r-lg shadow-lg transition-all duration-300 ease-in-out
-            bg-[#1a1a2e] text-white hover:bg-[#E31937] hover:w-12
+            bg-[#1a1a2e] hover:bg-[#E31937] hover:w-12
             ${isOpen ? 'opacity-0 pointer-events-none scale-90' : 'opacity-100 scale-100'}
             md:w-10 md:h-10`}
           aria-label="Open navigation menu"
           title="Menu"
+          style={{ color: '#ffffff' }}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -103,13 +104,14 @@ export default function SideNav() {
         >
           <div className="w-64">
             {/* Panel header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-              <span className="text-white/90 font-semibold text-sm tracking-wide uppercase">
+            <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <span className="font-semibold text-sm tracking-wide uppercase" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 Navigation
               </span>
               <button
                 onClick={() => setIsOpen(false)}
-                className="text-white/50 hover:text-white transition-colors p-1"
+                className="transition-colors p-1"
+                style={{ color: 'rgba(255,255,255,0.5)' }}
                 aria-label="Close navigation menu"
               >
                 <svg
@@ -141,10 +143,13 @@ export default function SideNav() {
                       className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-all duration-200
                         ${
                           active
-                            ? 'bg-[#E31937]/20 text-[#E31937] border-l-2 border-[#E31937] font-medium'
-                            : 'text-white/80 hover:bg-white/10 hover:text-[#E31937] border-l-2 border-transparent'
+                            ? 'bg-[#E31937]/20 border-l-2 border-[#E31937] font-medium'
+                            : 'hover:bg-white/10 border-l-2 border-transparent'
                         }
                       `}
+                      style={{ color: active ? '#E31937' : 'rgba(255,255,255,0.8)' }}
+                      onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = '#E31937'; }}
+                      onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.8)'; }}
                     >
                       <span className="text-base flex-shrink-0">{item.emoji}</span>
                       <span className="truncate">{item.label}</span>
@@ -171,8 +176,8 @@ export default function SideNav() {
             </ul>
 
             {/* Footer */}
-            <div className="px-4 py-3 border-t border-white/10">
-              <p className="text-[10px] text-white/30 uppercase tracking-wider">
+            <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+              <p className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>
                 Vicrez Installer Network
               </p>
             </div>
