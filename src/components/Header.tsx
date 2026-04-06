@@ -15,7 +15,6 @@ export default function Header() {
           />
         </a>
         <nav className="flex items-center gap-4">
-          <a href="/apply" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">List Your Shop</a>
           <a
             href="https://b2b.vicrez.com"
             target="_blank"

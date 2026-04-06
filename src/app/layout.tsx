@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { generateOrganizationJsonLd } from '@/lib/seo';
+import SideNav from '@/components/SideNav';
 
 export const metadata: Metadata = {
   title: 'Vicrez Installer Network | Find Body Kit, Wheel, Tire & Wrap Installers Near You',
@@ -40,7 +41,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
         />
       </head>
-      <body className="min-h-screen flex flex-col">{children}</body>
+      <body className="min-h-screen flex flex-col">
+        <SideNav />
+        {children}
+      </body>
     </html>
   );
 }
