@@ -127,7 +127,7 @@ export default async function HomePage() {
         {/* CTA Banner */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-gradient-to-r from-vicrez-red/10 to-vicrez-red/5 border border-vicrez-red/20 rounded-xl p-8 text-center">
-            <h2 className="text-xl font-bold text-white mb-2">Own a Body Shop?</h2>
+            <h2 className="text-xl font-bold text-black mb-2">Own a Body Shop?</h2>
             <p className="text-vicrez-muted mb-4">Join 13,000+ installers in the Vicrez network. Get listed for free and connect with customers.</p>
             <a href="/apply" className="btn-primary inline-block">Apply to Join →</a>
           </div>
