@@ -41,18 +41,25 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       // Generate unique ID for installers table
       const installerId = randomUUID();
 
+      // Get next legacy_id (sequential integer, NOT NULL constraint)
+      const { rows: maxRows } = await db.query(
+        `SELECT MAX(CAST(legacy_id AS INTEGER)) as max_id FROM installers WHERE legacy_id ~ '^[0-9]+$'`
+      );
+      const nextLegacyId = String((maxRows[0]?.max_id || 0) + 1);
+
       // Copy to installers table with correct column mappings
       const insertQuery = `
         INSERT INTO installers (
-          id, business_name, slug, street_address, city, state, zip_code, phone, email,
+          id, legacy_id, business_name, slug, street_address, city, state, zip_code, phone, email,
           website, install_capabilities, shop_type, specialize_in, source, status, date_added, created_at
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW()
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW()
         ) RETURNING id
       `;
 
       const { rows: newInstaller } = await db.query(insertQuery, [
         installerId,
+        nextLegacyId,
         app.business_name,
         slug,
         app.street_address,
@@ -62,11 +69,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         app.phone,
         app.email,
         app.website,
-        app.install_capabilities, // This is already a TEXT[] from applications table
-        'Auto Shop', // Default shop type
-        app.install_capabilities ? app.install_capabilities.join(', ') : '', // Join array for specialize_in
+        app.install_capabilities,
+        'Auto Shop',
+        app.install_capabilities ? app.install_capabilities.join(', ') : '',
         '[Installer Application]',
-        'listed'
+        'active'
       ]);
 
       // Update applications row: status='approved', reviewed_at=NOW()
