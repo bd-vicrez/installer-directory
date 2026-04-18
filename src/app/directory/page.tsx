@@ -105,7 +105,7 @@ export default async function DirectoryPage() {
           {/* Guide links */}
           <section className="bg-vicrez-card border border-vicrez-border rounded-xl p-6">
             <h2 className="text-lg font-bold text-white mb-3">Installation Guides</h2>
-            <ul className="space-y-2 text-sm">
+            <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
               <li>
                 <a href="/guides/body-kit-installation-cost" className="text-vicrez-red hover:underline">
                   How Much Does Body Kit Installation Cost? (2026 Guide)
@@ -119,6 +119,26 @@ export default async function DirectoryPage() {
               <li>
                 <a href="/guides/how-to-choose-body-kit-installer" className="text-vicrez-red hover:underline">
                   How to Choose a Body Kit Installer: 7 Things to Look For
+                </a>
+              </li>
+              <li>
+                <a href="/guides/wheel-and-tire-installation-guide" className="text-vicrez-red hover:underline">
+                  Wheel & Tire Installation Guide: Everything You Need to Know (2026)
+                </a>
+              </li>
+              <li>
+                <a href="/guides/vinyl-wrap-cost-guide" className="text-vicrez-red hover:underline">
+                  How Much Does a Vinyl Wrap Cost? Complete 2026 Guide
+                </a>
+              </li>
+              <li>
+                <a href="/guides/ppf-installation-guide" className="text-vicrez-red hover:underline">
+                  PPF Installation Guide: Cost, Process & How to Find an Installer (2026)
+                </a>
+              </li>
+              <li>
+                <a href="/guides/coilover-installation-guide" className="text-vicrez-red hover:underline">
+                  Coilover Installation Guide: Cost, Process & What to Expect (2026)
                 </a>
               </li>
             </ul>

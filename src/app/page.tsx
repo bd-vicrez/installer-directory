@@ -1,8 +1,25 @@
+import { Metadata } from 'next';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import HomeSearch from '@/components/HomeSearch';
 import { queryTopCities, queryAllStatesWithCounts, queryInstallerStats, getPool } from '@/lib/db';
 import { STATE_NAMES, toLocationSlug, toStateSlug } from '@/lib/seo';
+
+export const metadata: Metadata = {
+  title: 'Find Body Kit, Wheel, Tire, Wrap & PPF Installers Near You | Vicrez Installer Network',
+  description:
+    'Search the Vicrez Installer Network to find local shops for body kits, widebody kits, OE bumpers, wheels, tires, vinyl wrap, PPF, tint, suspension, and exterior upgrades. Browse thousands of installers across the U.S.',
+  alternates: {
+    canonical: 'https://installers.vicrez.com/',
+  },
+  openGraph: {
+    title: 'Find Body Kit, Wheel, Tire, Wrap & PPF Installers Near You | Vicrez Installer Network',
+    description:
+      'Browse local installers for body kits, bumpers, wheels, tires, vinyl wrap, paint protection film, tint, and aftermarket upgrades.',
+    url: 'https://installers.vicrez.com/',
+    type: 'website',
+  },
+};
 
 const CATEGORIES = [
   { slug: 'body-kits', label: 'Body Kits & Bumpers' },
@@ -13,6 +30,37 @@ const CATEGORIES = [
   { slug: 'widebody-kits', label: 'Widebody Kits' },
   { slug: 'aero-parts', label: 'Aero Parts & Spoilers' },
   { slug: 'custom-builds', label: 'Custom Builds' },
+];
+
+const SEO_GUIDES = [
+  {
+    slug: 'body-kit-installation-cost',
+    title: 'How Much Does Body Kit Installation Cost? (2026 Guide)',
+  },
+  {
+    slug: 'widebody-kit-installation-guide',
+    title: 'Complete Widebody Kit Installation Guide: What to Expect',
+  },
+  {
+    slug: 'how-to-choose-body-kit-installer',
+    title: 'How to Choose a Body Kit Installer: 7 Things to Look For',
+  },
+  {
+    slug: 'wheel-and-tire-installation-guide',
+    title: 'Wheel & Tire Installation Guide: Everything You Need to Know (2026)',
+  },
+  {
+    slug: 'vinyl-wrap-cost-guide',
+    title: 'How Much Does a Vinyl Wrap Cost? Complete 2026 Guide',
+  },
+  {
+    slug: 'ppf-installation-guide',
+    title: 'PPF Installation Guide: Cost, Process & How to Find an Installer (2026)',
+  },
+  {
+    slug: 'coilover-installation-guide',
+    title: 'Coilover Installation Guide: Cost, Process & What to Expect (2026)',
+  },
 ];
 
 export default async function HomePage() {
@@ -129,6 +177,34 @@ export default async function HomePage() {
                   <div className="text-xs text-vicrez-muted">{s.count}</div>
                 </a>
               ))}
+          </div>
+        </section>
+
+        {/* SEO Guides */}
+        <section className="border-t border-vicrez-border bg-vicrez-card/30">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div className="flex items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white">Installation Guides</h2>
+                <p className="text-sm text-vicrez-muted mt-2">
+                  SEO-friendly guides covering body kits, wheels, tires, suspension, wraps, and paint protection.
+                </p>
+              </div>
+              <a href="/guides" className="text-sm text-vicrez-red hover:underline whitespace-nowrap">
+                View all guides →
+              </a>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {SEO_GUIDES.map((guide) => (
+                <a
+                  key={guide.slug}
+                  href={`/guides/${guide.slug}`}
+                  className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 hover:border-vicrez-red/30 transition-colors"
+                >
+                  <h3 className="text-sm font-semibold text-white">{guide.title}</h3>
+                </a>
+              ))}
+            </div>
           </div>
         </section>
       </main>

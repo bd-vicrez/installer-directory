@@ -22,6 +22,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const now = new Date().toISOString();
 
+  const guideSlugs = [
+    'body-kit-installation-cost',
+    'widebody-kit-installation-guide',
+    'how-to-choose-body-kit-installer',
+    'wheel-and-tire-installation-guide',
+    'vinyl-wrap-cost-guide',
+    'ppf-installation-guide',
+    'coilover-installation-guide',
+  ];
+
   const staticPages: MetadataRoute.Sitemap = [
     {
       url: 'https://installers.vicrez.com',
@@ -41,30 +51,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'weekly',
       priority: 0.8,
     },
-    {
-      url: 'https://installers.vicrez.com/guides/body-kit-installation-cost',
+    ...guideSlugs.map((slug) => ({
+      url: `https://installers.vicrez.com/guides/${slug}`,
       lastModified: now,
-      changeFrequency: 'monthly',
+      changeFrequency: 'monthly' as const,
       priority: 0.8,
-    },
-    {
-      url: 'https://installers.vicrez.com/guides/widebody-kit-installation-guide',
-      lastModified: now,
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: 'https://installers.vicrez.com/guides/how-to-choose-body-kit-installer',
-      lastModified: now,
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: 'https://installers.vicrez.com/guides/wheel-and-tire-installation-guide',
-      lastModified: now,
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
+    })),
   ];
 
   const categoryPages: MetadataRoute.Sitemap = CATEGORY_SLUGS.map((slug) => ({
