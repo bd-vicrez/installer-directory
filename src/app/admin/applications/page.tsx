@@ -72,8 +72,14 @@ export default function ApplicationsPage() {
         body: JSON.stringify({ status: 'approved' })
       });
 
-      if (!response.ok) throw new Error('Failed to approve application');
-      
+      if (response.status === 401) {
+        setError('Session expired — please log out and log back in, then try again.');
+        return;
+      }
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to approve application');
+      }
       await fetchApplications();
     } catch (err: any) {
       setError(err.message);
