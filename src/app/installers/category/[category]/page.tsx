@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { queryInstallersByCapability } from '@/lib/db';
 import { Installer } from '@/lib/types';
-import { generateBreadcrumbJsonLd } from '@/lib/seo';
+import { generateBreadcrumbJsonLd, generateItemListJsonLd, generateInstallerJsonLd } from '@/lib/seo';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Breadcrumbs from '@/components/Breadcrumbs';
@@ -149,6 +149,22 @@ export default async function CategoryPage({ params }: PageProps) {
     { name: config.heading, href: `/installers/category/${params.category}` },
   ];
 
+  const itemListJsonLd = generateItemListJsonLd(
+    displayedInstallers.slice(0, 20).map((i: Installer) => ({
+      name: i.business_name,
+      url: `https://installers.vicrez.com/installer/${i.slug || i.id}`,
+    })),
+    config.heading
+  );
+
+  const breadcrumbJsonLd = generateBreadcrumbJsonLd(
+    breadcrumbItems.map((b) => ({ name: b.name, url: `https://installers.vicrez.com${b.href}` }))
+  );
+
+  const installerSchemas = displayedInstallers
+    .slice(0, 20)
+    .map((i: Installer) => generateInstallerJsonLd(i));
+
   return (
     <>
       <Header />
@@ -157,6 +173,21 @@ export default async function CategoryPage({ params }: PageProps) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
         />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        />
+        {installerSchemas.map((schema: any, i: number) => (
+          <script
+            key={i}
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+          />
+        ))}
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Breadcrumbs items={breadcrumbItems} />

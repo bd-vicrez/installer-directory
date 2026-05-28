@@ -187,6 +187,24 @@ export function generateBreadcrumbJsonLd(items: { name: string; url: string }[])
   };
 }
 
+export function generateItemListJsonLd(
+  items: { name: string; url: string }[],
+  listName?: string
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    ...(listName && { name: listName }),
+    numberOfItems: items.length,
+    itemListElement: items.map((item, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: item.name,
+      url: item.url,
+    })),
+  };
+}
+
 export function generateArticleJsonLd(opts: {
   title: string;
   description: string;

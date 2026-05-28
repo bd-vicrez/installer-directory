@@ -36,7 +36,8 @@ export async function queryAllCitiesWithCounts() {
   const { rows } = await db.query(`
     SELECT city, state, COUNT(*) as count
     FROM installers
-    WHERE status != 'removed' AND city IS NOT NULL AND city != ''
+    WHERE status NOT IN ('removed', 'non_us_excluded')
+      AND city IS NOT NULL AND city != ''
     GROUP BY city, state
     ORDER BY count DESC
   `);
@@ -48,7 +49,8 @@ export async function queryAllStatesWithCounts() {
   const { rows } = await db.query(`
     SELECT state, COUNT(*) as count
     FROM installers
-    WHERE status != 'removed' AND state IS NOT NULL AND state != ''
+    WHERE status NOT IN ('removed', 'non_us_excluded')
+      AND state IS NOT NULL AND state != ''
     GROUP BY state
     ORDER BY state
   `);
@@ -75,6 +77,31 @@ export async function queryInstallerBySlug(slug: string) {
     [slug]
   );
   return rows[0] || null;
+}
+
+export interface CitySeoContent {
+  intro: string | null;
+  local_scene: string | null;
+  what_to_ask: string | null;
+  cost_context: string | null;
+}
+
+export async function queryCitySeoContent(city: string, state: string): Promise<CitySeoContent | null> {
+  const db = getPool();
+  try {
+    const { rows } = await db.query(
+      `SELECT intro, local_scene, what_to_ask, cost_context
+         FROM city_seo
+        WHERE LOWER(city) = LOWER($1) AND LOWER(state) = LOWER($2)
+        LIMIT 1`,
+      [city, state]
+    );
+    return rows[0] || null;
+  } catch (e: any) {
+    // Table may not exist yet in dev; fail soft.
+    if (e && e.code === '42P01') return null;
+    throw e;
+  }
 }
 
 export async function queryInstallersByCapability(capability: string, limit = 100) {
