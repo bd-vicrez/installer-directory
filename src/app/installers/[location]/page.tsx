@@ -133,7 +133,12 @@ export default async function LocationPage({ params }: PageProps) {
     notFound();
   }
 
-  const { installers, type, city, stateAbbr, stateName } = data;
+  const { installers: allInstallers, type, city, stateAbbr, stateName } = data;
+  // Cap state pages to 200 installers to keep page weight reasonable and avoid Vercel ISR 19MB limit.
+  // City pages stay uncapped (largest is ~200 installers anyway).
+  const MAX_PER_PAGE = type === 'state' ? 200 : 500;
+  const installers = allInstallers.slice(0, MAX_PER_PAGE);
+  const truncated = allInstallers.length > MAX_PER_PAGE;
   const verifiedCount = installers.filter((i: Installer) => getTier(i.source) === 'verified').length;
   const locationLabel = type === 'city' && city ? `${city}, ${stateAbbr}` : stateName;
 
@@ -244,8 +249,8 @@ export default async function LocationPage({ params }: PageProps) {
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-white">{installers.length}</div>
-              <div className="text-xs text-vicrez-muted mt-1">Total Installers</div>
+              <div className="text-2xl font-bold text-white">{truncated ? `${MAX_PER_PAGE}+` : installers.length}</div>
+              <div className="text-xs text-vicrez-muted mt-1">{truncated ? 'Showing Top' : 'Total Installers'}</div>
             </div>
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-green-400">{verifiedCount}</div>
@@ -276,7 +281,11 @@ export default async function LocationPage({ params }: PageProps) {
 
           {/* Installer grid */}
           <h2 className="text-xl font-bold text-white mb-6">
-            {type === 'city' ? `All Installers in ${locationLabel}` : `Vicrez Installers Across ${stateName}`}
+            {type === 'city'
+              ? `All Installers in ${locationLabel}`
+              : truncated
+                ? `Top ${MAX_PER_PAGE} of ${allInstallers.length} Vicrez Installers Across ${stateName}`
+                : `Vicrez Installers Across ${stateName}`}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
             {installers
