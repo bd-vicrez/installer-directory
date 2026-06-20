@@ -21,7 +21,10 @@ import { getTier } from '@/lib/utils';
 
 interface PageProps {
   params: { location: string };
+  searchParams?: { page?: string };
 }
+
+const INSTALLERS_PER_PAGE = 60;
 
 function titleCase(str: string): string {
   return str.replace(/\b\w/g, (c) => c.toUpperCase());
@@ -63,40 +66,49 @@ async function getLocationData(slug: string) {
   return null;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const data = await getLocationData(params.location);
   if (!data) return { title: 'Location Not Found' };
 
   const count = data.installers.length;
+  const totalPages = Math.max(1, Math.ceil(count / INSTALLERS_PER_PAGE));
+  const pageRaw = parseInt(searchParams?.page || '1', 10);
+  const currentPage = isNaN(pageRaw) || pageRaw < 1 ? 1 : Math.min(pageRaw, totalPages);
+  const pageSuffix = currentPage > 1 ? ` - Page ${currentPage}` : '';
+  const canonicalPath = `/installers/${params.location}${currentPage > 1 ? `?page=${currentPage}` : ''}`;
 
   if (data.type === 'city' && data.city) {
+    const title = `Vicrez Installer Network in ${data.city}, ${data.stateAbbr}${pageSuffix} | Body Kits, Wheels, Tires, Vinyl & PPF`;
     return {
-      title: `Vicrez Installer Network in ${data.city}, ${data.stateAbbr} | Body Kits, Wheels, Tires, Vinyl & PPF`,
+      title,
       description: `Find trusted Vicrez installers in ${data.city}, ${data.stateAbbr} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation. Request quotes today.`,
       openGraph: {
-        title: `Vicrez Installer Network in ${data.city}, ${data.stateAbbr} | Body Kits, Wheels, Tires, Vinyl & PPF`,
+        title,
         description: `Find trusted Vicrez installers in ${data.city}, ${data.stateAbbr} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation.`,
         type: 'website',
-        url: `https://installers.vicrez.com/installers/${params.location}`,
+        url: `https://installers.vicrez.com${canonicalPath}`,
       },
       alternates: {
-        canonical: `https://installers.vicrez.com/installers/${params.location}`,
+        canonical: `https://installers.vicrez.com${canonicalPath}`,
       },
+      robots: currentPage > 1 ? { index: false, follow: true } : undefined,
     };
   }
 
+  const stateTitle = `Vicrez Installer Network in ${data.stateName}${pageSuffix} | Body Kits, Wheels, Tires, Vinyl & PPF`;
   return {
-    title: `Vicrez Installer Network in ${data.stateName} | Body Kits, Wheels, Tires, Vinyl & PPF`,
+    title: stateTitle,
     description: `Find trusted Vicrez installers across ${data.stateName} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation. Request quotes today.`,
     openGraph: {
-      title: `Vicrez Installer Network in ${data.stateName} | Body Kits, Wheels, Tires, Vinyl & PPF`,
+      title: stateTitle,
       description: `Find trusted Vicrez installers across ${data.stateName} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation.`,
       type: 'website',
-      url: `https://installers.vicrez.com/installers/${params.location}`,
+      url: `https://installers.vicrez.com${canonicalPath}`,
     },
     alternates: {
-      canonical: `https://installers.vicrez.com/installers/${params.location}`,
+      canonical: `https://installers.vicrez.com${canonicalPath}`,
     },
+    robots: currentPage > 1 ? { index: false, follow: true } : undefined,
   };
 }
 
@@ -125,7 +137,7 @@ export async function generateStaticParams() {
   return [...cityParams, ...stateParams];
 }
 
-export default async function LocationPage({ params }: PageProps) {
+export default async function LocationPage({ params, searchParams }: PageProps) {
   const data = await getLocationData(params.location);
 
   if (!data) {
@@ -134,6 +146,19 @@ export default async function LocationPage({ params }: PageProps) {
 
   const { installers, type, city, stateAbbr, stateName } = data;
   const verifiedCount = installers.filter((i: Installer) => getTier(i.source) === 'verified').length;
+
+  // Pagination (state pages can hit 2,600+ installers - was causing 29MB ISR build failure)
+  const totalCount = installers.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / INSTALLERS_PER_PAGE));
+  const pageRaw = parseInt(searchParams?.page || '1', 10);
+  const currentPage = isNaN(pageRaw) || pageRaw < 1 ? 1 : Math.min(pageRaw, totalPages);
+  const sortedInstallers = [...installers].sort((a: Installer, b: Installer) => {
+    const aTier = getTier(a.source) === 'verified' ? 0 : 1;
+    const bTier = getTier(b.source) === 'verified' ? 0 : 1;
+    return aTier - bTier;
+  });
+  const startIdx = (currentPage - 1) * INSTALLERS_PER_PAGE;
+  const pagedInstallers = sortedInstallers.slice(startIdx, startIdx + INSTALLERS_PER_PAGE);
   const locationLabel = type === 'city' && city ? `${city}, ${stateAbbr}` : stateName;
 
   // Get nearby cities for cross-linking (state pages show top cities, city pages show same-state cities)
@@ -153,8 +178,10 @@ export default async function LocationPage({ params }: PageProps) {
     // ignore
   }
 
-  // Build JSON-LD
-  const installerSchemas = installers.slice(0, 20).map((i: Installer) => generateInstallerJsonLd(i));
+  // Build JSON-LD (limit per-page to keep response small)
+  // Note: schemas use sortedInstallers/pagedInstallers from below; for first page we render top 20
+  const schemaSource = installers.slice(0, 20);
+  const installerSchemas = schemaSource.map((i: Installer) => generateInstallerJsonLd(i));
   const faqSchema = generateFaqJsonLd(city || undefined, stateName);
 
   // Breadcrumbs
@@ -239,17 +266,43 @@ export default async function LocationPage({ params }: PageProps) {
           <h2 className="text-xl font-bold text-white mb-6">
             {type === 'city' ? `All Installers in ${locationLabel}` : `Vicrez Installers Across ${stateName}`}
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
-            {installers
-              .sort((a: Installer, b: Installer) => {
-                const aTier = getTier(a.source) === 'verified' ? 0 : 1;
-                const bTier = getTier(b.source) === 'verified' ? 0 : 1;
-                return aTier - bTier;
-              })
-              .map((installer: Installer) => (
-                <InstallerCardStatic key={installer.id} installer={installer} />
-              ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            {pagedInstallers.map((installer: Installer) => (
+              <InstallerCardStatic key={installer.id} installer={installer} />
+            ))}
           </div>
+
+          {/* Pagination controls */}
+          {totalPages > 1 && (
+            <nav className="flex items-center justify-between mb-12 flex-wrap gap-3" aria-label="Pagination">
+              <div className="text-sm text-vicrez-muted">
+                Showing {startIdx + 1}–{Math.min(startIdx + INSTALLERS_PER_PAGE, totalCount)} of {totalCount} installers
+              </div>
+              <div className="flex items-center gap-2">
+                {currentPage > 1 && (
+                  <a
+                    href={`/installers/${params.location}${currentPage - 1 > 1 ? `?page=${currentPage - 1}` : ''}`}
+                    className="px-3 py-2 rounded-lg bg-vicrez-card border border-vicrez-border text-sm text-white hover:border-vicrez-red/50 transition-colors"
+                    rel="prev"
+                  >
+                    ← Previous
+                  </a>
+                )}
+                <span className="px-3 py-2 text-sm text-vicrez-muted">
+                  Page {currentPage} of {totalPages}
+                </span>
+                {currentPage < totalPages && (
+                  <a
+                    href={`/installers/${params.location}?page=${currentPage + 1}`}
+                    className="px-3 py-2 rounded-lg bg-vicrez-red text-white text-sm font-medium hover:bg-red-700 transition-colors"
+                    rel="next"
+                  >
+                    Next →
+                  </a>
+                )}
+              </div>
+            </nav>
+          )}
 
           {/* Nearby cities / cross-linking */}
           {nearbyCities.length > 0 && (
