@@ -90,6 +90,18 @@ export const CATEGORY_SLUGS = Object.keys(CATEGORIES);
  */
 import type { Installer } from './types';
 
+function capabilitiesText(raw: unknown): string {
+  if (!raw) return '';
+  if (typeof raw === 'string') return raw.toLowerCase();
+  if (Array.isArray(raw)) return raw.filter(Boolean).join(' ').toLowerCase();
+  // Postgres jsonb/object
+  try {
+    return JSON.stringify(raw).toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
 export function filterInstallersByCategory<T extends Installer>(
   installers: T[],
   categorySlug: string,
@@ -97,7 +109,7 @@ export function filterInstallersByCategory<T extends Installer>(
   const cfg = CATEGORIES[categorySlug];
   if (!cfg) return [];
   return installers.filter((i) => {
-    const cap = (i.install_capabilities || '').toLowerCase();
+    const cap = capabilitiesText(i.install_capabilities);
     return cfg.keywords.some((kw) => cap.includes(kw.toLowerCase()));
   });
 }
