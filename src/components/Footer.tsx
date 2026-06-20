@@ -10,12 +10,9 @@ export default function Footer() {
           {/* Brand */}
           <div>
             <img
-              src="https://www.vicrez.com/image/catalog/vicrez-logo-white-web.png"
+              src="https://d19eqr9piwa4et.cloudfront.net/catalog/vicrez-logo-white-web.png"
               alt="Vicrez"
               className="h-8 w-auto mb-4 brightness-0"
-              onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                e.currentTarget.src = 'https://www.vicrez.com/image/catalog/vicrez-logo-white-web.png';
-              }}
             />
             <p className="text-sm text-gray-500">
               Premium automotive aftermarket parts. Body kits, carbon fiber accessories,
