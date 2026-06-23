@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next';
 import { queryAllCitiesWithCounts, queryAllStatesWithCounts, queryAllInstallerSlugs } from '@/lib/db';
 import { STATE_NAMES, toLocationSlug, toStateSlug } from '@/lib/seo';
+import { STATE_SLUGS } from '@/app/start/[state]/stateData';
 
 const CATEGORY_SLUGS = [
   'wheels-and-tires',
@@ -93,7 +94,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly',
       priority: 0.85,
     },
-    ...['texas', 'california', 'florida', 'new-york', 'ohio'].map((st) => ({
+    ...STATE_SLUGS.map((st) => ({
       url: `https://installers.vicrez.com/start/${st}`,
       lastModified: now,
       changeFrequency: 'monthly' as const,
