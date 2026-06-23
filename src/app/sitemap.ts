@@ -75,6 +75,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly',
       priority: 0.85,
     },
+    {
+      url: 'https://installers.vicrez.com/start/mobile-tire-business',
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.85,
+    },
+    {
+      url: 'https://installers.vicrez.com/start/wholesale-tires-for-shops',
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.85,
+    },
+    {
+      url: 'https://installers.vicrez.com/start/tire-shop-business-plan-template',
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.85,
+    },
+    ...['texas', 'california', 'florida', 'new-york', 'ohio'].map((st) => ({
+      url: `https://installers.vicrez.com/start/${st}`,
+      lastModified: now,
+      changeFrequency: 'monthly' as const,
+      priority: 0.8,
+    })),
   ];
 
   const categoryPages: MetadataRoute.Sitemap = CATEGORY_SLUGS.map((slug) => ({

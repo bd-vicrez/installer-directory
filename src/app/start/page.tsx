@@ -40,25 +40,25 @@ const PILLAR_GUIDES = [
     slug: 'mobile-tire-business',
     title: 'Mobile Tire Business: The Lower-Capital Path In',
     description:
-      'Why mobile is the fastest-growing segment, what you actually need ($35K–$85K all-in), van + equipment setup, route planning, and pricing models.',
+      'Why mobile is the fastest-growing segment, what you actually need ($35K–$85K all-in), van + equipment setup, route planning, pricing models, and how to land your first commercial fleet account.',
     readTime: '18 min read',
-    badge: 'COMING SOON',
+    badge: 'GUIDE',
   },
   {
     slug: 'wholesale-tires-for-shops',
-    title: 'Wholesale Tires for Tire Shops: How Pricing Actually Works',
+    title: 'Wholesale Tires for Shops: How Pricing Actually Works',
     description:
-      'Dealer net pricing, Net-30 vs prepay, MOQ, drop-ship vs warehouse, and how to evaluate suppliers. Includes the Vicrez wholesale tier breakdown.',
-    readTime: '12 min read',
-    badge: 'COMING SOON',
+      'Dealer net pricing, Net-30 vs prepay, MOQ, drop-ship vs warehouse, and how to evaluate suppliers. Includes the Vicrez wholesale program breakdown.',
+    readTime: '14 min read',
+    badge: 'GUIDE',
   },
   {
     slug: 'tire-shop-business-plan-template',
-    title: 'Tire Shop Business Plan Template (Free Download)',
+    title: 'Tire Shop Business Plan Template (Free, Lender-Ready)',
     description:
-      'A real, lender-ready business plan template built around the SBA structure. Editable Google Doc + financial projection spreadsheet.',
-    readTime: 'Download',
-    badge: 'COMING SOON',
+      'SBA-style 9-section template built specifically for tire shops. Reference numbers for revenue, margin, opex, and break-even by business model.',
+    readTime: '12 min read',
+    badge: 'GUIDE',
   },
 ];
 
@@ -119,7 +119,7 @@ export default function StartHubPage() {
             <h2 className="text-2xl font-bold text-white mb-6">Start Here</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {PILLAR_GUIDES.map((g) => {
-                const isLive = g.badge === 'PILLAR' || g.badge === 'TOOL';
+                const isLive = g.badge !== 'COMING SOON';
                 const Card = (
                   <div
                     className={`h-full bg-vicrez-card border rounded-xl p-6 transition-colors ${
@@ -135,6 +135,8 @@ export default function StartHubPage() {
                             ? 'bg-vicrez-red text-white'
                             : g.badge === 'TOOL'
                             ? 'bg-blue-600 text-white'
+                            : g.badge === 'GUIDE'
+                            ? 'bg-vicrez-card border border-vicrez-border text-white'
                             : 'bg-vicrez-border text-vicrez-muted'
                         }`}
                       >
@@ -172,10 +174,10 @@ export default function StartHubPage() {
                 <a
                   key={s.slug}
                   href={`/start/${s.slug}`}
-                  className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center hover:border-vicrez-red/30 transition-colors"
+                  className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center hover:border-vicrez-red/40 transition-colors"
                 >
                   <div className="text-white font-semibold">{s.name}</div>
-                  <div className="text-xs text-vicrez-muted mt-1">Coming soon</div>
+                  <div className="text-xs text-vicrez-red mt-1">Read guide →</div>
                 </a>
               ))}
             </div>
