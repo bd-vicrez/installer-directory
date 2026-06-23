@@ -69,13 +69,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       );
       const nextLegacyId = String((maxRows[0]?.max_id || 0) + 1);
 
-      // Copy to installers table with correct column mappings
+      // Copy to installers table with correct column mappings.
+      // Note: updated_at is NOT NULL with no default, so explicitly set it.
       const insertQuery = `
         INSERT INTO installers (
           id, legacy_id, business_name, slug, street_address, city, state, zip_code, phone, email,
-          website, install_capabilities, shop_type, specialize_in, source, status, date_added, created_at
+          website, install_capabilities, shop_type, specialize_in, source, status,
+          date_added, created_at, updated_at
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW()
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW(), NOW()
         ) RETURNING id
       `;
 
