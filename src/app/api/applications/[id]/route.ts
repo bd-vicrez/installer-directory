@@ -3,6 +3,24 @@ import { getPool } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
 import { randomUUID } from 'crypto';
 
+// Coerce install_capabilities to a plain JS array no matter how it was stored.
+// Postgres TEXT[] columns return JS arrays directly; jsonb returns parsed objects;
+// occasionally legacy rows are stored as JSON-strings or comma-separated strings.
+function toCapArray(v: unknown): string[] {
+  if (v == null) return [];
+  if (Array.isArray(v)) return v.map(String).filter(Boolean);
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (!s) return [];
+    if (s.startsWith('[')) { try { const j = JSON.parse(s); return Array.isArray(j) ? j.map(String).filter(Boolean) : [s]; } catch { /* fall through */ } }
+    if (s.startsWith('{') && s.endsWith('}')) { // pg array literal e.g. {"a","b"}
+      return s.slice(1, -1).split(',').map(p => p.replace(/^"|"$/g, '').trim()).filter(Boolean);
+    }
+    return s.split(',').map(p => p.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   // Admin only
   const authError = requireAdmin(request);
@@ -31,6 +49,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       }
 
       const app = applications[0];
+
+      // Normalize install_capabilities into a plain JS array (handles TEXT[], jsonb, string, null)
+      const capabilities = toCapArray(app.install_capabilities);
+      const specializeIn = capabilities.join(', ');
 
       // Generate slug from business_name + city + state
       const slug = `${app.business_name}-${app.city}-${app.state}`
@@ -69,9 +91,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         app.phone,
         app.email,
         app.website,
-        app.install_capabilities,
+        capabilities,           // plain JS array -> Postgres TEXT[]
         'Auto Shop',
-        app.install_capabilities ? app.install_capabilities.join(', ') : '',
+        specializeIn,
         '[Installer Application]',
         'active'
       ]);
@@ -101,8 +123,18 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       });
     }
 
-  } catch (error) {
+  } catch (error: any) {
+    // Expose the real error so we can debug from the client. Postgres errors come back
+    // with .message, .code, .detail, .constraint — surface them all.
     console.error('Update application error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({
+      error: 'Internal server error',
+      message: error?.message || String(error),
+      code: error?.code,
+      detail: error?.detail,
+      constraint: error?.constraint,
+      table: error?.table,
+      column: error?.column,
+    }, { status: 500 });
   }
 }
