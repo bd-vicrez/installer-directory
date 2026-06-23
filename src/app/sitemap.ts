@@ -57,6 +57,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly' as const,
       priority: 0.8,
     })),
+    {
+      url: 'https://installers.vicrez.com/start',
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.9,
+    },
+    {
+      url: 'https://installers.vicrez.com/start/how-to-open-a-tire-shop',
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.9,
+    },
+    {
+      url: 'https://installers.vicrez.com/start/startup-cost-calculator',
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.85,
+    },
   ];
 
   const categoryPages: MetadataRoute.Sitemap = CATEGORY_SLUGS.map((slug) => ({
