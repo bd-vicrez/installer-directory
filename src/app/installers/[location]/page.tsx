@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 import InstallerCardStatic from '@/components/InstallerCardStatic';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import CtaBanner from '@/components/CtaBanner';
+import CityQuoteButton from '@/components/CityQuoteButton';
 import {
   parseCityStateSlug,
   stateAbbrFromSlug,
@@ -248,6 +249,9 @@ export default async function LocationPage({ params, searchParams }: PageProps) 
               <div className="text-xs text-vicrez-muted mt-1">Quotes Available</div>
             </div>
           </div>
+
+          {/* RFQ Quote CTA - city-page lead capture (Jun 25 2026) */}
+          <CityQuoteButton locationLabel={locationLabel} variant="banner" />
 
           {/* CTA Banner */}
           <a
