@@ -118,7 +118,7 @@ export function generateInstallerJsonLd(installer: Installer) {
     }),
     description: `Professional aftermarket parts installation in ${installer.city}, ${installer.state}. Services may include: ${capabilities.join(', ') || 'body kits, bumpers, aero parts, wheels, tires, vinyl wrap, PPF, window tint, and exterior upgrades'}.`,
     priceRange: '$$',
-    image: 'https://www.vicrez.com/image/catalog/vicrez-logo-white-web.png',
+    image: 'https://d19eqr9piwa4et.cloudfront.net/catalog/vicrez-logo-white-web.png',
   };
 
   return schema;
@@ -232,10 +232,10 @@ export function generateArticleJsonLd(opts: {
       url: 'https://www.vicrez.com',
       logo: {
         '@type': 'ImageObject',
-        url: 'https://www.vicrez.com/image/catalog/vicrez-logo-white-web.png',
+        url: 'https://d19eqr9piwa4et.cloudfront.net/catalog/vicrez-logo-white-web.png',
       },
     },
-    image: opts.image || 'https://www.vicrez.com/image/catalog/vicrez-logo-white-web.png',
+    image: opts.image || 'https://d19eqr9piwa4et.cloudfront.net/catalog/vicrez-logo-white-web.png',
     mainEntityOfPage: opts.url,
   };
 }
@@ -246,7 +246,7 @@ export function generateOrganizationJsonLd() {
     '@type': 'Organization',
     name: 'Vicrez',
     url: 'https://www.vicrez.com',
-    logo: 'https://www.vicrez.com/image/catalog/vicrez-logo-white-web.png',
+    logo: 'https://d19eqr9piwa4et.cloudfront.net/catalog/vicrez-logo-white-web.png',
     description: 'Premium automotive aftermarket parts including OE replacement bumpers, body kits, widebody kits, aero parts, fender flares, aftermarket wheels, VCORSA tires, vinyl wrap, paint protection film, window tint, and exterior styling accessories.',
     sameAs: [
       'https://www.facebook.com/vicrez',

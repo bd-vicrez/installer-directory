@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 import InstallerCardStatic from '@/components/InstallerCardStatic';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import CtaBanner from '@/components/CtaBanner';
+import CityQuoteButton from '@/components/CityQuoteButton';
 import {
   parseCityStateSlug,
   stateAbbrFromSlug,
@@ -16,13 +17,22 @@ import {
   generateBreadcrumbJsonLd,
   generateItemListJsonLd,
 } from '@/lib/seo';
-import { queryInstallersByCity, queryInstallersByState, queryAllCitiesWithCounts, queryTopCities, queryCitySeoContent } from '@/lib/db';
+import {
+  queryInstallersByCity,
+  queryInstallersByState,
+  queryAllCitiesWithCounts,
+  queryTopCities,
+  queryCitySeoContent,
+} from '@/lib/db';
 import { Installer } from '@/lib/types';
 import { getTier } from '@/lib/utils';
 
 interface PageProps {
   params: { location: string };
+  searchParams?: { page?: string };
 }
+
+const INSTALLERS_PER_PAGE = 60;
 
 function titleCase(str: string): string {
   return str.replace(/\b\w/g, (c) => c.toUpperCase());
@@ -64,40 +74,49 @@ async function getLocationData(slug: string) {
   return null;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const data = await getLocationData(params.location);
   if (!data) return { title: 'Location Not Found' };
 
   const count = data.installers.length;
+  const totalPages = Math.max(1, Math.ceil(count / INSTALLERS_PER_PAGE));
+  const pageRaw = parseInt(searchParams?.page || '1', 10);
+  const currentPage = isNaN(pageRaw) || pageRaw < 1 ? 1 : Math.min(pageRaw, totalPages);
+  const pageSuffix = currentPage > 1 ? ` - Page ${currentPage}` : '';
+  const canonicalPath = `/installers/${params.location}${currentPage > 1 ? `?page=${currentPage}` : ''}`;
 
   if (data.type === 'city' && data.city) {
+    const title = `Vicrez Installer Network in ${data.city}, ${data.stateAbbr}${pageSuffix} | Body Kits, Wheels, Tires, Vinyl & PPF`;
     return {
-      title: `Vicrez Installer Network in ${data.city}, ${data.stateAbbr} | Body Kits, Wheels, Tires, Vinyl & PPF`,
+      title,
       description: `Find trusted Vicrez installers in ${data.city}, ${data.stateAbbr} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation. Request quotes today.`,
       openGraph: {
-        title: `Vicrez Installer Network in ${data.city}, ${data.stateAbbr} | Body Kits, Wheels, Tires, Vinyl & PPF`,
+        title,
         description: `Find trusted Vicrez installers in ${data.city}, ${data.stateAbbr} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation.`,
         type: 'website',
-        url: `https://installers.vicrez.com/installers/${params.location}`,
+        url: `https://installers.vicrez.com${canonicalPath}`,
       },
       alternates: {
-        canonical: `https://installers.vicrez.com/installers/${params.location}`,
+        canonical: `https://installers.vicrez.com${canonicalPath}`,
       },
+      robots: currentPage > 1 ? { index: false, follow: true } : undefined,
     };
   }
 
+  const stateTitle = `Vicrez Installer Network in ${data.stateName}${pageSuffix} | Body Kits, Wheels, Tires, Vinyl & PPF`;
   return {
-    title: `Vicrez Installer Network in ${data.stateName} | Body Kits, Wheels, Tires, Vinyl & PPF`,
+    title: stateTitle,
     description: `Find trusted Vicrez installers across ${data.stateName} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation. Request quotes today.`,
     openGraph: {
-      title: `Vicrez Installer Network in ${data.stateName} | Body Kits, Wheels, Tires, Vinyl & PPF`,
+      title: stateTitle,
       description: `Find trusted Vicrez installers across ${data.stateName} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation.`,
       type: 'website',
-      url: `https://installers.vicrez.com/installers/${params.location}`,
+      url: `https://installers.vicrez.com${canonicalPath}`,
     },
     alternates: {
-      canonical: `https://installers.vicrez.com/installers/${params.location}`,
+      canonical: `https://installers.vicrez.com${canonicalPath}`,
     },
+    robots: currentPage > 1 ? { index: false, follow: true } : undefined,
   };
 }
 
@@ -126,20 +145,28 @@ export async function generateStaticParams() {
   return [...cityParams, ...stateParams];
 }
 
-export default async function LocationPage({ params }: PageProps) {
+export default async function LocationPage({ params, searchParams }: PageProps) {
   const data = await getLocationData(params.location);
 
   if (!data) {
     notFound();
   }
 
-  const { installers: allInstallers, type, city, stateAbbr, stateName } = data;
-  // Cap state pages to 200 installers to keep page weight reasonable and avoid Vercel ISR 19MB limit.
-  // City pages stay uncapped (largest is ~200 installers anyway).
-  const MAX_PER_PAGE = type === 'state' ? 200 : 500;
-  const installers = allInstallers.slice(0, MAX_PER_PAGE);
-  const truncated = allInstallers.length > MAX_PER_PAGE;
+  const { installers, type, city, stateAbbr, stateName } = data;
   const verifiedCount = installers.filter((i: Installer) => getTier(i.source) === 'verified').length;
+
+  // Pagination (state pages can hit 2,600+ installers - was causing 29MB ISR build failure)
+  const totalCount = installers.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / INSTALLERS_PER_PAGE));
+  const pageRaw = parseInt(searchParams?.page || '1', 10);
+  const currentPage = isNaN(pageRaw) || pageRaw < 1 ? 1 : Math.min(pageRaw, totalPages);
+  const sortedInstallers = [...installers].sort((a: Installer, b: Installer) => {
+    const aTier = getTier(a.source) === 'verified' ? 0 : 1;
+    const bTier = getTier(b.source) === 'verified' ? 0 : 1;
+    return aTier - bTier;
+  });
+  const startIdx = (currentPage - 1) * INSTALLERS_PER_PAGE;
+  const pagedInstallers = sortedInstallers.slice(startIdx, startIdx + INSTALLERS_PER_PAGE);
   const locationLabel = type === 'city' && city ? `${city}, ${stateAbbr}` : stateName;
 
   // Get nearby cities for cross-linking (state pages show top cities, city pages show same-state cities)
@@ -159,10 +186,19 @@ export default async function LocationPage({ params }: PageProps) {
     // ignore
   }
 
-  // Pull unique AI-generated SEO content for this city (top 50 cities pre-generated)
-  let citySeo: { intro: string | null; local_scene: string | null; what_to_ask: string | null; cost_context: string | null } | null = null;
+  // Pull unique AI-generated SEO content for this city (top ~450 cities pre-generated in city_seo table)
+  let citySeo: {
+    intro: string | null;
+    local_scene: string | null;
+    what_to_ask: string | null;
+    cost_context: string | null;
+  } | null = null;
   if (type === 'city' && city) {
-    citySeo = await queryCitySeoContent(city, stateAbbr);
+    try {
+      citySeo = await queryCitySeoContent(city, stateAbbr);
+    } catch {
+      // ignore
+    }
   }
 
   // Breadcrumbs
@@ -176,15 +212,19 @@ export default async function LocationPage({ params }: PageProps) {
       : [{ name: stateName, href: `/installers/${params.location}` }]),
   ];
 
-  // Build JSON-LD
-  const installerSchemas = installers.slice(0, 20).map((i: Installer) => generateInstallerJsonLd(i));
+  // Build JSON-LD (limit per-page to keep response small)
+  // Note: schemas use sortedInstallers/pagedInstallers from below; for first page we render top 20
+  const schemaSource = installers.slice(0, 20);
+  const installerSchemas = schemaSource.map((i: Installer) => generateInstallerJsonLd(i));
   const faqSchema = generateFaqJsonLd(city || undefined, stateName);
   const itemListSchema = generateItemListJsonLd(
-    installers.slice(0, 20).map((i: Installer) => ({
+    schemaSource.map((i: Installer) => ({
       name: i.business_name,
       url: `https://installers.vicrez.com/installer/${i.slug || i.id}`,
     })),
-    type === 'city' ? `Body Kit, Wheel, Tire & Wrap Installers in ${locationLabel}` : `Vicrez Installers in ${stateName}`
+    type === 'city'
+      ? `Body Kit, Wheel, Tire & Wrap Installers in ${locationLabel}`
+      : `Vicrez Installers in ${stateName}`
   );
   const breadcrumbSchema = generateBreadcrumbJsonLd(
     breadcrumbs.map((b) => ({ name: b.name, url: `https://installers.vicrez.com${b.href}` }))
@@ -224,7 +264,7 @@ export default async function LocationPage({ params }: PageProps) {
               Body Kit, Wheel, Tire &amp; Wrap Installers in {locationLabel}
             </h1>
             <p className="text-sm text-vicrez-muted mb-3">
-              {installers.length} {installers.length === 1 ? 'shop' : 'shops'} in the Vicrez Installer Network{verifiedCount > 0 ? ` · ${verifiedCount} verified` : ''}
+              {totalCount} {totalCount === 1 ? 'shop' : 'shops'} in the Vicrez Installer Network{verifiedCount > 0 ? ` · ${verifiedCount} verified` : ''}
             </p>
             {citySeo?.intro && (
               <p className="text-base text-gray-300 max-w-3xl leading-relaxed mb-4">{citySeo.intro}</p>
@@ -249,15 +289,15 @@ export default async function LocationPage({ params }: PageProps) {
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-white">{truncated ? `${MAX_PER_PAGE}+` : installers.length}</div>
-              <div className="text-xs text-vicrez-muted mt-1">{truncated ? 'Showing Top' : 'Total Installers'}</div>
+              <div className="text-2xl font-bold text-white">{totalCount}</div>
+              <div className="text-xs text-vicrez-muted mt-1">Total Installers</div>
             </div>
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-green-400">{verifiedCount}</div>
               <div className="text-xs text-vicrez-muted mt-1">Verified Shops</div>
             </div>
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-white">{installers.length - verifiedCount}</div>
+              <div className="text-2xl font-bold text-white">{totalCount - verifiedCount}</div>
               <div className="text-xs text-vicrez-muted mt-1">Listed Shops</div>
             </div>
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
@@ -265,6 +305,9 @@ export default async function LocationPage({ params }: PageProps) {
               <div className="text-xs text-vicrez-muted mt-1">Quotes Available</div>
             </div>
           </div>
+
+          {/* RFQ Quote CTA - city-page lead capture (Jun 25 2026) */}
+          <CityQuoteButton locationLabel={locationLabel} variant="banner" />
 
           {/* CTA Banner */}
           <a
@@ -281,23 +324,45 @@ export default async function LocationPage({ params }: PageProps) {
 
           {/* Installer grid */}
           <h2 className="text-xl font-bold text-white mb-6">
-            {type === 'city'
-              ? `All Installers in ${locationLabel}`
-              : truncated
-                ? `Top ${MAX_PER_PAGE} of ${allInstallers.length} Vicrez Installers Across ${stateName}`
-                : `Vicrez Installers Across ${stateName}`}
+            {type === 'city' ? `All Installers in ${locationLabel}` : `Vicrez Installers Across ${stateName}`}
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
-            {installers
-              .sort((a: Installer, b: Installer) => {
-                const aTier = getTier(a.source) === 'verified' ? 0 : 1;
-                const bTier = getTier(b.source) === 'verified' ? 0 : 1;
-                return aTier - bTier;
-              })
-              .map((installer: Installer) => (
-                <InstallerCardStatic key={installer.id} installer={installer} />
-              ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            {pagedInstallers.map((installer: Installer) => (
+              <InstallerCardStatic key={installer.id} installer={installer} />
+            ))}
           </div>
+
+          {/* Pagination controls */}
+          {totalPages > 1 && (
+            <nav className="flex items-center justify-between mb-12 flex-wrap gap-3" aria-label="Pagination">
+              <div className="text-sm text-vicrez-muted">
+                Showing {startIdx + 1}–{Math.min(startIdx + INSTALLERS_PER_PAGE, totalCount)} of {totalCount} installers
+              </div>
+              <div className="flex items-center gap-2">
+                {currentPage > 1 && (
+                  <a
+                    href={`/installers/${params.location}${currentPage - 1 > 1 ? `?page=${currentPage - 1}` : ''}`}
+                    className="px-3 py-2 rounded-lg bg-vicrez-card border border-vicrez-border text-sm text-white hover:border-vicrez-red/50 transition-colors"
+                    rel="prev"
+                  >
+                    ← Previous
+                  </a>
+                )}
+                <span className="px-3 py-2 text-sm text-vicrez-muted">
+                  Page {currentPage} of {totalPages}
+                </span>
+                {currentPage < totalPages && (
+                  <a
+                    href={`/installers/${params.location}?page=${currentPage + 1}`}
+                    className="px-3 py-2 rounded-lg bg-vicrez-red text-white text-sm font-medium hover:bg-red-700 transition-colors"
+                    rel="next"
+                  >
+                    Next →
+                  </a>
+                )}
+              </div>
+            </nav>
+          )}
 
           {/* Nearby cities / cross-linking */}
           {nearbyCities.length > 0 && (

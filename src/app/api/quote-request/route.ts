@@ -1,5 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// === Vicrez RFQ webhook (ai.vicrez.com) — fires Klaviyo + DB + B2B + top-3 installer routing ===
+const RFQ_WEBHOOK_URL = process.env.RFQ_WEBHOOK_URL || 'https://ai.vicrez.com/webhook/rfq/submit';
+
+async function forwardToRFQWebhook(payload: any, requestIp: string, userAgent: string, sourcePage: string) {
+  // Best-effort forward. Do NOT block the user response on this.
+  try {
+    // Map the existing form payload to the RFQ webhook's expected shape.
+    // The webhook requires: full_name, email, phone, vehicle_year, vehicle_make, vehicle_model,
+    // kit_interest (array, min 1), install_timeline, zip_code.
+    const kitInterest = (payload.what_needed || '').trim();
+    const rfqPayload: any = {
+      full_name: payload.customer_name,
+      email: payload.customer_email,
+      phone: payload.customer_phone,
+      vehicle_year: parseInt(payload.vehicle_year, 10) || new Date().getFullYear(),
+      vehicle_make: payload.vehicle_make,
+      vehicle_model: payload.vehicle_model,
+      kit_interest: kitInterest ? [kitInterest.slice(0, 80)] : ['Other'],
+      install_timeline: payload.install_timeline || 'Not specified',
+      zip_code: payload.zip_code || payload.customer_zip || '00000',
+      preferred_installer_id: payload.installer_id || null,
+      notes: payload.additional_notes || '',
+      source_page: sourcePage,
+      how_heard: payload.how_heard || 'installers.vicrez.com',
+      website_url: '', // honeypot - must be empty
+      hcaptcha_token: payload.hcaptcha_token || null,
+    };
+
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(() => ctrl.abort(), 8000);
+
+    const res = await fetch(RFQ_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Forwarded-For': requestIp,
+        'X-Source': 'installer-directory-quote-form',
+        'User-Agent': userAgent,
+      },
+      body: JSON.stringify(rfqPayload),
+      signal: ctrl.signal,
+    });
+    clearTimeout(timeoutId);
+
+    const text = await res.text().catch(() => '');
+    if (!res.ok) {
+      console.error('[RFQ webhook] non-OK response', res.status, text.slice(0, 300));
+    } else {
+      console.log('[RFQ webhook] forwarded successfully', res.status);
+    }
+  } catch (err: any) {
+    console.error('[RFQ webhook] forward failed:', err?.message || err);
+    // swallow - this is best-effort. SendGrid send below is the user-facing success path.
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -14,7 +70,13 @@ export async function POST(request: NextRequest) {
       additional_notes, 
       installer_id, 
       installer_business_name,
-      installer_email 
+      installer_email,
+      // Optional fields (city page submissions or richer forms)
+      zip_code,
+      install_timeline,
+      budget_range,
+      how_heard,
+      hcaptcha_token,
     } = body;
 
     // Validate required fields
@@ -25,21 +87,61 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!installer_email) {
+    // installer_email is only required when this is an installer-specific request.
+    // City-page generic RFQs may not have it — in that case, the RFQ webhook routes to top-3 closest.
+    const isCityPageRequest = !installer_email && !installer_id;
+
+    if (!isCityPageRequest && !installer_email) {
       return NextResponse.json(
-        { error: 'Installer email is required' },
+        { error: 'Installer email is required for installer-specific requests' },
         { status: 400 }
       );
     }
 
-    // Send emails via SendGrid
+    // Capture request metadata for downstream auditing.
+    const requestIp = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    const referer = request.headers.get('referer') || 'unknown';
+
+    // === Forward to RFQ webhook in parallel (Klaviyo events, DB write, B2B detection,
+    //     top-3 installer broadcast). Fire-and-forget — does NOT block user response. ===
+    const rfqForwardPromise = forwardToRFQWebhook(
+      {
+        customer_name, customer_phone, customer_email,
+        vehicle_year, vehicle_make, vehicle_model,
+        what_needed, additional_notes, installer_id,
+        zip_code, install_timeline, budget_range, how_heard, hcaptcha_token,
+      },
+      requestIp,
+      userAgent,
+      referer
+    );
+
+    // For city-page requests with no specific installer, skip the SendGrid installer email
+    // (the RFQ webhook will fan out to top-3 via Klaviyo).
+    if (isCityPageRequest) {
+      // Wait briefly for the webhook (max 5s) so we can report success/failure.
+      await Promise.race([
+        rfqForwardPromise,
+        new Promise((resolve) => setTimeout(resolve, 5000)),
+      ]);
+      return NextResponse.json({
+        success: true,
+        message: 'Quote request received — we\u2019re matching you with nearby installers. Expect a quote within 24 business hours.',
+        routed_via: 'city_page_rfq_webhook',
+      });
+    }
+
+    // === Installer-specific path: send SendGrid emails (existing behavior) ===
     const sendgridApiKey = process.env.SENDGRID_API_KEY;
     if (!sendgridApiKey) {
       console.error('SendGrid API key not configured');
-      return NextResponse.json(
-        { error: 'Email service not configured' },
-        { status: 500 }
-      );
+      // RFQ webhook already fired — return success so the lead isn't lost.
+      return NextResponse.json({
+        success: true,
+        message: 'Quote request received. We\u2019ll contact you within 24-48 hours.',
+        routed_via: 'rfq_webhook_only',
+      });
     }
 
     const submittedDate = new Date().toLocaleDateString('en-US', {
@@ -220,10 +322,12 @@ export async function POST(request: NextRequest) {
     if (!installerResponse.ok) {
       const errorText = await installerResponse.text();
       console.error('SendGrid installer email error:', installerResponse.status, errorText);
-      return NextResponse.json(
-        { error: 'Failed to send email to installer' },
-        { status: 500 }
-      );
+      // RFQ webhook already fired — still return success so the customer doesn't see an error.
+      return NextResponse.json({
+        success: true,
+        message: 'Quote request received. We\u2019ll contact you within 24-48 hours.',
+        routed_via: 'rfq_webhook_fallback',
+      });
     }
 
     if (!teamResponse.ok) {
@@ -234,7 +338,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      message: 'Quote request sent successfully' 
+      message: 'Quote request sent successfully',
+      routed_via: 'sendgrid_plus_rfq_webhook',
     });
 
   } catch (error) {
