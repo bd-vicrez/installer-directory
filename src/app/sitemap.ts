@@ -1,6 +1,6 @@
 /**
  * Auto-generated XML sitemap.
- * Includes: home, directory hubs, all installers, top cities, all states, city+service combos, guides.
+ * Includes: home, directory hubs, all installers, top cities, all states, city+service combos, guides, tire-shop startup hub.
  *
  * Next.js 14 supports a single sitemap.ts up to 50K URLs. We're under that.
  */
@@ -13,6 +13,7 @@ import {
 } from '@/lib/db';
 import { toLocationSlug, toStateSlug, STATE_NAMES } from '@/lib/seo';
 import { CATEGORY_SLUGS } from '@/lib/categories';
+import { STATE_SLUGS } from '@/app/start/[state]/stateData';
 
 const BASE = 'https://installers.vicrez.com';
 
@@ -127,6 +128,38 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   } catch {
     // ignore
+  }
+
+  // 8. Tire-shop startup hub — 56 pages (hub + 5 pillar guides + 50 state pages)
+  //    Top-of-funnel B2B SEO content targeting "how to open a tire shop" (~14K US searches/mo)
+  urls.push({
+    url: `${BASE}/start`,
+    lastModified: now,
+    changeFrequency: 'weekly',
+    priority: 0.9,
+  });
+  const START_PILLARS: { slug: string; priority: number }[] = [
+    { slug: 'how-to-open-a-tire-shop', priority: 0.9 },
+    { slug: 'startup-cost-calculator', priority: 0.85 },
+    { slug: 'mobile-tire-business', priority: 0.85 },
+    { slug: 'wholesale-tires-for-shops', priority: 0.85 },
+    { slug: 'tire-shop-business-plan-template', priority: 0.85 },
+  ];
+  for (const p of START_PILLARS) {
+    urls.push({
+      url: `${BASE}/start/${p.slug}`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: p.priority,
+    });
+  }
+  for (const st of STATE_SLUGS) {
+    urls.push({
+      url: `${BASE}/start/${st}`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.8,
+    });
   }
 
   return urls;

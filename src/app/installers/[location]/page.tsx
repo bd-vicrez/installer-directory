@@ -15,8 +15,15 @@ import {
   generateInstallerJsonLd,
   generateFaqJsonLd,
   generateBreadcrumbJsonLd,
+  generateItemListJsonLd,
 } from '@/lib/seo';
-import { queryInstallersByCity, queryInstallersByState, queryAllCitiesWithCounts, queryTopCities } from '@/lib/db';
+import {
+  queryInstallersByCity,
+  queryInstallersByState,
+  queryAllCitiesWithCounts,
+  queryTopCities,
+  queryCitySeoContent,
+} from '@/lib/db';
 import { Installer } from '@/lib/types';
 import { getTier } from '@/lib/utils';
 
@@ -179,11 +186,20 @@ export default async function LocationPage({ params, searchParams }: PageProps) 
     // ignore
   }
 
-  // Build JSON-LD (limit per-page to keep response small)
-  // Note: schemas use sortedInstallers/pagedInstallers from below; for first page we render top 20
-  const schemaSource = installers.slice(0, 20);
-  const installerSchemas = schemaSource.map((i: Installer) => generateInstallerJsonLd(i));
-  const faqSchema = generateFaqJsonLd(city || undefined, stateName);
+  // Pull unique AI-generated SEO content for this city (top ~450 cities pre-generated in city_seo table)
+  let citySeo: {
+    intro: string | null;
+    local_scene: string | null;
+    what_to_ask: string | null;
+    cost_context: string | null;
+  } | null = null;
+  if (type === 'city' && city) {
+    try {
+      citySeo = await queryCitySeoContent(city, stateAbbr);
+    } catch {
+      // ignore
+    }
+  }
 
   // Breadcrumbs
   const breadcrumbs = [
@@ -195,6 +211,24 @@ export default async function LocationPage({ params, searchParams }: PageProps) 
         ]
       : [{ name: stateName, href: `/installers/${params.location}` }]),
   ];
+
+  // Build JSON-LD (limit per-page to keep response small)
+  // Note: schemas use sortedInstallers/pagedInstallers from below; for first page we render top 20
+  const schemaSource = installers.slice(0, 20);
+  const installerSchemas = schemaSource.map((i: Installer) => generateInstallerJsonLd(i));
+  const faqSchema = generateFaqJsonLd(city || undefined, stateName);
+  const itemListSchema = generateItemListJsonLd(
+    schemaSource.map((i: Installer) => ({
+      name: i.business_name,
+      url: `https://installers.vicrez.com/installer/${i.slug || i.id}`,
+    })),
+    type === 'city'
+      ? `Body Kit, Wheel, Tire & Wrap Installers in ${locationLabel}`
+      : `Vicrez Installers in ${stateName}`
+  );
+  const breadcrumbSchema = generateBreadcrumbJsonLd(
+    breadcrumbs.map((b) => ({ name: b.name, url: `https://installers.vicrez.com${b.href}` }))
+  );
 
   return (
     <>
@@ -212,6 +246,14 @@ export default async function LocationPage({ params, searchParams }: PageProps) 
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
         />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Breadcrumbs items={breadcrumbs} />
@@ -219,8 +261,14 @@ export default async function LocationPage({ params, searchParams }: PageProps) 
           {/* Hero section */}
           <div className="mb-10">
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">
-              Vicrez Installer Network in {locationLabel}
+              Body Kit, Wheel, Tire &amp; Wrap Installers in {locationLabel}
             </h1>
+            <p className="text-sm text-vicrez-muted mb-3">
+              {totalCount} {totalCount === 1 ? 'shop' : 'shops'} in the Vicrez Installer Network{verifiedCount > 0 ? ` · ${verifiedCount} verified` : ''}
+            </p>
+            {citySeo?.intro && (
+              <p className="text-base text-gray-300 max-w-3xl leading-relaxed mb-4">{citySeo.intro}</p>
+            )}
             <p className="text-lg text-gray-300 max-w-3xl leading-relaxed">
               Find trusted installers in {locationLabel} for Vicrez aftermarket parts, OE replacement parts, body kits, aerodynamic upgrades, wheels, tires, vinyl wraps, paint protection film, and exterior styling accessories. Whether you need a bumper replacement, spoiler install, front lip install, widebody kit installation, wheel and tire package installation, or vehicle wrap service, the Vicrez Installer Network helps connect you with local shops near you.
               {verifiedCount > 0 && ` ${verifiedCount} shops are verified through the Vicrez dealer network.`}
@@ -230,10 +278,18 @@ export default async function LocationPage({ params, searchParams }: PageProps) 
             </p>
           </div>
 
+          {/* Local scene (AI-generated unique content for top cities) */}
+          {citySeo?.local_scene && (
+            <section className="mb-8 bg-vicrez-card border border-vicrez-border rounded-xl p-6">
+              <h2 className="text-lg font-bold text-white mb-3">The {locationLabel} Aftermarket Scene</h2>
+              <p className="text-sm text-gray-300 leading-relaxed">{citySeo.local_scene}</p>
+            </section>
+          )}
+
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-white">{installers.length}</div>
+              <div className="text-2xl font-bold text-white">{totalCount}</div>
               <div className="text-xs text-vicrez-muted mt-1">Total Installers</div>
             </div>
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
@@ -241,7 +297,7 @@ export default async function LocationPage({ params, searchParams }: PageProps) 
               <div className="text-xs text-vicrez-muted mt-1">Verified Shops</div>
             </div>
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-white">{installers.length - verifiedCount}</div>
+              <div className="text-2xl font-bold text-white">{totalCount - verifiedCount}</div>
               <div className="text-xs text-vicrez-muted mt-1">Listed Shops</div>
             </div>
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
@@ -426,6 +482,22 @@ export default async function LocationPage({ params, searchParams }: PageProps) 
               ))}
             </div>
           </section>
+
+          {/* What to ask (AI-generated) */}
+          {citySeo?.what_to_ask && (
+            <section className="mb-12 bg-vicrez-card border border-vicrez-border rounded-xl p-6">
+              <h2 className="text-lg font-bold text-white mb-3">What to Ask an Installer in {locationLabel}</h2>
+              <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">{citySeo.what_to_ask}</p>
+            </section>
+          )}
+
+          {/* Cost context (AI-generated) */}
+          {citySeo?.cost_context && (
+            <section className="mb-12 bg-vicrez-card border border-vicrez-border rounded-xl p-6">
+              <h2 className="text-lg font-bold text-white mb-3">Installation Cost in {locationLabel}</h2>
+              <p className="text-sm text-gray-300 leading-relaxed">{citySeo.cost_context}</p>
+            </section>
+          )}
 
           {/* SEO content - FAQ */}
           <section className="mb-12">
