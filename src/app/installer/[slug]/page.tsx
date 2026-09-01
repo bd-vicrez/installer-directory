@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { queryInstallerBySlug, queryAllInstallerSlugs } from '@/lib/db';
+import { queryInstallerBySlug, queryVerifiedInstallerSlugs } from '@/lib/db';
 import { Installer } from '@/lib/types';
 import { getTier, parseCapabilities, formatPhone } from '@/lib/utils';
 import { generateInstallerJsonLd, STATE_NAMES, toStateSlug, toLocationSlug } from '@/lib/seo';
@@ -16,13 +16,19 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
-  const slugs = await queryAllInstallerSlugs(500);
+  // Prerender exactly the indexable set: verified installers.
+  const slugs = await queryVerifiedInstallerSlugs();
   return slugs.map((slug: string) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const installer: Installer | null = await queryInstallerBySlug(params.slug);
   if (!installer) return { title: 'Installer Not Found' };
+
+  // Quality-only indexing (2026-09-01): unverified profiles are thin
+  // programmatic pages that dragged sitewide quality signals to zero
+  // indexing. They stay live for users but tell Google not to index.
+  const indexable = getTier(installer.source) === 'verified';
 
   const title = `${installer.business_name} - Vicrez Installer in ${installer.city}, ${installer.state} | Body Kits, Wheels, Wraps & More`;
   const description = `${installer.business_name} in ${installer.city}, ${installer.state}. Installation services for body kits, bumpers, aero parts, wheels, tires, vinyl wrap, PPF, and aftermarket accessories. ${installer.google_rating ? `Rated ${installer.google_rating}/5 on Google.` : ''} View hours, services & get directions.`;
@@ -39,6 +45,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     alternates: {
       canonical: `/installer/${params.slug}`,
     },
+    robots: indexable ? undefined : { index: false, follow: true },
   };
 }
 

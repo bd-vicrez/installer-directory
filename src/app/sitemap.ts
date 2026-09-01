@@ -1,15 +1,19 @@
 /**
- * Auto-generated XML sitemap.
- * Includes: home, directory hubs, all installers, top cities, all states, city+service combos, guides, tire-shop startup hub.
+ * Auto-generated XML sitemap — QUALITY-ONLY strategy (2026-09-01).
  *
- * Next.js 14 supports a single sitemap.ts up to 50K URLs. We're under that.
+ * Previous strategy ("index everything", ~19.6K URLs) produced near-zero
+ * indexing: Google crawled the sitemap daily and declined ~100% of the thin
+ * programmatic pages. New strategy: advertise only pages with unique value —
+ * verified installers, cities with bespoke city_seo content, state hubs,
+ * category hubs, guides, and the /start tire-shop startup hub (~1K URLs).
+ * Unverified installer profiles stay live for users but are noindexed
+ * (see /installer/[slug]/page.tsx) and are NOT listed here.
  */
 import { MetadataRoute } from 'next';
 import {
-  queryAllInstallerSlugs,
-  queryAllCitiesWithCounts,
+  queryVerifiedInstallerSlugs,
+  queryCitySeoCities,
   queryAllStatesWithCounts,
-  queryTopCities,
 } from '@/lib/db';
 import { toLocationSlug, toStateSlug, STATE_NAMES } from '@/lib/seo';
 import { CATEGORY_SLUGS } from '@/lib/categories';
@@ -78,12 +82,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // ignore
   }
 
-  // 5. City pages (all cities with at least 1 installer)
-  let topCityRows: any[] = [];
+  // 5. City pages — ONLY cities with unique city_seo content (~500)
   try {
-    const allCities = await queryAllCitiesWithCounts();
-    topCityRows = allCities;
-    for (const c of topCityRows) {
+    const seoCities = await queryCitySeoCities();
+    for (const c of seoCities) {
       if (!c.city || !c.state) continue;
       urls.push({
         url: `${BASE}/installers/${toLocationSlug(c.city, c.state)}`,
@@ -96,41 +98,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // ignore
   }
 
-  // 6. City + service combo pages (top 50 cities × 8 categories = 400 long-tail SEO pages)
+  // 6. Installer detail pages — VERIFIED only (~380). Unverified profiles are
+  //    noindexed and intentionally absent from the sitemap.
   try {
-    const top50 = topCityRows.length > 0 ? topCityRows.slice(0, 50) : await queryTopCities(50);
-    for (const c of top50) {
-      if (!c.city || !c.state) continue;
-      const loc = toLocationSlug(c.city, c.state);
-      for (const cat of CATEGORY_SLUGS) {
-        urls.push({
-          url: `${BASE}/installers/${loc}/${cat}`,
-          lastModified: now,
-          changeFrequency: 'weekly',
-          priority: 0.65,
-        });
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  // 7. Installer detail pages (cap at 45,000 to stay under 50K sitemap limit safely)
-  try {
-    const slugs = await queryAllInstallerSlugs(45000);
+    const slugs = await queryVerifiedInstallerSlugs();
     for (const slug of slugs) {
       urls.push({
         url: `${BASE}/installer/${slug}`,
         lastModified: now,
         changeFrequency: 'monthly',
-        priority: 0.5,
+        priority: 0.6,
       });
     }
   } catch {
     // ignore
   }
 
-  // 8. Tire-shop startup hub — 56 pages (hub + 5 pillar guides + 50 state pages)
+  // 7. Tire-shop startup hub — 56 pages (hub + 5 pillar guides + 50 state pages)
   //    Top-of-funnel B2B SEO content targeting "how to open a tire shop" (~14K US searches/mo)
   urls.push({
     url: `${BASE}/start`,

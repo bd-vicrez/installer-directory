@@ -1,6 +1,6 @@
 import { Installer, InstallerWithMeta, GeoLocation } from './types';
 
-const VERIFIED_KEYWORDS = [
+export const VERIFIED_KEYWORDS = [
   '[New Dealer Form]',
   '[CS Sheet]',
   '[Vicrez Business Network]',

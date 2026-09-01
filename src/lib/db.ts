@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { VERIFIED_KEYWORDS } from './utils';
 
 let pool: Pool;
 
@@ -138,6 +139,48 @@ export async function queryInstallerStats() {
     FROM installers
   `);
   return rows[0];
+}
+
+/**
+ * Slugs of VERIFIED installers only (source matches VERIFIED_KEYWORDS).
+ * Used by the sitemap + static prerender: only quality profiles are
+ * advertised to search engines. Unverified profiles remain reachable
+ * but are noindexed (see /installer/[slug]/page.tsx).
+ */
+export async function queryVerifiedInstallerSlugs() {
+  const db = getPool();
+  const clause = VERIFIED_KEYWORDS.map((_, i) => `source ILIKE $${i + 1}`).join(' OR ');
+  const params = VERIFIED_KEYWORDS.map((kw) => `%${kw}%`);
+  const { rows } = await db.query(
+    `SELECT slug FROM installers
+     WHERE status != 'removed' AND slug IS NOT NULL AND slug != ''
+       AND (${clause})
+     ORDER BY google_review_count DESC NULLS LAST`,
+    params
+  );
+  return rows.map((r: any) => r.slug);
+}
+
+/**
+ * Cities that have unique AI-written SEO content in city_seo AND at least
+ * one live installer. These are the only city pages in the sitemap.
+ */
+export async function queryCitySeoCities(): Promise<{ city: string; state: string }[]> {
+  const db = getPool();
+  try {
+    const { rows } = await db.query(`
+      SELECT DISTINCT cs.city, cs.state
+      FROM city_seo cs
+      JOIN installers i
+        ON LOWER(i.city) = LOWER(cs.city)
+       AND LOWER(i.state) = LOWER(cs.state)
+       AND i.status NOT IN ('removed', 'non_us_excluded')
+    `);
+    return rows;
+  } catch (e: any) {
+    if (e && e.code === '42P01') return [];
+    throw e;
+  }
 }
 
 export async function queryAllInstallerSlugs(limit = 500) {
