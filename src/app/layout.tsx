@@ -3,6 +3,7 @@ import './globals.css';
 import { generateOrganizationJsonLd } from '@/lib/seo';
 import SideNav from '@/components/SideNav';
 import UtmLinkAppender from '@/components/UtmLinkAppender';
+import GoogleAnalytics from '@/components/GoogleAnalytics';
 
 export const metadata: Metadata = {
   title: 'Vicrez Installer Network | Find Body Kit, Wheel, Tire & Wrap Installers Near You',
@@ -45,6 +46,7 @@ export default function RootLayout({
       <body className="min-h-screen flex flex-col">
         <SideNav />
         <UtmLinkAppender />
+        <GoogleAnalytics />
         {children}
       </body>
     </html>
