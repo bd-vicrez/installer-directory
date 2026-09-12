@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import { VERIFIED_KEYWORDS } from './utils';
+import { REVIEWED_PROFILE_SLUGS } from './profile-content';
 
 let pool: Pool;
 
@@ -193,4 +194,15 @@ export async function queryAllInstallerSlugs(limit = 500) {
     [limit]
   );
   return rows.map((r: any) => r.slug);
+}
+
+/** Ten evidence-reviewed profiles, excluding withdrawn or reclassified records. */
+export async function queryReviewedProfiles() {
+  const { rows } = await getPool().query(
+    `SELECT slug, business_name, city, state FROM installers
+     WHERE slug = ANY($1::text[]) AND status NOT IN ('removed', 'non_us_excluded')
+       AND source ILIKE $2 ORDER BY business_name LIMIT 10`,
+    [REVIEWED_PROFILE_SLUGS, '%[New Dealer Form]%']
+  );
+  return rows;
 }

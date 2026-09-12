@@ -10,6 +10,7 @@ import Breadcrumbs from '@/components/Breadcrumbs';
 import CtaBanner from '@/components/CtaBanner';
 import QuoteButton from '@/components/QuoteButton';
 import ShareButtons from '@/components/ShareButtons';
+import { getProfileDescription, getProfileQuoteNote, getProfileGuide, serializeJsonLd } from '@/lib/profile-content';
 
 interface PageProps {
   params: { slug: string };
@@ -30,8 +31,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // indexing. They stay live for users but tell Google not to index.
   const indexable = getTier(installer.source) === 'verified';
 
-  const title = `${installer.business_name} - Vicrez Installer in ${installer.city}, ${installer.state} | Body Kits, Wheels, Wraps & More`;
-  const description = `${installer.business_name} in ${installer.city}, ${installer.state}. Installation services for body kits, bumpers, aero parts, wheels, tires, vinyl wrap, PPF, and aftermarket accessories. ${installer.google_rating ? `Rated ${installer.google_rating}/5 on Google.` : ''} View hours, services & get directions.`;
+  const title = `${installer.business_name} in ${installer.city}, ${installer.state} | Vicrez Installer Network`;
+  const description = getProfileDescription(installer);
 
   return {
     title,
@@ -66,30 +67,16 @@ export default async function InstallerPage({ params }: PageProps) {
   const tier = getTier(installer.source);
   const isVerified = tier === 'verified';
   const capabilities = parseCapabilities(installer.install_capabilities);
-  const phone = installer.google_phone || installer.phone;
-  const website = installer.google_website || installer.website;
+  const phone = installer.phone || installer.google_phone;
+  const website = installer.website || installer.google_website;
   const rating = installer.google_rating;
   const reviewCount = installer.google_review_count;
   const hours = formatHours(installer.google_hours);
   const jsonLd = generateInstallerJsonLd(installer);
 
-  // Build enhanced JSON-LD with Google data
-  if (rating && reviewCount) {
-    jsonLd.aggregateRating = {
-      '@type': 'AggregateRating',
-      ratingValue: rating,
-      bestRating: 5,
-      ratingCount: reviewCount,
-    };
-  }
-  if (hours) {
-    jsonLd.openingHoursSpecification = hours.map((h: { day: string; hours: string }) => ({
-      '@type': 'OpeningHoursSpecification',
-      dayOfWeek: h.day,
-      opens: h.hours === 'Closed' ? undefined : h.hours.split('–')[0]?.trim(),
-      closes: h.hours === 'Closed' ? undefined : h.hours.split('–')[1]?.trim(),
-    }));
-  }
+  const quoteNote = getProfileQuoteNote(installer);
+  const profileGuide = getProfileGuide(installer);
+  const correctionSubject = encodeURIComponent(`Directory correction: ${installer.business_name} (${params.slug})`);
 
   const stateSlug = toStateSlug(installer.state);
   const citySlug = toLocationSlug(installer.city, installer.state);
@@ -108,7 +95,7 @@ export default async function InstallerPage({ params }: PageProps) {
       <main className="flex-1">
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -135,6 +122,8 @@ export default async function InstallerPage({ params }: PageProps) {
                   )}
                 </div>
                 <h1 className="text-3xl font-bold text-white mb-3">{installer.business_name}</h1>
+                <p className="text-gray-300 mb-3">{getProfileDescription(installer)}</p>
+                <a href="/how-verification-works" className="text-sm text-vicrez-red hover:underline">What the directory badge means</a>
 
                 {/* Google rating */}
                 {rating && (
@@ -147,6 +136,7 @@ export default async function InstallerPage({ params }: PageProps) {
                       ))}
                     </div>
                     <span className="text-white font-semibold">{rating.toFixed(1)}</span>
+                    <span className="text-sm text-vicrez-muted">Recorded Google rating</span>
                     {reviewCount && (
                       <span className="text-vicrez-muted">({reviewCount.toLocaleString()} reviews)</span>
                     )}
@@ -261,6 +251,22 @@ export default async function InstallerPage({ params }: PageProps) {
                   <p className="text-gray-300">{installer.specialize_in}</p>
                 </div>
               )}
+
+              {quoteNote && (
+                <section className="card p-6" aria-labelledby="quote-preparation">
+                  <h2 id="quote-preparation" className="text-lg font-semibold text-white mb-3">Before requesting a quote</h2>
+                  <p className="text-gray-300 mb-3">{quoteNote}</p>
+                  <p className="text-sm text-vicrez-muted mb-3">Services and specialties shown here come from this shop&apos;s existing dealer-form record. They are not an independent assessment of workmanship. Confirm current services, availability, pricing and warranty terms directly with the shop.</p>
+                  {profileGuide && <a href={profileGuide.href} className="text-vicrez-red hover:underline">{profileGuide.label} →</a>}
+                </section>
+              )}
+
+              <section className="card p-6" aria-labelledby="listing-corrections">
+                <h2 id="listing-corrections" className="text-lg font-semibold text-white mb-3">Own this shop or spot an error?</h2>
+                <p className="text-gray-300 mb-3">For corrections or removal, include this profile&apos;s URL, the information to change and your relationship to the business. Do not send passwords or payment information.</p>
+                <a href={`mailto:support@vicrez.com?subject=${correctionSubject}`} className="text-vicrez-red hover:underline">Contact Vicrez about this listing</a>
+                <p className="mt-2"><a href="/contact" className="text-sm text-vicrez-red hover:underline">Directory contact details</a></p>
+              </section>
 
               {/* Google Map */}
               {installer.lat && installer.lng && (

@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import HomeSearch from '@/components/HomeSearch';
-import { queryTopCities, queryAllStatesWithCounts, queryInstallerStats, getPool } from '@/lib/db';
+import { queryTopCities, queryAllStatesWithCounts, queryInstallerStats, queryReviewedProfiles, getPool } from '@/lib/db';
 import { STATE_NAMES, toLocationSlug, toStateSlug } from '@/lib/seo';
 
 export const metadata: Metadata = {
@@ -64,11 +64,12 @@ const SEO_GUIDES = [
 ];
 
 export default async function HomePage() {
-  const [topCities, states, stats, ratingResult] = await Promise.all([
+  const [topCities, states, stats, ratingResult, reviewedProfiles] = await Promise.all([
     queryTopCities(20),
     queryAllStatesWithCounts(),
     queryInstallerStats(),
     getPool().query("SELECT ROUND(AVG(google_rating)::numeric, 1) as avg_rating FROM installers WHERE status != 'removed' AND google_rating IS NOT NULL"),
+    queryReviewedProfiles(),
   ]);
 
   const totalInstallers = parseInt(stats?.total || '13000');
@@ -104,6 +105,20 @@ export default async function HomePage() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <h2 className="text-2xl font-bold text-white mb-3">Explore shop profiles</h2>
+          <p className="text-vicrez-muted mb-6">Compare recorded services and prepare questions for your project. These shops have dealer-form records in the directory; inclusion is not a ranking or workmanship guarantee.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {reviewedProfiles.map((shop: { slug: string; business_name: string; city: string; state: string }) => (
+              <a key={shop.slug} href={`/installer/${shop.slug}`} className="card p-5 hover:border-vicrez-red/50">
+                <h3 className="font-semibold text-white">{shop.business_name}</h3>
+                <p className="text-sm text-vicrez-muted mt-2">{shop.city}, {shop.state}</p>
+              </a>
+            ))}
+          </div>
+          <p className="mt-5"><a href="/how-verification-works" className="text-vicrez-red hover:underline">Understand verified and listed profiles →</a></p>
         </section>
 
         {/* Browse by Category */}
@@ -187,7 +202,7 @@ export default async function HomePage() {
               <div>
                 <h2 className="text-2xl font-bold text-white">Installation Guides</h2>
                 <p className="text-sm text-vicrez-muted mt-2">
-                  SEO-friendly guides covering body kits, wheels, tires, suspension, wraps, and paint protection.
+                  Practical guides covering body kits, wheels, tires, suspension, wraps, and paint protection.
                 </p>
               </div>
               <a href="/guides" className="text-sm text-vicrez-red hover:underline whitespace-nowrap">

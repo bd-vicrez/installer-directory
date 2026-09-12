@@ -1,5 +1,6 @@
 import { Installer } from './types';
 import { getTier, parseRating, parseCapabilities, formatPhone } from './utils';
+import { getProfileDescription } from './profile-content';
 
 export const STATE_NAMES: Record<string, string> = {
   AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
@@ -78,11 +79,9 @@ export function toStateSlug(stateAbbr: string): string {
 }
 
 export function generateInstallerJsonLd(installer: Installer) {
-  const tier = getTier(installer.source);
-  const rating = parseRating(installer.internal_notes);
-  const capabilities = parseCapabilities(installer.install_capabilities);
-
-  const schema: any = {
+  const phone = installer.phone || installer.google_phone;
+  const website = installer.website || installer.google_website;
+  return {
     '@context': 'https://schema.org',
     '@type': 'LocalBusiness',
     '@id': `https://installers.vicrez.com/installer/${installer.slug || installer.id}`,
@@ -95,33 +94,15 @@ export function generateInstallerJsonLd(installer: Installer) {
       postalCode: installer.zip_code,
       addressCountry: 'US',
     },
-    ...(installer.phone && { telephone: installer.phone }),
-    ...(installer.website && {
-      url: installer.website.startsWith('http')
-        ? installer.website
-        : `https://${installer.website}`,
-    }),
+    ...(phone && { telephone: phone }),
+    ...(website && { url: website.startsWith('http') ? website : `https://${website}` }),
     ...(installer.lat && installer.lng && {
-      geo: {
-        '@type': 'GeoCoordinates',
-        latitude: installer.lat,
-        longitude: installer.lng,
-      },
+      geo: { '@type': 'GeoCoordinates', latitude: installer.lat, longitude: installer.lng },
     }),
-    ...(rating && {
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: rating,
-        bestRating: 5,
-        ratingCount: 1,
-      },
-    }),
-    description: `Professional aftermarket parts installation in ${installer.city}, ${installer.state}. Services may include: ${capabilities.join(', ') || 'body kits, bumpers, aero parts, wheels, tires, vinyl wrap, PPF, window tint, and exterior upgrades'}.`,
-    priceRange: '$$',
-    image: 'https://d19eqr9piwa4et.cloudfront.net/catalog/vicrez-logo-white-web.png',
+    // Google-sourced ratings remain visible but are not our own collected reviews.
+    // Do not republish them as review rich-result markup.
+    description: getProfileDescription(installer),
   };
-
-  return schema;
 }
 
 export function generateFaqJsonLd(city?: string, state?: string) {

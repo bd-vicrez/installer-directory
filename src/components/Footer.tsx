@@ -39,6 +39,9 @@ export default function Footer() {
                   Installation Guides
                 </a>
               </li>
+              <li><a href="/start" className="text-gray-500 hover:text-gray-900 transition-colors">Tire Shop Startup Guides</a></li>
+              <li><a href="/about" className="text-gray-500 hover:text-gray-900 transition-colors">About the Directory</a></li>
+              <li><a href="/how-verification-works" className="text-gray-500 hover:text-gray-900 transition-colors">How Verification Works</a></li>
               <li>
                 <a href="/apply" className="text-gray-500 hover:text-gray-900 transition-colors">
                   List Your Shop
@@ -62,7 +65,7 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="https://www.vicrez.com/contact-us" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-gray-900 transition-colors">
+                <a href="/contact" className="text-gray-500 hover:text-gray-900 transition-colors">
                   Contact Us
                 </a>
               </li>
@@ -73,9 +76,9 @@ export default function Footer() {
           <div>
             <h4 className="text-sm font-semibold uppercase tracking-wider mb-4 text-gray-400">Legal</h4>
             <p className="text-xs text-gray-500 leading-relaxed">
-              Listed businesses are sourced from publicly available information and do not imply
-              endorsement by or affiliation with Vicrez. Verified installers have been confirmed through
-              our dealer network. To request removal, click &quot;Request Removal&quot; on your listing.
+              Directory records include business submissions and publicly available information.
+              Verified is a directory record designation, not an independent certification or workmanship guarantee.
+              For corrections or removal, use the listing contact link or our Contact page.
             </p>
           </div>
         </div>

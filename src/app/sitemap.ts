@@ -31,6 +31,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: '/directory', changeFrequency: 'weekly', priority: 0.9 },
     { path: '/guides', changeFrequency: 'weekly', priority: 0.8 },
     { path: '/apply', changeFrequency: 'monthly', priority: 0.6 },
+    { path: '/about', changeFrequency: 'monthly', priority: 0.5 },
+    { path: '/contact', changeFrequency: 'monthly', priority: 0.5 },
+    { path: '/how-verification-works', changeFrequency: 'monthly', priority: 0.5 },
   ];
   for (const p of staticPages) {
     urls.push({ url: `${BASE}${p.path}`, lastModified: now, changeFrequency: p.changeFrequency, priority: p.priority });
