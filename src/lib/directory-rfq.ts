@@ -27,7 +27,7 @@ export function sameOrigin(request: Request): boolean {
 export async function recordQuoteEvent(event: string, data: { id: string; flow: string; session_id?: string; service?: string }) {
   try {
     const query = {text:`INSERT INTO analytics_events(id,event,page,service,session_id,flow,created_at) VALUES($1,$2,'quote',$3,$4,$5,NOW()) ON CONFLICT(id) DO NOTHING`,
-      values:[data.id, event, data.service || null, UUID.test(data.session_id || '') ? data.session_id : null, data.flow], query_timeout:2000};
+      values:[data.id, event, data.service || '', UUID.test(data.session_id || '') ? data.session_id : null, data.flow], query_timeout:2000};
     await getPool().query(query);
   } catch { console.error('Quote measurement temporarily unavailable'); }
 }

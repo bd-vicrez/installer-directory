@@ -71,6 +71,7 @@ test('rate limits and origin checks prevent forwarding',async()=>{
 test('server measurement is idempotent and excludes customer details',async()=>{
   let args;const {recordQuoteEvent}=load('lib/directory-rfq.ts',{'@/lib/db':{getPool:()=>({query:async config=>{args=config;return {rows:[]};}})}});
   await recordQuoteEvent('quote_received',{id:'directory-quote-2',flow:'selected',service:'body-kits',session_id:id,email:'never@example.test'});assert.match(args.text,/ON CONFLICT\(id\) DO NOTHING/);assert.equal(args.query_timeout,2000);assert.ok(!JSON.stringify(args).includes('never@'));
+  await recordQuoteEvent('quote_open',{id,flow:'selected',session_id:id});assert.equal(args.values[2],'','The existing analytics service column is NOT NULL');
 });
 test('rate storage hashes the network identifier and enforces returned count',async()=>{
   process.env.DIRECTORY_RFQ_SECRET='s'.repeat(48);let values;
