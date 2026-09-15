@@ -1,16 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface HeroProps {
   onSearch: (input: string, coords?: { lat: number; lng: number }) => void;
   isLoading: boolean;
   resultCount: number | null;
   locationLabel: string | null;
+  initialInput?: string;
 }
 
-export default function Hero({ onSearch, isLoading, resultCount, locationLabel }: HeroProps) {
-  const [input, setInput] = useState('');
+export default function Hero({ onSearch, isLoading, resultCount, locationLabel, initialInput = '' }: HeroProps) {
+  const [input, setInput] = useState(initialInput);
+  useEffect(() => { setInput(initialInput); }, [initialInput]);
   const [locationLoading, setLocationLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -30,44 +32,9 @@ export default function Hero({ onSearch, isLoading, resultCount, locationLabel }
     
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          
-          // Reverse geocode to get city name
-          const apiKey = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY || 'AIzaSyCcZECk3LZo0U2S9GPAP1vlhk0hRJwj3JM';
-          const response = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`
-          );
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.results && data.results.length > 0) {
-              const result = data.results[0];
-              const addressComponents = result.address_components;
-              
-              let city = '';
-              let state = '';
-              
-              for (const component of addressComponents) {
-                if (component.types.includes('locality')) {
-                  city = component.long_name;
-                } else if (component.types.includes('administrative_area_level_1')) {
-                  state = component.short_name;
-                }
-              }
-              
-              const locationName = city && state ? `${city}, ${state}` : 'Your Location';
-              setInput(locationName);
-            }
-          }
-          
-          onSearch('', { lat: latitude, lng: longitude });
-        } catch (error) {
-          console.error('Reverse geocoding failed:', error);
-          onSearch('', { lat: position.coords.latitude, lng: position.coords.longitude });
-        } finally {
-          setLocationLoading(false);
-        }
+        setInput('Your location');
+        onSearch('', { lat: position.coords.latitude, lng: position.coords.longitude });
+        setLocationLoading(false);
       },
       (error) => {
         console.error('Geolocation error:', error);
@@ -120,6 +87,7 @@ export default function Hero({ onSearch, isLoading, resultCount, locationLabel }
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  aria-label="ZIP code or city and state"
                   placeholder="Enter zip code or city, state"
                   className="input-field w-full pl-12 text-lg"
                   required

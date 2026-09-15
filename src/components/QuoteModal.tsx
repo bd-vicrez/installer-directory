@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface QuoteModalProps {
   isOpen: boolean;
@@ -10,7 +10,6 @@ interface QuoteModalProps {
     business_name: string;
     city: string;
     state: string;
-    email: string;
     phone: string;
   };
 }
@@ -27,9 +26,13 @@ export default function QuoteModal({ isOpen, onClose, installer }: QuoteModalPro
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const requestId = useRef('');
+  const [receipt, setReceipt] = useState<{ message: string; reference: string } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
+      requestId.current = crypto.randomUUID();
+      setReceipt(null);
       // Reset form when modal opens
       setCustomerName('');
       setCustomerPhone('');
@@ -62,6 +65,7 @@ export default function QuoteModal({ isOpen, onClose, installer }: QuoteModalPro
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          request_id: requestId.current,
           customer_name: customerName,
           customer_phone: customerPhone,
           customer_email: customerEmail,
@@ -72,7 +76,6 @@ export default function QuoteModal({ isOpen, onClose, installer }: QuoteModalPro
           additional_notes: additionalNotes,
           installer_id: installer.id,
           installer_business_name: installer.business_name,
-          installer_email: installer.email,
         }),
       });
 
@@ -81,6 +84,9 @@ export default function QuoteModal({ isOpen, onClose, installer }: QuoteModalPro
         throw new Error(errorData.error || 'Failed to submit');
       }
       
+      const accepted = await res.json();
+      if (accepted.success !== true || !accepted.reference) throw new Error('Your request was not confirmed. Please try again.');
+      setReceipt(accepted);
       setSubmitted(true);
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
@@ -98,7 +104,7 @@ export default function QuoteModal({ isOpen, onClose, installer }: QuoteModalPro
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-vicrez-muted hover:text-white transition-colors"
+          aria-label="Close quote form" className="absolute top-4 right-4 text-vicrez-muted hover:text-gray-900 transition-colors"
         >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -110,10 +116,9 @@ export default function QuoteModal({ isOpen, onClose, installer }: QuoteModalPro
             <svg className="w-16 h-16 mx-auto text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <h2 className="text-xl font-bold mb-2">Quote Request Sent!</h2>
-            <p className="text-vicrez-muted">
-              Your quote request has been sent to {installer.business_name}! They&apos;ll contact you within 24-48 hours.
-            </p>
+            <h2 className="text-xl font-bold mb-2">Quote Request Received</h2>
+              <p className="text-gray-700">{receipt?.message}</p>
+            <p className="font-semibold mt-3">Reference: {receipt?.reference}</p>
             <button onClick={onClose} className="btn-secondary mt-6">
               Close
             </button>
@@ -127,12 +132,12 @@ export default function QuoteModal({ isOpen, onClose, installer }: QuoteModalPro
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                <label htmlFor="quotemodal-your-name" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                   Your Name *
                 </label>
-                <input
+                <input id="quotemodal-your-name"
                   type="text"
-                  value={customerName}
+                  minLength={2} maxLength={80} value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   className="input-field w-full"
                   required
@@ -141,12 +146,12 @@ export default function QuoteModal({ isOpen, onClose, installer }: QuoteModalPro
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                <label htmlFor="quotemodal-your-phone" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                   Your Phone *
                 </label>
-                <input
+                <input id="quotemodal-your-phone"
                   type="tel"
-                  value={customerPhone}
+                  minLength={10} maxLength={30} value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
                   className="input-field w-full"
                   required
@@ -155,12 +160,12 @@ export default function QuoteModal({ isOpen, onClose, installer }: QuoteModalPro
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                <label htmlFor="quotemodal-your-email" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                   Your Email *
                 </label>
-                <input
+                <input id="quotemodal-your-email"
                   type="email"
-                  value={customerEmail}
+                  minLength={5} maxLength={255} value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
                   className="input-field w-full"
                   required
@@ -170,10 +175,10 @@ export default function QuoteModal({ isOpen, onClose, installer }: QuoteModalPro
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                  <label htmlFor="quotemodal-year" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                     Year *
                   </label>
-                  <input
+                  <input id="quotemodal-year"
                     type="text"
                     value={vehicleYear}
                     onChange={(e) => setVehicleYear(e.target.value)}
@@ -183,12 +188,12 @@ export default function QuoteModal({ isOpen, onClose, installer }: QuoteModalPro
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                  <label htmlFor="quotemodal-make" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                     Make *
                   </label>
-                  <input
+                  <input id="quotemodal-make"
                     type="text"
-                    value={vehicleMake}
+                    minLength={2} maxLength={40} value={vehicleMake}
                     onChange={(e) => setVehicleMake(e.target.value)}
                     className="input-field w-full"
                     required
@@ -196,12 +201,12 @@ export default function QuoteModal({ isOpen, onClose, installer }: QuoteModalPro
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                  <label htmlFor="quotemodal-model" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                     Model *
                   </label>
-                  <input
+                  <input id="quotemodal-model"
                     type="text"
-                    value={vehicleModel}
+                    minLength={1} maxLength={60} value={vehicleModel}
                     onChange={(e) => setVehicleModel(e.target.value)}
                     className="input-field w-full"
                     required
@@ -211,11 +216,11 @@ export default function QuoteModal({ isOpen, onClose, installer }: QuoteModalPro
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                <label htmlFor="quotemodal-what-do-you-need-installed" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                   What do you need installed? *
                 </label>
-                <textarea
-                  value={whatNeeded}
+                <textarea id="quotemodal-what-do-you-need-installed"
+                  minLength={1} maxLength={80} value={whatNeeded}
                   onChange={(e) => setWhatNeeded(e.target.value)}
                   className="input-field w-full h-24 resize-none"
                   required
@@ -224,11 +229,11 @@ export default function QuoteModal({ isOpen, onClose, installer }: QuoteModalPro
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                <label htmlFor="quotemodal-additional-notes" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                   Additional Notes
                 </label>
-                <textarea
-                  value={additionalNotes}
+                <textarea id="quotemodal-additional-notes"
+                  minLength={0} maxLength={500} value={additionalNotes}
                   onChange={(e) => setAdditionalNotes(e.target.value)}
                   className="input-field w-full h-20 resize-none"
                   placeholder="Any additional details or requirements..."

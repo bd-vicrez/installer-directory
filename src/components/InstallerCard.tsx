@@ -1,13 +1,13 @@
 'use client';
 
-import { InstallerWithMeta } from '@/lib/types';
+import type { PublicInstaller } from '@/lib/public-installers';
 import { formatPhone, formatDistance } from '@/lib/utils';
 import StarRating from './StarRating';
 
 interface InstallerCardProps {
-  installer: InstallerWithMeta;
+  installer: PublicInstaller;
   onClaimClick: () => void;
-  onRemovalClick: (installer: InstallerWithMeta) => void;
+  onRemovalClick: (installer: PublicInstaller) => void;
 }
 
 export default function InstallerCard({ installer, onClaimClick, onRemovalClick }: InstallerCardProps) {
@@ -18,7 +18,7 @@ export default function InstallerCard({ installer, onClaimClick, onRemovalClick 
       {/* Tier badge */}
       <div className={`px-4 py-2 flex items-center gap-2 text-xs font-medium ${
         isVerified
-          ? 'bg-green-500/10 text-green-400 border-b border-green-500/20'
+          ? 'bg-green-500/10 text-green-700 border-b border-green-500/20'
           : 'bg-vicrez-card text-gray-500 border-b border-gray-200'
       }`}>
         {isVerified ? (

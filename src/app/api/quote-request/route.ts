@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getPool } from '@/lib/db';
+import { quoteReceipt, validateQuoteInput } from '@/lib/quote-validation';
+export const maxDuration = 60;
+const escapeHtml = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
 // === Vicrez RFQ webhook (ai.vicrez.com) — fires Klaviyo + DB + B2B + top-3 installer routing ===
 const RFQ_WEBHOOK_URL = process.env.RFQ_WEBHOOK_URL || 'https://ai.vicrez.com/webhook/rfq/submit';
 
 async function forwardToRFQWebhook(payload: any, requestIp: string, userAgent: string, sourcePage: string) {
-  // Best-effort forward. Do NOT block the user response on this.
+  // Confirm durable acceptance by the existing RFQ system before acknowledging the request.
   try {
     // Map the existing form payload to the RFQ webhook's expected shape.
     // The webhook requires: full_name, email, phone, vehicle_year, vehicle_make, vehicle_model,
@@ -13,7 +17,7 @@ async function forwardToRFQWebhook(payload: any, requestIp: string, userAgent: s
     const rfqPayload: any = {
       full_name: payload.customer_name,
       email: payload.customer_email,
-      phone: payload.customer_phone,
+      phone: payload.customer_phone.replace(/[^\d+]/g, ''),
       vehicle_year: parseInt(payload.vehicle_year, 10) || new Date().getFullYear(),
       vehicle_make: payload.vehicle_make,
       vehicle_model: payload.vehicle_model,
@@ -24,41 +28,46 @@ async function forwardToRFQWebhook(payload: any, requestIp: string, userAgent: s
       notes: payload.additional_notes || '',
       source_page: sourcePage,
       how_heard: payload.how_heard || 'installers.vicrez.com',
-      website_url: '', // honeypot - must be empty
+      website_url: payload.website_url || '',
+      request_id: payload.request_id || null,
       hcaptcha_token: payload.hcaptcha_token || null,
+      budget_range: payload.budget_range || null,
     };
-
-    const ctrl = new AbortController();
-    const timeoutId = setTimeout(() => ctrl.abort(), 8000);
 
     const res = await fetch(RFQ_WEBHOOK_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Forwarded-For': requestIp,
-        'X-Source': 'installer-directory-quote-form',
-        'User-Agent': userAgent,
-      },
-      body: JSON.stringify(rfqPayload),
-      signal: ctrl.signal,
+      headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': requestIp, 'X-Source': 'installer-directory-quote-form', 'User-Agent': userAgent },
+      body: JSON.stringify(rfqPayload), signal: AbortSignal.timeout(45000),
     });
-    clearTimeout(timeoutId);
-
-    const text = await res.text().catch(() => '');
-    if (!res.ok) {
-      console.error('[RFQ webhook] non-OK response', res.status, text.slice(0, 300));
-    } else {
-      console.log('[RFQ webhook] forwarded successfully', res.status);
-    }
-  } catch (err: any) {
-    console.error('[RFQ webhook] forward failed:', err?.message || err);
-    // swallow - this is best-effort. SendGrid send below is the user-facing success path.
+    if (!res.ok) throw new Error('RFQ acceptance failed');
+    const receipt = await res.json();
+    quoteReceipt(receipt);
+    return receipt;
+  } catch {
+    throw new Error('We could not confirm your request. Please retry using the same form.');
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    if (Number(request.headers.get('content-length') || 0) > 16384) return NextResponse.json({ error: 'Request is too large.' }, { status: 413 });
+    const raw = await request.text();
+    if (Buffer.byteLength(raw, 'utf8') > 16384) return NextResponse.json({ error: 'Request is too large.' }, { status: 413 });
+    let body;
+    try { body = JSON.parse(raw); }
+    catch { return NextResponse.json({ error: 'Invalid request.' }, { status: 400 }); }
+    const invalid = validateQuoteInput(body);
+    if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
+    // Contact details come from the selected active shop, never from a caller-supplied recipient.
+    delete body.installer_email;
+    delete body.installer_business_name;
+    if (body.installer_id) {
+      const { rows } = await getPool().query("SELECT business_name,email,zip_code FROM installers WHERE id::text=$1 AND status='active' LIMIT 1", [body.installer_id]);
+      if (!rows[0]) return NextResponse.json({ error: 'This installer is unavailable. Choose another shop.' }, { status: 404 });
+      body.installer_email = rows[0].email;
+      body.installer_business_name = rows[0].business_name;
+      body.zip_code = /^\d{5}/.test(body.zip_code || '') ? body.zip_code : rows[0].zip_code;
+    }
     const { 
       customer_name, 
       customer_phone, 
@@ -89,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     // installer_email is only required when this is an installer-specific request.
     // City-page generic RFQs may not have it — in that case, the RFQ webhook routes to top-3 closest.
-    const isCityPageRequest = !installer_email && !installer_id;
+    const isCityPageRequest = !installer_id;
 
     if (!isCityPageRequest && !installer_email) {
       return NextResponse.json(
@@ -103,33 +112,10 @@ export async function POST(request: NextRequest) {
     const userAgent = request.headers.get('user-agent') || 'unknown';
     const referer = request.headers.get('referer') || 'unknown';
 
-    // === Forward to RFQ webhook in parallel (Klaviyo events, DB write, B2B detection,
-    //     top-3 installer broadcast). Fire-and-forget — does NOT block user response. ===
-    const rfqForwardPromise = forwardToRFQWebhook(
-      {
-        customer_name, customer_phone, customer_email,
-        vehicle_year, vehicle_make, vehicle_model,
-        what_needed, additional_notes, installer_id,
-        zip_code, install_timeline, budget_range, how_heard, hcaptcha_token,
-      },
-      requestIp,
-      userAgent,
-      referer
-    );
-
-    // For city-page requests with no specific installer, skip the SendGrid installer email
-    // (the RFQ webhook will fan out to top-3 via Klaviyo).
-    if (isCityPageRequest) {
-      // Wait briefly for the webhook (max 5s) so we can report success/failure.
-      await Promise.race([
-        rfqForwardPromise,
-        new Promise((resolve) => setTimeout(resolve, 5000)),
-      ]);
-      return NextResponse.json({
-        success: true,
-        message: 'Quote request received — we\u2019re matching you with nearby installers. Expect a quote within 24 business hours.',
-        routed_via: 'city_page_rfq_webhook',
-      });
+    const receipt = await forwardToRFQWebhook(body, requestIp, userAgent, referer);
+    const accepted = quoteReceipt(receipt);
+    if (isCityPageRequest || receipt.installers_notified > 0 || receipt.routed_to === 'b2b_support' || receipt.duplicate) {
+      return NextResponse.json(accepted);
     }
 
     // === Installer-specific path: send SendGrid emails (existing behavior) ===
@@ -137,11 +123,7 @@ export async function POST(request: NextRequest) {
     if (!sendgridApiKey) {
       console.error('SendGrid API key not configured');
       // RFQ webhook already fired — return success so the lead isn't lost.
-      return NextResponse.json({
-        success: true,
-        message: 'Quote request received. We\u2019ll contact you within 24-48 hours.',
-        routed_via: 'rfq_webhook_only',
-      });
+      return NextResponse.json(accepted);
     }
 
     const submittedDate = new Date().toLocaleDateString('en-US', {
@@ -168,16 +150,16 @@ export async function POST(request: NextRequest) {
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
               <div>
                 <p style="margin: 0 0 5px 0; font-weight: bold; color: #374151;">Name:</p>
-                <p style="margin: 0; color: #6b7280;">${customer_name}</p>
+                <p style="margin: 0; color: #6b7280;">${escapeHtml(customer_name)}</p>
               </div>
               <div>
                 <p style="margin: 0 0 5px 0; font-weight: bold; color: #374151;">Phone:</p>
-                <p style="margin: 0; color: #6b7280;">${customer_phone}</p>
+                <p style="margin: 0; color: #6b7280;">${escapeHtml(customer_phone)}</p>
               </div>
             </div>
             <div style="margin-top: 15px;">
               <p style="margin: 0 0 5px 0; font-weight: bold; color: #374151;">Email:</p>
-              <p style="margin: 0; color: #6b7280;">${customer_email}</p>
+              <p style="margin: 0; color: #6b7280;">${escapeHtml(customer_email)}</p>
             </div>
           </div>
 
@@ -186,15 +168,15 @@ export async function POST(request: NextRequest) {
             <div style="display: flex; gap: 20px; margin-bottom: 15px;">
               <div style="flex: 1;">
                 <p style="margin: 0 0 5px 0; font-weight: bold; color: #374151;">Year:</p>
-                <p style="margin: 0; color: #6b7280; font-size: 18px;">${vehicle_year}</p>
+                <p style="margin: 0; color: #6b7280; font-size: 18px;">${escapeHtml(vehicle_year)}</p>
               </div>
               <div style="flex: 1;">
                 <p style="margin: 0 0 5px 0; font-weight: bold; color: #374151;">Make:</p>
-                <p style="margin: 0; color: #6b7280; font-size: 18px;">${vehicle_make}</p>
+                <p style="margin: 0; color: #6b7280; font-size: 18px;">${escapeHtml(vehicle_make)}</p>
               </div>
               <div style="flex: 1;">
                 <p style="margin: 0 0 5px 0; font-weight: bold; color: #374151;">Model:</p>
-                <p style="margin: 0; color: #6b7280; font-size: 18px;">${vehicle_model}</p>
+                <p style="margin: 0; color: #6b7280; font-size: 18px;">${escapeHtml(vehicle_model)}</p>
               </div>
             </div>
           </div>
@@ -202,10 +184,10 @@ export async function POST(request: NextRequest) {
           <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
             <h2 style="color: #dc2626; margin-top: 0; margin-bottom: 15px; font-size: 20px;">Installation Request</h2>
             <p style="margin: 0 0 5px 0; font-weight: bold; color: #374151;">What they need installed:</p>
-            <p style="margin: 0 0 15px 0; color: #6b7280; white-space: pre-wrap; line-height: 1.6;">${what_needed}</p>
+            <p style="margin: 0 0 15px 0; color: #6b7280; white-space: pre-wrap; line-height: 1.6;">${escapeHtml(what_needed)}</p>
             ${additional_notes ? `
               <p style="margin: 0 0 5px 0; font-weight: bold; color: #374151;">Additional notes:</p>
-              <p style="margin: 0; color: #6b7280; white-space: pre-wrap; line-height: 1.6;">${additional_notes}</p>
+              <p style="margin: 0; color: #6b7280; white-space: pre-wrap; line-height: 1.6;">${escapeHtml(additional_notes)}</p>
             ` : ''}
           </div>
 
@@ -233,23 +215,23 @@ export async function POST(request: NextRequest) {
         
         <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <h3 style="margin-top: 0; color: #374151;">Customer:</h3>
-          <p><strong>Name:</strong> ${customer_name}</p>
-          <p><strong>Phone:</strong> ${customer_phone}</p>
-          <p><strong>Email:</strong> ${customer_email}</p>
-          <p><strong>Vehicle:</strong> ${vehicle_year} ${vehicle_make} ${vehicle_model}</p>
+          <p><strong>Name:</strong> ${escapeHtml(customer_name)}</p>
+          <p><strong>Phone:</strong> ${escapeHtml(customer_phone)}</p>
+          <p><strong>Email:</strong> ${escapeHtml(customer_email)}</p>
+          <p><strong>Vehicle:</strong> ${escapeHtml(vehicle_year)} ${escapeHtml(vehicle_make)} ${escapeHtml(vehicle_model)}</p>
         </div>
 
         <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <h3 style="margin-top: 0; color: #374151;">Installer:</h3>
-          <p><strong>Business:</strong> ${installer_business_name}</p>
-          <p><strong>Email:</strong> ${installer_email}</p>
-          <p><strong>ID:</strong> ${installer_id}</p>
+          <p><strong>Business:</strong> ${escapeHtml(installer_business_name)}</p>
+          <p><strong>Email:</strong> ${escapeHtml(installer_email)}</p>
+          <p><strong>ID:</strong> ${escapeHtml(installer_id)}</p>
         </div>
 
         <div style="background: #fef2f2; padding: 20px; border-radius: 8px; border-left: 4px solid #dc2626;">
           <h3 style="margin-top: 0; color: #dc2626;">Installation Request:</h3>
-          <p style="white-space: pre-wrap;">${what_needed}</p>
-          ${additional_notes ? `<p><strong>Notes:</strong> ${additional_notes}</p>` : ''}
+          <p style="white-space: pre-wrap;">${escapeHtml(what_needed)}</p>
+          ${additional_notes ? `<p><strong>Notes:</strong> ${escapeHtml(additional_notes)}</p>` : ''}
         </div>
 
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
@@ -307,7 +289,7 @@ export async function POST(request: NextRequest) {
           'Authorization': `Bearer ${sendgridApiKey}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(sendgridPayload1)
+        signal: AbortSignal.timeout(10000), body: JSON.stringify(sendgridPayload1)
       }),
       fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
@@ -315,38 +297,28 @@ export async function POST(request: NextRequest) {
           'Authorization': `Bearer ${sendgridApiKey}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(sendgridPayload2)
+        signal: AbortSignal.timeout(10000), body: JSON.stringify(sendgridPayload2)
       })
-    ]);
+    ]).catch(() => [null, null]);
 
-    if (!installerResponse.ok) {
-      const errorText = await installerResponse.text();
-      console.error('SendGrid installer email error:', installerResponse.status, errorText);
+    if (!installerResponse?.ok) {
+      console.error('SendGrid installer email failed:', installerResponse?.status || 'timeout');
       // RFQ webhook already fired — still return success so the customer doesn't see an error.
-      return NextResponse.json({
-        success: true,
-        message: 'Quote request received. We\u2019ll contact you within 24-48 hours.',
-        routed_via: 'rfq_webhook_fallback',
-      });
+      return NextResponse.json(accepted);
     }
 
-    if (!teamResponse.ok) {
-      const errorText = await teamResponse.text();
-      console.error('SendGrid team email error:', teamResponse.status, errorText);
+    if (!teamResponse?.ok) {
+      console.error('SendGrid team email failed:', teamResponse?.status || 'timeout');
       // Continue even if team email fails - installer email is more important
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Quote request sent successfully',
-      routed_via: 'sendgrid_plus_rfq_webhook',
-    });
+    return NextResponse.json(accepted);
 
   } catch (error) {
-    console.error('Quote request error:', error);
+    console.error('Quote request could not be confirmed');
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: 'We could not confirm your request. Please retry using the same form.' },
+      { status: 503 }
     );
   }
 }

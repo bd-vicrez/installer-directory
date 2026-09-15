@@ -13,7 +13,7 @@ import ShareButtons from '@/components/ShareButtons';
 import { getProfileDescription, getProfileQuoteNote, getProfileGuide, serializeJsonLd } from '@/lib/profile-content';
 
 interface PageProps {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export async function generateStaticParams() {
@@ -22,7 +22,8 @@ export async function generateStaticParams() {
   return slugs.map((slug: string) => ({ slug }));
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params: pendingParams }: PageProps): Promise<Metadata> {
+  const params = await pendingParams;
   const installer: Installer | null = await queryInstallerBySlug(params.slug);
   if (!installer) return { title: 'Installer Not Found' };
 
@@ -60,7 +61,8 @@ function formatHours(hours: Record<string, string> | null) {
   return entries;
 }
 
-export default async function InstallerPage({ params }: PageProps) {
+export default async function InstallerPage({ params: pendingParams }: PageProps) {
+  const params = await pendingParams;
   const installer: Installer | null = await queryInstallerBySlug(params.slug);
   if (!installer) notFound();
 
@@ -222,7 +224,7 @@ export default async function InstallerPage({ params }: PageProps) {
                   business_name: installer.business_name,
                   city: installer.city,
                   state: installer.state,
-                  email: installer.email || '',
+
                   phone: phone || installer.phone || ''
                 }}
               />

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { InstallerWithMeta } from '@/lib/types';
+import type { PublicInstaller } from '@/lib/public-installers';
 
 interface RemovalModalProps {
   isOpen: boolean;
-  installer: InstallerWithMeta | null;
+  installer: PublicInstaller | null;
   onClose: () => void;
 }
 
@@ -20,7 +20,7 @@ export default function RemovalModal({ isOpen, installer, onClose }: RemovalModa
   useEffect(() => {
     if (isOpen && installer) {
       setShopName(installer.business_name);
-      setEmail(installer.email || '');
+      setEmail('');
       setReason('');
       setSubmitted(false);
       setError('');

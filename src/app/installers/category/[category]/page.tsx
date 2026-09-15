@@ -77,14 +77,15 @@ const CATEGORIES: Record<string, CategoryConfig> = {
 };
 
 interface PageProps {
-  params: { category: string };
+  params: Promise<{ category: string }>;
 }
 
 export async function generateStaticParams() {
   return Object.keys(CATEGORIES).map((category) => ({ category }));
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params: pendingParams }: PageProps): Promise<Metadata> {
+  const params = await pendingParams;
   const config = CATEGORIES[params.category];
   if (!config) return { title: 'Category Not Found' };
 
@@ -103,7 +104,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function CategoryPage({ params }: PageProps) {
+export default async function CategoryPage({ params: pendingParams }: PageProps) {
+  const params = await pendingParams;
   const config = CATEGORIES[params.category];
   if (!config) notFound();
 

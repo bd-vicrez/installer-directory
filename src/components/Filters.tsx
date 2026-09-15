@@ -13,6 +13,7 @@ const CAPABILITIES = [
   'Body Kits',
   'Paint/Bodywork',
   'Vinyl/Wraps',
+  'PPF',
   'Performance Mods',
   'Wheels/Tires',
 ];
@@ -37,6 +38,7 @@ export default function Filters({
           </label>
           <div className="flex flex-wrap gap-2">
             <button
+              aria-pressed={capabilityFilter === ''}
               onClick={() => onCapabilityChange('')}
               className={`text-sm px-3 py-1.5 rounded-full border transition-all ${
                 capabilityFilter === ''
@@ -49,6 +51,7 @@ export default function Filters({
             {CAPABILITIES.map((cap) => (
               <button
                 key={cap}
+                aria-pressed={capabilityFilter === cap}
                 onClick={() => onCapabilityChange(cap === capabilityFilter ? '' : cap)}
                 className={`text-sm px-3 py-1.5 rounded-full border transition-all ${
                   capabilityFilter === cap
@@ -68,6 +71,7 @@ export default function Filters({
             Type
           </label>
           <select
+            aria-label="Listing type"
             value={tierFilter}
             onChange={(e) => onTierChange(e.target.value)}
             className="input-field text-sm !py-2"
@@ -83,6 +87,7 @@ export default function Filters({
             Radius
           </label>
           <select
+            aria-label="Search radius"
             value={radiusFilter}
             onChange={(e) => onRadiusChange(Number(e.target.value))}
             className="input-field text-sm !py-2"

@@ -9,7 +9,6 @@ interface Props {
     business_name: string;
     city: string;
     state: string;
-    email: string;
     phone: string;
   };
 }

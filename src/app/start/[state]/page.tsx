@@ -7,14 +7,15 @@ import { generateArticleJsonLd } from '@/lib/seo';
 import { STATE_DATA, STATE_SLUGS } from './stateData';
 
 interface PageProps {
-  params: { state: string };
+  params: Promise<{ state: string }>;
 }
 
 export function generateStaticParams() {
   return STATE_SLUGS.map((state) => ({ state }));
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params: pendingParams }: PageProps): Promise<Metadata> {
+  const params = await pendingParams;
   const s = STATE_DATA[params.state];
   if (!s) return { title: 'State Guide Not Found' };
   const title = `How to Open a Tire Shop in ${s.name} (2026 Guide)`;
@@ -35,7 +36,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default function StateStartGuidePage({ params }: PageProps) {
+export default async function StateStartGuidePage({ params: pendingParams }: PageProps) {
+  const params = await pendingParams;
   const s = STATE_DATA[params.state];
   if (!s) notFound();
 

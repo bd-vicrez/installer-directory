@@ -1,67 +1,46 @@
-import { NextResponse } from 'next/server';
-import { Pool } from 'pg';
-
-let pool: Pool;
-
-function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-      max: 5,
-    });
-  }
-  return pool;
-}
-
-const TABLE_NAMES = ['installers', 'installer', 'shops', 'shop'];
+import { NextRequest, NextResponse } from 'next/server';
+import { getPool } from '@/lib/db';
+import { VERIFIED_KEYWORDS } from '@/lib/utils';
+import { PUBLIC_INSTALLER_FIELDS, SERVICE_KEYWORDS, readSearchOptions, toPublicInstaller } from '@/lib/public-installers';
+import { geocodeLocation } from '@/lib/geocode';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const db = getPool();
-
-  // Try each possible table name
-  for (const table of TABLE_NAMES) {
-    try {
-      const { rows } = await db.query(
-        `SELECT * FROM ${table} WHERE status != 'removed' ORDER BY id`
-      );
-      return NextResponse.json(rows, {
-        headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-        },
-      });
-    } catch (error: any) {
-      // Table doesn't exist, try next
-      if (error.code === '42P01') continue;
-      // Column issue — try without WHERE clause
-      try {
-        const { rows } = await db.query(`SELECT * FROM ${table} ORDER BY id`);
-        return NextResponse.json(rows, {
-          headers: {
-            'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-          },
-        });
-      } catch {
-        continue;
-      }
-    }
-  }
-
-  // Last resort: list all tables for debugging
+export async function GET(request: NextRequest) {
+  let options;
+  try { options = readSearchOptions(request.nextUrl.searchParams); }
+  catch { return NextResponse.json({ error: 'Check your location, filters and page settings.' }, { status: 400 }); }
   try {
-    const { rows } = await db.query(
-      `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`
-    );
-    return NextResponse.json(
-      { error: 'No installer table found', tables: rows.map((r: any) => r.table_name) },
-      { status: 500 }
-    );
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: 'Database connection failed', detail: error.message },
-      { status: 500 }
-    );
+    let location = options.lat !== null && options.lng !== null ? { lat: options.lat, lng: options.lng, label: 'Your location' } : null;
+    if (options.q && !location) {
+      location = await geocodeLocation(options.q);
+      if (!location) return NextResponse.json({ error: 'Location not found. Enter a US ZIP code or city and state.' }, { status: 422 });
+    }
+    const values: any[] = [];
+    const bind = (value: any) => { values.push(value); return '$' + values.length; };
+    const verified = bind(VERIFIED_KEYWORDS.map(k => '%' + k.toLowerCase() + '%'));
+    const tier = `CASE WHEN LOWER(COALESCE(source,'')) LIKE ANY(${verified}::text[]) THEN 'verified' ELSE 'listed' END`;
+    let distance = 'NULL::double precision';
+    if (location) {
+      const lat = bind(location.lat), lng = bind(location.lng);
+      distance = `CASE WHEN lat BETWEEN -90 AND 90 AND lng BETWEEN -180 AND 180 THEN 3958.8 * 2 * ASIN(SQRT(LEAST(1.0,GREATEST(0.0,POWER(SIN(RADIANS(lat::float8-${lat})/2),2)+COS(RADIANS(${lat}))*COS(RADIANS(lat::float8))*POWER(SIN(RADIANS(lng::float8-${lng})/2),2))))) END`;
+    }
+    const conditions = ["status NOT IN ('removed','non_us_excluded')"];
+    if (options.service) {
+      const keywords = bind(SERVICE_KEYWORDS[options.service].map(k => '%' + k + '%'));
+      conditions.push(`LOWER(CONCAT_WS(' ',install_capabilities::text,specialize_in,shop_type)) LIKE ANY(${keywords}::text[])`);
+    }
+    const filters: string[] = [];
+    if (location) filters.push('distance <= ' + bind(options.radius));
+    if (options.tier) filters.push('tier = ' + bind(options.tier));
+    const cte = `WITH candidates AS (SELECT ${PUBLIC_INSTALLER_FIELDS.join(',')}, ${tier} AS tier, ${distance} AS distance FROM installers WHERE ${conditions.join(' AND ')}), matches AS (SELECT * FROM candidates ${filters.length ? 'WHERE ' + filters.join(' AND ') : ''})`;
+    const db = getPool();
+    const counts = await db.query(cte + " SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE tier='verified')::int AS verified FROM matches", values);
+    const page = await db.query(cte + ` SELECT * FROM matches ORDER BY (tier='verified') DESC, distance ASC NULLS LAST, id ASC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`, [...values, options.limit, options.offset]);
+    const { total, verified: verifiedCount } = counts.rows[0];
+    return NextResponse.json({ installers: page.rows.map(toPublicInstaller), total, verified: verifiedCount, listed: total - verifiedCount, limit: options.limit, offset: options.offset, location }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch {
+    console.error('Installer search failed');
+    return NextResponse.json({ error: 'Search is temporarily unavailable. Please try again.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
 }

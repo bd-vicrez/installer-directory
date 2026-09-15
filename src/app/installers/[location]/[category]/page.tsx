@@ -24,7 +24,7 @@ import { getTier } from '@/lib/utils';
 import { CATEGORIES, CATEGORY_SLUGS, filterInstallersByCategory } from '@/lib/categories';
 
 interface PageProps {
-  params: { location: string; category: string };
+  params: Promise<{ location: string; category: string }>;
 }
 
 const PER_PAGE = 60;
@@ -74,7 +74,8 @@ async function getData(locationSlug: string, categorySlug: string) {
   return null;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params: pendingParams }: PageProps): Promise<Metadata> {
+  const params = await pendingParams;
   const data = await getData(params.location, params.category);
   if (!data) return { title: 'Not Found' };
 
@@ -107,7 +108,8 @@ export async function generateStaticParams() {
   return params;
 }
 
-export default async function LocationCategoryPage({ params }: PageProps) {
+export default async function LocationCategoryPage({ params: pendingParams }: PageProps) {
+  const params = await pendingParams;
   const data = await getData(params.location, params.category);
   if (!data) notFound();
 

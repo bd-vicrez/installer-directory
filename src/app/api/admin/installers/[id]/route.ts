@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/admin-auth';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authError = requireAdmin(request);
   if (authError) return authError;
@@ -12,7 +12,7 @@ export async function PUT(
   try {
     const body = await request.json();
     const db = getPool();
-    const id = params.id;
+    const { id } = await params;
 
     const fields: string[] = [];
     const values: any[] = [];
@@ -54,7 +54,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authError = requireAdmin(request);
   if (authError) return authError;
@@ -63,7 +63,7 @@ export async function DELETE(
     const db = getPool();
     const result = await db.query(
       `UPDATE installers SET status = 'removed' WHERE id = $1 RETURNING id, business_name`,
-      [params.id]
+      [(await params).id]
     );
 
     if (result.rows.length === 0) {

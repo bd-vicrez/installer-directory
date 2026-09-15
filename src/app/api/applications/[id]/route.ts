@@ -21,13 +21,13 @@ function toCapArray(v: unknown): string[] {
   return [];
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   // Admin only
   const authError = requireAdmin(request);
   if (authError) return authError;
 
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { status, rejection_reason } = body;
 

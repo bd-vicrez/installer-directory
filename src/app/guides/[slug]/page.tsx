@@ -14,7 +14,7 @@ import PPFInstallationGuide from './ppf-installation-guide';
 import CoiloverInstallationGuide from './coilover-installation-guide';
 
 interface PageProps {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 const GUIDES: Record<string, {
@@ -75,7 +75,8 @@ const GUIDES: Record<string, {
   },
 };
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params: pendingParams }: PageProps): Promise<Metadata> {
+  const params = await pendingParams;
   const guide = GUIDES[params.slug];
   if (!guide) return { title: 'Guide Not Found' };
 
@@ -100,7 +101,8 @@ export function generateStaticParams() {
   return Object.keys(GUIDES).map((slug) => ({ slug }));
 }
 
-export default function GuidePage({ params }: PageProps) {
+export default async function GuidePage({ params: pendingParams }: PageProps) {
+  const params = await pendingParams;
   const guide = GUIDES[params.slug];
   if (!guide) notFound();
 

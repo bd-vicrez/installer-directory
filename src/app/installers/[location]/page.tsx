@@ -28,8 +28,8 @@ import { Installer } from '@/lib/types';
 import { getTier } from '@/lib/utils';
 
 interface PageProps {
-  params: { location: string };
-  searchParams?: { page?: string };
+  params: Promise<{ location: string }>;
+  searchParams: Promise<{ page?: string }>;
 }
 
 const INSTALLERS_PER_PAGE = 60;
@@ -74,7 +74,9 @@ async function getLocationData(slug: string) {
   return null;
 }
 
-export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params: pendingParams, searchParams: pendingSearchParams }: PageProps): Promise<Metadata> {
+  const params = await pendingParams;
+  const searchParams = await pendingSearchParams;
   const data = await getLocationData(params.location);
   if (!data) return { title: 'Location Not Found' };
 
@@ -145,7 +147,9 @@ export async function generateStaticParams() {
   return [...cityParams, ...stateParams];
 }
 
-export default async function LocationPage({ params, searchParams }: PageProps) {
+export default async function LocationPage({ params: pendingParams, searchParams: pendingSearchParams }: PageProps) {
+  const params = await pendingParams;
+  const searchParams = await pendingSearchParams;
   const data = await getLocationData(params.location);
 
   if (!data) {

@@ -30,6 +30,8 @@
   }
 
   /* Keep actual white text on red/dark backgrounds */
+  .bg-vicrez-red.text-white,
+  .bg-vicrez-red-dark.text-white,
   .bg-vicrez-red .text-white,
   .bg-vicrez-red-dark .text-white,
   .btn-primary .text-white,

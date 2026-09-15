@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateToken, verifyToken } from '@/lib/admin-auth';
 
-const ADMIN_USER = 'admin';
-const ADMIN_PASS = 'Vicrez2026!';
+const ADMIN_USER = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASS = process.env.ADMIN_PASSWORD;
 
 export async function POST(request: NextRequest) {
   try {
     const { username, password } = await request.json();
 
-    if (username === ADMIN_USER && password === ADMIN_PASS) {
+    if (ADMIN_PASS && typeof username === 'string' && typeof password === 'string' && username === ADMIN_USER && password === ADMIN_PASS) {
       const token = generateToken();
       const response = NextResponse.json({ success: true });
       response.cookies.set('admin_token', token, {

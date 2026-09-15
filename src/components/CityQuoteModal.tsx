@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface CityQuoteModalProps {
   isOpen: boolean;
@@ -55,9 +55,13 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const requestId = useRef('');
+  const [receipt, setReceipt] = useState<{ message: string; reference: string } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
+      requestId.current = crypto.randomUUID();
+      setReceipt(null);
       setCustomerName('');
       setCustomerPhone('');
       setCustomerEmail('');
@@ -85,11 +89,7 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (websiteUrl) {
-      // honeypot triggered — silently fake a success
-      setSubmitted(true);
-      return;
-    }
+    if (websiteUrl) { setError('Unable to accept this request.'); return; }
     setSubmitting(true);
     setError('');
 
@@ -98,6 +98,8 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          request_id: requestId.current,
+          website_url: websiteUrl,
           customer_name: customerName,
           customer_phone: customerPhone,
           customer_email: customerEmail,
@@ -118,6 +120,9 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to submit');
       }
+      const accepted = await res.json();
+      if (accepted.success !== true || !accepted.reference) throw new Error('Your request was not confirmed. Please try again.');
+      setReceipt(accepted);
       setSubmitted(true);
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
@@ -148,11 +153,9 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
             <svg className="w-16 h-16 mx-auto text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <h2 className="text-xl font-bold mb-2">Got It! We&apos;re Matching You With Installers</h2>
-            <p className="text-vicrez-muted">
-              We&apos;ve forwarded your request to verified installers near {locationLabel}.
-              Expect a quote within 24 business hours via email or phone.
-            </p>
+            <h2 className="text-xl font-bold mb-2">Quote Request Received</h2>
+              <p className="text-gray-700">{receipt?.message}</p>
+            <p className="font-semibold mt-3">Reference: {receipt?.reference}</p>
             <button onClick={onClose} className="btn-secondary mt-6">
               Close
             </button>
@@ -182,29 +185,27 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                <label htmlFor="cityquotemodal-your-name" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                   Your Name *
                 </label>
-                <input
+                <input id="cityquotemodal-your-name"
                   type="text"
-                  value={customerName}
+                  minLength={2} maxLength={80} value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   className="input-field w-full"
                   required
-                  minLength={2}
-                  maxLength={80}
                   placeholder="John Smith"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                  <label htmlFor="cityquotemodal-phone" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                     Phone *
                   </label>
-                  <input
+                  <input id="cityquotemodal-phone"
                     type="tel"
-                    value={customerPhone}
+                    minLength={10} maxLength={30} value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
                     className="input-field w-full"
                     required
@@ -212,10 +213,10 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                  <label htmlFor="cityquotemodal-zip-code" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                     Zip Code *
                   </label>
-                  <input
+                  <input id="cityquotemodal-zip-code"
                     type="text"
                     value={zipCode}
                     onChange={(e) => setZipCode(e.target.value)}
@@ -229,12 +230,12 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                <label htmlFor="cityquotemodal-email" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                   Email *
                 </label>
-                <input
+                <input id="cityquotemodal-email"
                   type="email"
-                  value={customerEmail}
+                  minLength={5} maxLength={255} value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
                   className="input-field w-full"
                   required
@@ -244,10 +245,10 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                  <label htmlFor="cityquotemodal-year" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                     Year *
                   </label>
-                  <input
+                  <input id="cityquotemodal-year"
                     type="text"
                     value={vehicleYear}
                     onChange={(e) => setVehicleYear(e.target.value)}
@@ -259,12 +260,12 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                  <label htmlFor="cityquotemodal-make" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                     Make *
                   </label>
-                  <input
+                  <input id="cityquotemodal-make"
                     type="text"
-                    value={vehicleMake}
+                    minLength={2} maxLength={40} value={vehicleMake}
                     onChange={(e) => setVehicleMake(e.target.value)}
                     className="input-field w-full"
                     required
@@ -272,12 +273,12 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                  <label htmlFor="cityquotemodal-model" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                     Model *
                   </label>
-                  <input
+                  <input id="cityquotemodal-model"
                     type="text"
-                    value={vehicleModel}
+                    minLength={1} maxLength={60} value={vehicleModel}
                     onChange={(e) => setVehicleModel(e.target.value)}
                     className="input-field w-full"
                     required
@@ -287,10 +288,10 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                <label htmlFor="cityquotemodal-what-do-you-want-installed" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                   What do you want installed? *
                 </label>
-                <select
+                <select id="cityquotemodal-what-do-you-want-installed"
                   value={kitInterest}
                   onChange={(e) => setKitInterest(e.target.value)}
                   className="input-field w-full"
@@ -305,10 +306,10 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                  <label htmlFor="cityquotemodal-timeline" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                     Timeline
                   </label>
-                  <select
+                  <select id="cityquotemodal-timeline"
                     value={installTimeline}
                     onChange={(e) => setInstallTimeline(e.target.value)}
                     className="input-field w-full"
@@ -320,10 +321,10 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                  <label htmlFor="cityquotemodal-budget" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                     Budget
                   </label>
-                  <select
+                  <select id="cityquotemodal-budget"
                     value={budgetRange}
                     onChange={(e) => setBudgetRange(e.target.value)}
                     className="input-field w-full"
@@ -337,14 +338,13 @@ export default function CityQuoteModal({ isOpen, onClose, locationLabel }: CityQ
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
+                <label htmlFor="cityquotemodal-notes-optional" className="block text-xs font-medium text-vicrez-muted mb-1 uppercase tracking-wider">
                   Notes (optional)
                 </label>
-                <textarea
-                  value={notes}
+                <textarea id="cityquotemodal-notes-optional"
+                  minLength={0} maxLength={500} value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="input-field w-full h-20 resize-none"
-                  maxLength={500}
                   placeholder="Anything else we should know — specific parts, vehicle mods, deadlines…"
                 />
               </div>
