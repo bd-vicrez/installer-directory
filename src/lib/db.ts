@@ -6,9 +6,11 @@ let pool: Pool;
 
 export function getPool(): Pool {
   if (!pool) {
+    const connection = new URL(process.env.DATABASE_URL || "");
+    connection.searchParams.set("sslmode", "verify-full");
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
+      connectionString: connection.toString(),
+      ssl: { rejectUnauthorized: true },
       max: 5,
     });
   }

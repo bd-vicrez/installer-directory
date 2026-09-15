@@ -184,7 +184,9 @@ export function readStatusToken(token: unknown) {
     const value = JSON.parse(Buffer.from(p, "base64url").toString());
     if (
       !["application", "claim"].includes(value.kind) ||
-      !UUID.test(value.id) ||
+      !(value.kind === "application"
+        ? /^[A-Za-z0-9_-]{1,80}$/.test(value.id)
+        : UUID.test(value.id)) ||
       !Number.isFinite(value.exp) ||
       value.exp < Date.now() / 1000
     )

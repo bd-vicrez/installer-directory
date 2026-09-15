@@ -1,4 +1,5 @@
 "use client";
+import { discoveryEvent } from "@/lib/discovery-client";
 import ShopComparison from "./ShopComparison";
 import { normalizeService } from "@/lib/service-taxonomy";
 
@@ -80,6 +81,26 @@ export default function HomeSearch() {
         const data = await response.json();
         if (!response.ok)
           throw new Error(data.error || "Search is temporarily unavailable.");
+        if (pending.current !== controller) return;
+        if (!offset) {
+          const result_bucket =
+            data.total === 0
+              ? "0"
+              : data.total <= 5
+                ? "1-5"
+                : data.total <= 24
+                  ? "6-24"
+                  : "25+";
+          discoveryEvent("search", {
+            service: next.service || undefined,
+            result_bucket,
+          });
+          if (!data.total)
+            discoveryEvent("search_empty", {
+              service: next.service || undefined,
+              result_bucket,
+            });
+        }
         setResults((previous) => ({
           ...data,
           installers:
@@ -134,6 +155,11 @@ export default function HomeSearch() {
     };
   }, [runSearch]);
   const change = (patch: Partial<SearchState>) => {
+    discoveryEvent("filter", {
+      service:
+        (patch.service !== undefined ? patch.service : search.service) ||
+        undefined,
+    });
     const next = { ...search, ...patch };
     setSearch(next);
     if (results || loading || error) runSearch(next);

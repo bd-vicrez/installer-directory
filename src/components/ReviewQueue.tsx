@@ -71,7 +71,8 @@ export default function ReviewQueue({
         Vicrez installer operations · Review oldest requests first. Submission
         does not establish business ownership or certification. Status messages
         are visible through the requester’s private link; email notifications
-        are not enabled.
+        are queued when a request is submitted or its public review status
+        changes. The audit identifies the signed-in administrator.
       </p>
       <label>
         Queue{" "}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getPool } from "@/lib/db";
 export async function GET(request: NextRequest) {
-  const auth = requireAdmin(request);
+  const auth = await requireAdmin(request);
   if (auth) return auth;
   const kind = request.nextUrl.searchParams.get("kind"),
     record = request.nextUrl.searchParams.get("record");

@@ -33,7 +33,10 @@ export default function InstallerCardStatic({
   const displayRating = googleRating;
 
   return (
-    <div className={`card relative ${isVerified ? "border-green-500/30" : ""}`}>
+    <div
+      data-installer-id={installer.id}
+      className={`card relative ${isVerified ? "border-green-500/30" : ""}`}
+    >
       {/* Tier badge */}
       <div
         className={`px-4 py-2 flex items-center gap-2 text-xs font-medium ${

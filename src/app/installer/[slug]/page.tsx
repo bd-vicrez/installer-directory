@@ -117,7 +117,7 @@ export default async function InstallerPage({
   return (
     <>
       <Header />
-      <main className="flex-1">
+      <main data-installer-id={installer.id} className="flex-1">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}

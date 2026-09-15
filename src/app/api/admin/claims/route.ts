@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requireAdmin, adminIdentity } from "@/lib/admin-auth";
 import { sameOrigin } from "@/lib/directory-rfq";
 import { InputError, readSmallJson, textField } from "@/lib/onboarding";
 import { refreshContactPages } from "@/lib/contact-refresh";
 export async function GET(request: NextRequest) {
-  const auth = requireAdmin(request);
+  const auth = await requireAdmin(request);
   if (auth) return auth;
   try {
     const rows = (
@@ -22,14 +22,19 @@ export async function GET(request: NextRequest) {
   }
 }
 export async function PATCH(request: NextRequest) {
-  const auth = requireAdmin(request);
+  const auth = await requireAdmin(request);
   if (auth) return auth;
   let client;
   try {
     if (!sameOrigin(request)) throw new InputError("Invalid origin.", 403);
     const b = await readSmallJson(request),
       id = textField(b.id, "claim", 1, 80),
-      reviewer = textField(b.reviewer, "reviewer", 2, 100),
+      reviewer = textField(
+        adminIdentity?.(request)?.username || b.reviewer,
+        "reviewer",
+        2,
+        100,
+      ),
       note = textField(b.note, "review note", 10, 1500),
       status = textField(b.status, "status", 1, 30),
       message = textField(b.public_message, "status message", 0, 500);

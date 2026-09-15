@@ -62,6 +62,7 @@ export async function mutateInstallers(
   ids: string[],
   body: Record<string, any>,
   create = false,
+  actor = process.env.ADMIN_USERNAME || "admin",
 ) {
   if (
     !create &&
@@ -131,7 +132,7 @@ export async function mutateInstallers(
         "INSERT INTO directory_review_audit(kind,record_id,actor,action,note,before_data,after_data) VALUES('installer',$1,$2,$3,$4,$5,$6)",
         [
           row.id,
-          process.env.ADMIN_USERNAME || "admin",
+          actor,
           create ? "create" : "update",
           textField(body.review_note, "review note", 0, 1500) ||
             "Authenticated installer editor",

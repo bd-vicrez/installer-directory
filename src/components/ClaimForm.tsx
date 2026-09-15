@@ -1,4 +1,5 @@
 "use client";
+import { discoveryEvent } from "@/lib/discovery-client";
 import { useRef, useState } from "react";
 import { QUOTE_SERVICES } from "@/lib/quote-services";
 import OwnerDetailsFields from "./OwnerDetailsFields";
@@ -35,6 +36,7 @@ export default function ClaimForm({
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       setReceipt(d);
+      discoveryEvent("claim_complete");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Please retry.");
     } finally {

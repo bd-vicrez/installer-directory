@@ -1,34 +1,37 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function AdminLoginPage() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
-      const res = await fetch('/api/admin/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+      const res = await fetch("/api/admin/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password, code }),
       });
 
       if (res.ok) {
-        router.push('/admin');
+        router.push("/admin");
       } else {
-        setError('Invalid username or password');
+        setError(
+          "Sign-in failed. Check your username, password and authenticator/recovery code.",
+        );
       }
     } catch {
-      setError('Something went wrong. Please try again.');
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -38,10 +41,12 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold" style={{ color: '#ffffff' }}>
+          <h1 className="text-3xl font-bold" style={{ color: "#ffffff" }}>
             Vicrez Admin
           </h1>
-          <p className="text-gray-500 mt-2">Sign in to manage the installer directory</p>
+          <p className="text-gray-500 mt-2">
+            Sign in to manage the installer directory
+          </p>
         </div>
 
         <form
@@ -55,8 +60,15 @@ export default function AdminLoginPage() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1.5">Username</label>
+            <label
+              htmlFor="admin-username"
+              className="block text-sm font-medium text-gray-400 mb-1.5"
+            >
+              Username
+            </label>
             <input
+              id="admin-username"
+              autoComplete="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -67,8 +79,15 @@ export default function AdminLoginPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1.5">Password</label>
+            <label
+              htmlFor="admin-password"
+              className="block text-sm font-medium text-gray-400 mb-1.5"
+            >
+              Password
+            </label>
             <input
+              id="admin-password"
+              autoComplete="current-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -78,13 +97,23 @@ export default function AdminLoginPage() {
             />
           </div>
 
+          <label className="block text-sm text-gray-400">
+            Authenticator or recovery code (named accounts)
+            <input
+              autoComplete="one-time-code"
+              maxLength={30}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              className="input-field w-full mt-2"
+            />
+          </label>
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-vicrez-red hover:bg-vicrez-red-dark font-semibold px-6 py-3 rounded-lg transition-all duration-200 active:scale-95 disabled:opacity-50"
-            style={{ color: '#ffffff' }}
+            style={{ color: "#ffffff" }}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
       </div>

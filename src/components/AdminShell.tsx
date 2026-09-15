@@ -6,6 +6,16 @@ import Link from "next/link";
 import AccessibleDialog from "./AccessibleDialog";
 
 const NAV_ITEMS = [
+  {
+    label: "Staff sign-in security",
+    href: "/admin/security",
+    icon: "M4 4h16v16H4z",
+  },
+  {
+    label: "Operations & measurement",
+    href: "/admin/operations",
+    icon: "M4 4h16v16H4z",
+  },
   { label: "Ownership requests", href: "/admin/claims", icon: "M4 4h16v16H4z" },
   {
     label: "Data review pilot",
@@ -51,6 +61,7 @@ export default function AdminLayout({
 }) {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [staffName, setStaffName] = useState("Admin");
   const router = useRouter();
   const pathname = usePathname();
 
@@ -63,8 +74,10 @@ export default function AdminLayout({
       return;
     }
     fetch("/api/admin/auth")
-      .then((res) => {
+      .then(async (res) => {
         if (res.ok) {
+          const data = await res.json();
+          setStaffName(data.identity?.username || "Admin");
           setAuthenticated(true);
         } else {
           router.push("/admin/login");
@@ -236,7 +249,8 @@ export default function AdminLayout({
 
             <div className="flex items-center gap-4 ml-auto">
               <span className="text-sm text-gray-500 hidden sm:block">
-                Logged in as <strong style={{ color: "#d1d5db" }}>Admin</strong>
+                Logged in as{" "}
+                <strong style={{ color: "#d1d5db" }}>{staffName}</strong>
               </span>
               <button
                 onClick={handleLogout}

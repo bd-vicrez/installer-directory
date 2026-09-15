@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requireAdmin, adminIdentity } from "@/lib/admin-auth";
 import { sameOrigin } from "@/lib/directory-rfq";
 import { InputError, readSmallJson } from "@/lib/onboarding";
 import { mutateInstallers } from "@/lib/admin-installer-mutation";
@@ -8,7 +8,7 @@ import { getPool } from "@/lib/db";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const authError = requireAdmin(request);
+  const authError = await requireAdmin(request);
   if (authError) return authError;
 
   const { searchParams } = new URL(request.url);
@@ -79,11 +79,16 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = requireAdmin(request);
+  const auth = await requireAdmin(request);
   if (auth) return auth;
   try {
     if (!sameOrigin(request)) throw new InputError("Invalid origin.", 403);
-    const rows = await mutateInstallers([], await readSmallJson(request), true);
+    const rows = await mutateInstallers(
+      [],
+      await readSmallJson(request),
+      true,
+      adminIdentity?.(request)?.username,
+    );
     refreshContactPages(rows[0].slug);
     return NextResponse.json(rows[0], { status: 201 });
   } catch (e) {

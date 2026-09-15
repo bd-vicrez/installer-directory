@@ -1,4 +1,5 @@
 "use client";
+import { discoveryEvent } from "@/lib/discovery-client";
 
 import { useState, useRef } from "react";
 import Header from "@/components/Header";
@@ -104,6 +105,7 @@ export default function ApplyPage() {
       }
 
       setReceipt(result);
+      discoveryEvent("application_complete");
       requestAnimationFrame(() =>
         document.getElementById("application-receipt")?.focus(),
       );

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requireAdmin, adminIdentity } from "@/lib/admin-auth";
 import { sameOrigin } from "@/lib/directory-rfq";
 import { InputError, readSmallJson, textField } from "@/lib/onboarding";
 import { addressCandidate } from "@/lib/address-review";
@@ -10,13 +10,18 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = requireAdmin(request);
+  const auth = await requireAdmin(request);
   if (auth) return auth;
   try {
     if (!sameOrigin(request)) throw new InputError("Invalid origin.", 403);
     const { id } = await params,
       body = await readSmallJson(request);
-    body.reviewer = textField(body.reviewer, "reviewer name", 2, 100);
+    body.reviewer = textField(
+      adminIdentity?.(request)?.username || body.reviewer,
+      "reviewer name",
+      2,
+      100,
+    );
     body.note = textField(body.note, "review note", 10, 1500);
     if (body.action === "address") {
       const street = textField(body.street_address, "street address", 3, 200),

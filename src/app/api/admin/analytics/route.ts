@@ -1,12 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getPool } from '@/lib/db';
-import { requireAdmin } from '@/lib/admin-auth';
-import { rfqFetch } from '@/lib/directory-rfq';
+import { NextRequest, NextResponse } from "next/server";
+import { getPool } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-auth";
+import { rfqFetch } from "@/lib/directory-rfq";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const authError = requireAdmin(request);
+  const authError = await requireAdmin(request);
   if (authError) return authError;
 
   const db = getPool();
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       incompleteListingsRes,
       coverageGapsRes,
       topCitiesRes,
-      staleListingsRes
+      staleListingsRes,
     ] = await Promise.all([
       // Traffic stats
       db.query(`
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
           COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') as events_30d
         FROM analytics_events
       `),
-      
+
       // Event type breakdown
       db.query(`
         SELECT event, COUNT(*) as count
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         GROUP BY event
         ORDER BY count DESC
       `),
-      
+
       // Daily events for last 14 days
       db.query(`
         SELECT DATE(created_at) as date, COUNT(*) as count
@@ -53,14 +53,14 @@ export async function GET(request: NextRequest) {
         GROUP BY DATE(created_at)
         ORDER BY date
       `),
-      
+
       // Unique visitors (approximate from distinct IPs in last 30 days)
       db.query(`
         SELECT COUNT(DISTINCT session_id) as unique_visitors
         FROM analytics_events
         WHERE created_at >= NOW() - INTERVAL '30 days' AND session_id IS NOT NULL
       `),
-      
+
       // Top 15 searched queries
       db.query(`
         SELECT query, COUNT(*) as count
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
         ORDER BY count DESC
         LIMIT 15
       `),
-      
+
       // Top 15 searched locations
       db.query(`
         SELECT location, COUNT(*) as count
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
         ORDER BY count DESC
         LIMIT 15
       `),
-      
+
       // Top 15 viewed installer profiles
       db.query(`
         SELECT installer, COUNT(*) as count
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
         ORDER BY count DESC
         LIMIT 15
       `),
-      
+
       // Top services filtered
       db.query(`
         SELECT service, COUNT(*) as count
@@ -100,14 +100,14 @@ export async function GET(request: NextRequest) {
         ORDER BY count DESC
         LIMIT 15
       `),
-      
+
       // Average Google rating
       db.query(`
         SELECT AVG(google_rating) as avg_rating
         FROM installers
         WHERE google_rating IS NOT NULL AND status != 'removed'
       `),
-      
+
       // Rating distribution
       db.query(`
         SELECT
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
         FROM installers
         WHERE status != 'removed'
       `),
-      
+
       // Incomplete listings
       db.query(`
         SELECT
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
         FROM installers
         WHERE status != 'removed'
       `),
-      
+
       // Coverage gaps: states with fewer than 5 installers
       db.query(`
         SELECT state, COUNT(*) as count
@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
         HAVING COUNT(*) < 5
         ORDER BY count ASC, state
       `),
-      
+
       // Top 20 metro cities by installer count
       db.query(`
         SELECT city, state, COUNT(*) as count
@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
         ORDER BY count DESC
         LIMIT 20
       `),
-      
+
       // Stale listings (older than 6 months or NULL date_added)
       db.query(`
         SELECT COUNT(*) as count
@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
           date_added = '' OR 
           date_added::timestamp < NOW() - INTERVAL '6 months'
         )
-      `)
+      `),
     ]);
 
     const trafficStats = trafficStatsRes.rows[0];
@@ -172,9 +172,11 @@ export async function GET(request: NextRequest) {
 
     let inquiryOutcomes = null;
     try {
-      const response = await rfqFetch('/internal/directory-rfq/measurement');
+      const response = await rfqFetch("/internal/directory-rfq/measurement");
       if (response.ok) inquiryOutcomes = await response.json();
-    } catch { /* Keep historical analytics available if the inquiry service is unreachable. */ }
+    } catch {
+      /* Keep historical analytics available if the inquiry service is unreachable. */
+    }
 
     return NextResponse.json({
       inquiryOutcomes,
@@ -186,72 +188,77 @@ export async function GET(request: NextRequest) {
         uniqueVisitors: parseInt(uniqueVisitors.unique_visitors),
         eventTypeBreakdown: eventTypeBreakdownRes.rows.map((r: any) => ({
           event: r.event,
-          count: parseInt(r.count)
+          count: parseInt(r.count),
         })),
         dailyEvents: dailyEventsRes.rows.map((r: any) => ({
           date: r.date,
-          count: parseInt(r.count)
-        }))
+          count: parseInt(r.count),
+        })),
       },
-      
+
       // Search analytics
       search: {
         topQueries: topQueriesRes.rows.map((r: any) => ({
           query: r.query,
-          count: parseInt(r.count)
+          count: parseInt(r.count),
         })),
         topLocations: topLocationsRes.rows.map((r: any) => ({
           location: r.location,
-          count: parseInt(r.count)
+          count: parseInt(r.count),
         })),
         topProfileViews: topProfileViewsRes.rows.map((r: any) => ({
           installer: r.installer,
-          count: parseInt(r.count)
-        }))
+          count: parseInt(r.count),
+        })),
       },
-      
+
       // Filter analytics
       filter: {
         topServices: topServicesRes.rows.map((r: any) => ({
           service: r.service,
-          count: parseInt(r.count)
-        }))
+          count: parseInt(r.count),
+        })),
       },
-      
+
       // Directory health
       health: {
-        avgRating: avgRating.avg_rating ? parseFloat(avgRating.avg_rating).toFixed(2) : null,
+        avgRating: avgRating.avg_rating
+          ? parseFloat(avgRating.avg_rating).toFixed(2)
+          : null,
         ratingDistribution: {
           rating45Plus: parseInt(ratingDist.rating_45_plus),
           rating4045: parseInt(ratingDist.rating_40_45),
           rating3540: parseInt(ratingDist.rating_35_40),
           rating3035: parseInt(ratingDist.rating_30_35),
           ratingBelow30: parseInt(ratingDist.rating_below_30),
-          noRating: parseInt(ratingDist.no_rating)
+          noRating: parseInt(ratingDist.no_rating),
         },
         incompleteListings: {
           missingPhone: parseInt(incompleteListings.missing_phone),
           missingEmail: parseInt(incompleteListings.missing_email),
           missingWebsite: parseInt(incompleteListings.missing_website),
-          total: parseInt(incompleteListings.missing_phone) + 
-                 parseInt(incompleteListings.missing_email) + 
-                 parseInt(incompleteListings.missing_website)
+          total:
+            parseInt(incompleteListings.missing_phone) +
+            parseInt(incompleteListings.missing_email) +
+            parseInt(incompleteListings.missing_website),
         },
         coverageGaps: coverageGapsRes.rows.map((r: any) => ({
           state: r.state,
-          count: parseInt(r.count)
+          count: parseInt(r.count),
         })),
         topCities: topCitiesRes.rows.map((r: any) => ({
           city: r.city,
           state: r.state,
-          count: parseInt(r.count)
+          count: parseInt(r.count),
         })),
-        staleListings: parseInt(staleListings.count)
-      }
+        staleListings: parseInt(staleListings.count),
+      },
     });
-    
   } catch (err: any) {
-    console.error('Analytics API error:', err);
-    return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
+    console.error("Analytics API error:", err);
+    return NextResponse.json(
+      { error: err.message || "Internal server error" },
+      { status: 500 },
+    );
   }
 }

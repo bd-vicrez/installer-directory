@@ -3,6 +3,7 @@ import "./globals.css";
 import { generateOrganizationJsonLd } from "@/lib/seo";
 import SideNav from "@/components/SideNav";
 import UtmLinkAppender from "@/components/UtmLinkAppender";
+import DiscoveryTracker from "@/components/DiscoveryTracker";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 export const metadata: Metadata = {
@@ -51,6 +52,7 @@ export default function RootLayout({
       <body className="min-h-screen flex flex-col">
         <UtmLinkAppender />
         <GoogleAnalytics />
+        <DiscoveryTracker />
         {children}
       </body>
     </html>
