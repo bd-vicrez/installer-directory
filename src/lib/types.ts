@@ -12,6 +12,11 @@ export interface Installer {
   zip_code: string;
   phone: string;
   email: string;
+  routing_email?: string | null;
+  quote_routing_enabled?: boolean;
+  public_email?: string | null;
+  public_email_approved?: boolean;
+  public_email_approved_at?: string | null;
   website: string;
   install_capabilities: string;
   shop_type: string;

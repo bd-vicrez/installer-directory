@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: 'Browse Vicrez installers by state. Find shops for body kits, OE bumpers, aero parts, wheels, tires, vinyl wrap, PPF, window tint, and exterior accessories. 6,000+ shops across all 50 states.',
   openGraph: {
     title: 'Vicrez Installer Directory — All States',
-    description: 'Find trusted Vicrez installers in every state. Body kits, bumpers, wheels, tires, wrap, PPF & more. 6,000+ shops nationwide.',
+    description: 'Find trusted Vicrez installers in every state. Body kits, bumpers, wheels, tires, wrap, PPF & more. Browse recorded shop services nationwide.',
     type: 'website',
     url: 'https://installers.vicrez.com/directory',
   },
@@ -39,10 +39,10 @@ export default async function DirectoryPage() {
               Vicrez Installer Directory
             </h1>
             <p className="text-lg text-gray-300 max-w-3xl leading-relaxed">
-              Browse our nationwide directory of <strong>{totalInstallers.toLocaleString()}+ professional installers</strong> across
+              Browse our nationwide directory of <strong>{totalInstallers.toLocaleString()} listed shops</strong> across
               every state. Find shops for OE replacement bumpers, body kits, widebody kits, front lips, side skirts, diffusers,
               spoilers, fender flares, aftermarket wheels, tires, wheel and tire packages, vinyl wrap, paint protection film (PPF),
-              window tint, and exterior styling accessories. Verified shops have been confirmed through the Vicrez dealer network.
+              window tint, and exterior styling accessories. The Vicrez-recorded badge identifies a business source record; confirm current services and availability directly with each shop.
             </p>
           </div>
 

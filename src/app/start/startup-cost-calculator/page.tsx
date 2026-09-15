@@ -52,15 +52,11 @@ export default function StartupCostCalculatorPage() {
           <section className="mt-12 bg-vicrez-card border border-vicrez-border rounded-xl p-6">
             <h2 className="text-white font-bold text-lg mb-3 mt-0">How this calculator works</h2>
             <p className="text-gray-300 leading-relaxed">
-              Numbers are based on real 2026 pricing from operators and equipment dealers we work
-              with at Vicrez. We supply tires and aftermarket parts to 16,500+ installers
-              nationwide, so we see what new shops actually spend. Ranges reflect low-end
-              (used equipment, lower-cost state) to high-end (new equipment, higher-cost state).
+              These are illustrative planning ranges, not vendor quotes or measured spending by all directory listings. Replace the assumptions with current local equipment, premises and operating-cost quotes before making a spending decision.
             </p>
             <p className="text-gray-300 leading-relaxed mt-3">
               The biggest line most new owners forget is <strong>working capital</strong>. We
-              automatically add a 4-month operating expense reserve to the total, because that&apos;s
-              what separates shops that survive year one from shops that don&apos;t.
+              automatically add a 4-month operating expense reserve to the total, as an editable planning assumption; it does not predict whether a shop will succeed.
             </p>
             <p className="text-gray-300 leading-relaxed mt-3">
               For the full step-by-step breakdown, read{' '}

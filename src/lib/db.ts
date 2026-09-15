@@ -128,15 +128,15 @@ export async function queryInstallerStats() {
   const db = getPool();
   const { rows } = await db.query(`
     SELECT
-      COUNT(*) FILTER (WHERE status != 'removed') as total,
-      COUNT(*) FILTER (WHERE status != 'removed' AND (
+      COUNT(*) FILTER (WHERE status = 'active') as total,
+      COUNT(*) FILTER (WHERE status = 'active' AND (
         source ILIKE '%[New Dealer Form]%'
         OR source ILIKE '%[CS Sheet]%'
         OR source ILIKE '%[Vicrez Business Network]%'
         OR source ILIKE '%Alex Cold Call%'
         OR source ILIKE '%manual%'
       )) as verified,
-      COUNT(DISTINCT state) FILTER (WHERE status != 'removed') as states
+      COUNT(DISTINCT state) FILTER (WHERE status = 'active') as states
     FROM installers
   `);
   return rows[0];

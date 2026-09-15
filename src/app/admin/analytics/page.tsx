@@ -96,7 +96,7 @@ export default function AnalyticsPage() {
           <StatCard label="Total Events" value={traffic.totalEvents} color="#ffffff" />
           <StatCard label="Last 7 Days" value={traffic.events7d} color="#60a5fa" />
           <StatCard label="Last 30 Days" value={traffic.events30d} color="#a78bfa" />
-          <StatCard label="Unique Visitors" value={traffic.uniqueVisitors} color="#4ade80" />
+          <StatCard label="Quote sessions" value={traffic.uniqueVisitors} color="#4ade80" />
         </div>
 
         {/* Event Type Breakdown */}

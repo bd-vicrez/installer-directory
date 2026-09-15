@@ -274,7 +274,7 @@ export default async function LocationPage({ params: pendingParams, searchParams
               <p className="text-base text-gray-300 max-w-3xl leading-relaxed mb-4">{citySeo.intro}</p>
             )}
             <p className="text-lg text-gray-300 max-w-3xl leading-relaxed">
-              Find trusted installers in {locationLabel} for Vicrez aftermarket parts, OE replacement parts, body kits, aerodynamic upgrades, wheels, tires, vinyl wraps, paint protection film, and exterior styling accessories. Whether you need a bumper replacement, spoiler install, front lip install, widebody kit installation, wheel and tire package installation, or vehicle wrap service, the Vicrez Installer Network helps connect you with local shops near you.
+              Browse listed shops in {locationLabel} for Vicrez aftermarket parts, OE replacement parts, body kits, aerodynamic upgrades, wheels, tires, vinyl wraps, paint protection film, and exterior styling accessories. Whether you need a bumper replacement, spoiler install, front lip install, widebody kit installation, wheel and tire package installation, or vehicle wrap service, the Vicrez Installer Network helps connect you with local shops near you.
               {verifiedCount > 0 && ` ${verifiedCount} shops are verified through the Vicrez dealer network.`}
             </p>
             <p className="text-gray-400 mt-3 max-w-3xl">
@@ -298,7 +298,7 @@ export default async function LocationPage({ params: pendingParams, searchParams
             </div>
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-green-400">{verifiedCount}</div>
-              <div className="text-xs text-vicrez-muted mt-1">Verified Shops</div>
+              <div className="text-xs text-vicrez-muted mt-1">Vicrez-recorded shops</div>
             </div>
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-white">{totalCount - verifiedCount}</div>

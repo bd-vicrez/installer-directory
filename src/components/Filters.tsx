@@ -77,7 +77,7 @@ export default function Filters({
             className="input-field text-sm !py-2"
           >
             <option value="">Show All</option>
-            <option value="verified">Verified Only</option>
+            <option value="verified">Vicrez records</option>
           </select>
         </div>
 

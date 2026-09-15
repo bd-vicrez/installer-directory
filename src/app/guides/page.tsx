@@ -123,7 +123,7 @@ export default function GuidesIndexPage() {
           <section className="mt-12 bg-gradient-to-r from-vicrez-red to-red-700 rounded-xl p-8 text-center">
             <h2 className="text-2xl font-bold text-white mb-3">Ready to Find an Installer?</h2>
             <p className="text-white/90 mb-6 max-w-xl mx-auto">
-              Search our directory of 6,000+ body kit installers nationwide. Get free quotes from verified shops near you.
+              Browse recorded services in our installer directory. Contact a suitable shop to confirm your vehicle, parts and installation needs.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <a

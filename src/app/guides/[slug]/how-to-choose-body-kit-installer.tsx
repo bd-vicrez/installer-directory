@@ -224,19 +224,15 @@ export default function HowToChooseInstallerGuide() {
         A professional installer will answer all of these questions confidently and thoroughly. If a shop gets defensive, evasive, or dismissive when you ask reasonable questions, that response tells you everything you need to know about how they&apos;ll handle your project and communicate with you throughout the process.
       </p>
 
-      {/* --- Verified vs. Listed Installers --- */}
-      <h2 className="text-2xl font-bold text-white mt-10 mb-4">Verified vs. Listed Installers</h2>
+      <h2 className="text-2xl font-bold text-white mt-10 mb-4">What directory badges tell you</h2>
       <p className="text-gray-300 leading-relaxed mb-4">
-        When you search the <a href="/directory" className="text-vicrez-red hover:underline">Vicrez Installer Directory</a>, you&apos;ll notice two types of listings: <strong>Verified Installers</strong> and <strong>Listed Installers</strong>. Understanding the difference will help you make a more informed decision about where to take your vehicle.
+        The <a href="/directory" className="text-vicrez-red hover:underline">Vicrez Installer Directory</a> combines business submissions and public business records. The <strong>Vicrez-recorded shop</strong> badge identifies a source record held by Vicrez. Other listings come from publicly available information.
       </p>
       <p className="text-gray-300 leading-relaxed mb-4">
-        <strong>Verified Installers</strong> are shops that have been vetted by the Vicrez team. These are authorized dealers and installers within the Vicrez network who have demonstrated experience with aftermarket body kit installations. Verified listings appear with a blue checkmark badge and are prioritized in search results. These shops have confirmed their business insurance, provided documented examples of their work, and agreed to uphold Vicrez&apos;s quality and customer service standards.
+        These labels do not certify workmanship, insurance, equipment, current dealer membership or experience with your specific parts. Recorded services can change. Ask the shop for current examples of similar work, insurance information, warranty terms and a written estimate.
       </p>
       <p className="text-gray-300 leading-relaxed mb-4">
-        <strong>Listed Installers</strong> are shops that appear in the directory based on their public listing as auto body or customization shops in your area. These listings have not been individually verified by the Vicrez team, but they represent real businesses that offer relevant services including body kit installation, paint work, and automotive customization. Listed installers may be excellent shops &mdash; they simply haven&apos;t gone through the formal Vicrez verification process yet.
-      </p>
-      <p className="text-gray-300 leading-relaxed mb-4">
-        For the highest confidence when you <strong>find a body kit installer</strong>, start with Verified Installers. If there isn&apos;t a verified shop within a reasonable distance, use the seven criteria outlined in this guide to evaluate Listed Installers on your own. Regardless of verification status, always do your own due diligence by checking reviews, requesting a portfolio, visiting the shop in person, and getting a written estimate before committing.
+        Use the criteria in this guide for every shop you consider. <a href="/how-verification-works" className="text-vicrez-red hover:underline">Read how directory records and badges work</a> before choosing an installer.
       </p>
 
       {/* --- FAQs --- */}

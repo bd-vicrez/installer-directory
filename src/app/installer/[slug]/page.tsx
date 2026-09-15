@@ -9,6 +9,9 @@ import Footer from '@/components/Footer';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import CtaBanner from '@/components/CtaBanner';
 import QuoteButton from '@/components/QuoteButton';
+import { canReceiveQuote, publicContactEmail } from '@/lib/installer-contact';
+// Contact permissions must be read from current records on every request.
+export const dynamic = 'force-dynamic';
 import ShareButtons from '@/components/ShareButtons';
 import { getProfileDescription, getProfileQuoteNote, getProfileGuide, serializeJsonLd } from '@/lib/profile-content';
 
@@ -115,7 +118,7 @@ export default async function InstallerPage({ params: pendingParams }: PageProps
                         <path d="M12 1L14.7 3.3H18.4L19 7L22 9.5L20.7 13L22 16.5L19 19L18.4 22.7H14.7L12 25L9.3 22.7H5.6L5 19L2 16.5L3.3 13L2 9.5L5 7L5.6 3.3H9.3L12 1Z" fill="#1DA1F2" transform="scale(0.88) translate(1.5, 1.5)"/>
                         <path d="M9.55 18.5L3.85 12.8L5.275 11.375L9.55 15.65L18.725 6.475L20.15 7.9L9.55 18.5Z" fill="white" transform="scale(0.7) translate(5, 4.5)"/>
                       </svg>
-                      Verified Vicrez Installer
+                      Vicrez-recorded shop
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-vicrez-card text-vicrez-muted border border-vicrez-border">
@@ -205,13 +208,13 @@ export default async function InstallerPage({ params: pendingParams }: PageProps
                 )}
 
                 {/* Email */}
-                {installer.email && (
+                {publicContactEmail(installer) && (
                   <div className="flex items-center gap-3">
                     <svg className="w-5 h-5 text-vicrez-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    <a href={`mailto:${installer.email}`} className="text-vicrez-red hover:underline">
-                      {installer.email}
+                    <a href={`mailto:${publicContactEmail(installer)}`} className="text-vicrez-red hover:underline">
+                      {publicContactEmail(installer)}
                     </a>
                   </div>
                 )}
@@ -219,6 +222,7 @@ export default async function InstallerPage({ params: pendingParams }: PageProps
 
               {/* Quote Request */}
               <QuoteButton 
+                available={canReceiveQuote(installer)}
                 installer={{
                   id: installer.id.toString(),
                   business_name: installer.business_name,

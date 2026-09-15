@@ -521,7 +521,7 @@ export default function BodyKitInstallationCostGuide() {
           >
             Browse the Vicrez Installer Directory
           </a>{' '}
-          &mdash; Search 6,000+ body kit installers across all 50 states by zip code or
+          &mdash; Search recorded shop services by ZIP code or
           state.
         </li>
         <li>

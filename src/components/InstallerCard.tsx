@@ -28,7 +28,7 @@ export default function InstallerCard({ installer, onClaimClick, onRemovalClick 
               <path d="M12 1L14.7 3.3H18.4L19 7L22 9.5L20.7 13L22 16.5L19 19L18.4 22.7H14.7L12 25L9.3 22.7H5.6L5 19L2 16.5L3.3 13L2 9.5L5 7L5.6 3.3H9.3L12 1Z" fill="#1DA1F2" transform="scale(0.88) translate(1.5, 1.5)"/>
               <path d="M9.55 18.5L3.85 12.8L5.275 11.375L9.55 15.65L18.725 6.475L20.15 7.9L9.55 18.5Z" fill="white" transform="scale(0.7) translate(5, 4.5)"/>
             </svg>
-            Verified Vicrez Installer
+            Vicrez-recorded shop
           </>
         ) : (
           <>
@@ -36,7 +36,7 @@ export default function InstallerCard({ installer, onClaimClick, onRemovalClick 
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            Suggested Local Installer
+            Listed local shop
           </>
         )}
         {installer.distance !== null && (

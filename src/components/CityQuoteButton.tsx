@@ -15,12 +15,12 @@ export default function CityQuoteButton({ locationLabel, variant = 'banner' }: P
     return (
       <>
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => setOpen(true)} aria-haspopup="dialog"
           className="block w-full mb-8 bg-gradient-to-r from-vicrez-red to-red-700 rounded-xl p-6 text-center hover:from-vicrez-red-dark hover:to-red-800 transition-all cursor-pointer"
         >
-          <p className="text-lg font-bold text-white">🔧 Get Free Install Quotes in {locationLabel}</p>
+          <p className="text-lg font-bold text-white">🔧 Request Installation Quotes in {locationLabel}</p>
           <p className="text-sm text-white/80 mt-1">
-            Tell us your vehicle & what you want installed — we&apos;ll match you with verified shops near you within 24 hours.
+            Tell us your vehicle & what you want installed — we will look for nearby shops with the recorded service you need. Availability varies.
           </p>
         </button>
         <CityQuoteModal
@@ -36,10 +36,10 @@ export default function CityQuoteButton({ locationLabel, variant = 'banner' }: P
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => setOpen(true)} aria-haspopup="dialog"
         className="btn-primary w-full text-center text-lg py-3"
       >
-        Get Free Install Quotes
+        Request Installation Quotes
       </button>
       <CityQuoteModal
         isOpen={open}

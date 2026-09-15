@@ -55,9 +55,9 @@ export async function GET(request: NextRequest) {
       
       // Unique visitors (approximate from distinct IPs in last 30 days)
       db.query(`
-        SELECT COUNT(DISTINCT ip) as unique_visitors
+        SELECT COUNT(DISTINCT session_id) as unique_visitors
         FROM analytics_events
-        WHERE created_at >= NOW() - INTERVAL '30 days' AND ip IS NOT NULL AND ip != ''
+        WHERE created_at >= NOW() - INTERVAL '30 days' AND session_id IS NOT NULL
       `),
       
       // Top 15 searched queries

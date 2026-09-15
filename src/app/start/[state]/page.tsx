@@ -253,17 +253,14 @@ export default async function StateStartGuidePage({ params: pendingParams }: Pag
               </table>
             </div>
             <p className="text-gray-300 leading-relaxed">
-              Get a precise number using our{' '}
+              Explore a planning estimate using our{' '}
               <a href="/start/startup-cost-calculator" className="text-vicrez-red underline">interactive calculator</a>
               {' '}— pick {s.abbr} as your state and your specific equipment tier.
             </p>
 
             <h2 className="text-2xl font-bold text-white mt-10 mb-4">Wholesale Tire Sourcing in {s.name}</h2>
             <p className="text-gray-300 leading-relaxed">
-              {s.name} is served by all major national tire distributors (ATD, K&amp;M Tire,
-              USAutoForce). For performance and aftermarket sizes, <strong>Vicrez</strong> ships
-              to shops across {s.name} with regional warehouse coverage and Net-30 terms for
-              qualified accounts.{' '}
+              Compare suppliers serving your part of {s.name}. For performance and aftermarket products, ask <strong>Vicrez</strong> about current availability, shipping, account eligibility and payment terms.{' '}
               <a href="https://b2b.vicrez.com" target="_blank" rel="noopener noreferrer" className="text-vicrez-red underline">
                 Apply for wholesale here
               </a>

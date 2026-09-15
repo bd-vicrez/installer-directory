@@ -7,19 +7,29 @@ const ts = require('typescript');
 const { NextRequest } = require('next/server');
 const root = path.resolve(__dirname, '../src');
 function load(file, mocks = {}, globals = {}) {
+  mocks = { '@/lib/directory-rfq': {
+    UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    sameOrigin: () => true, withinRateLimit: async () => true, recordQuoteEvent: async () => {},
+    rfqFetch: (url, body) => (globals.fetch || fetch)('https://example.test' + url, { method:'POST', body:JSON.stringify(body) }),
+  }, ...mocks };
   const cache = new Map();
   function read(filename) {
     filename = path.resolve(filename);
     if (!path.extname(filename)) filename += '.ts';
     if (cache.has(filename)) return cache.get(filename).exports;
+    if (filename.endsWith('.json')) return JSON.parse(fs.readFileSync(filename, 'utf8'));
     const mod = { exports: {} }; cache.set(filename, mod);
     const req = name => {
       if (name in mocks) return mocks[name];
       if (name.startsWith('@/')) return read(path.join(root, name.slice(2)));
-      if (name.startsWith('.')) return read(path.resolve(path.dirname(filename), name));
+      if (name.startsWith('.')) {
+        const target = path.resolve(path.dirname(filename), name);
+        const alias = '@/'+path.relative(root,target).replaceAll('\\','/').replace(/\.tsx?$/, '');
+        return alias in mocks ? mocks[alias] : read(target);
+      }
       return require(name);
     };
-    const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+    const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText;
     vm.runInNewContext(code, { exports: mod.exports, module: mod, require: req, process, Buffer, URLSearchParams, console, fetch, AbortSignal, ...globals }, { filename });
     return mod.exports;
   }
@@ -81,13 +91,13 @@ test('admin sessions require a signature, expire, and reject legacy or tampered 
   assert.equal(auth.verifyAdminToken(expired + '.' + sig), false);
   delete process.env.ADMIN_SECRET; assert.equal(auth.verifyAdminToken(token), false);
 });
-const validQuote = () => ({ customer_name: 'Test Customer', customer_email: 'customer@example.test', customer_phone: '2125550100', vehicle_year: '2024', vehicle_make: 'Dodge', vehicle_model: 'Charger', what_needed: 'Body Kits', zip_code: '10001', request_id: 'fd28ed09-c797-4a0e-a0c7-a2d4c6a6c00a' });
+const validQuote = () => ({ service:'body-kits', sharing_consent:true, customer_name: 'Test Customer', customer_email: 'customer@example.test', customer_phone: '2125550100', vehicle_year: '2024', vehicle_make: 'Dodge', vehicle_model: 'Charger', what_needed: 'Body Kits', zip_code: '10001', request_id: 'fd28ed09-c797-4a0e-a0c7-a2d4c6a6c00a' });
 test('quote validation checks required details and a receipt requires a saved submission', () => {
   const { validateQuoteInput, quoteReceipt } = load('lib/quote-validation.ts');
   assert.equal(validateQuoteInput(validQuote()), null);
   for (const changed of [{ zip_code: 'bad' }, { customer_email: 'invalid' }, { additional_notes: 'x'.repeat(501) }, { website_url: 'spam' }, { request_id: 'bad' }]) assert.ok(validateQuoteInput({ ...validQuote(), ...changed }));
   for (const data of [{}, { ok: true }, { ok: false, submission_id: 1 }, { ok: true, submission_id: -1 }]) assert.throws(() => quoteReceipt(data));
-  assert.equal(quoteReceipt({ ok: true, submission_id: 42 }).reference, 'VZ-42');
+  assert.equal(quoteReceipt({ ok: true, submission_id: 42, receipt_token:'test-receipt-token' }).reference, 'VZ-42');
 });
 test('quote endpoint rejects unconfirmed delivery and retains the same retry identifier', async () => {
   let forwarded;
@@ -97,7 +107,7 @@ test('quote endpoint rejects unconfirmed delivery and retains the same retry ide
 });
 test('quote endpoint derives recipients from the database and accepts a confirmed reference', async () => {
   const requests = [];
-  const { POST } = load('app/api/quote-request/route.ts', { '@/lib/db': { getPool: () => ({ query: async () => ({ rows: [{ business_name: 'Real Shop', email: 'real@example.test', zip_code: '10001' }] }) }) } }, { fetch: async (url, opts) => { requests.push({ url, body: JSON.parse(opts.body) }); return new Response(JSON.stringify({ ok: true, submission_id: 42, installers_notified: 1 })); } });
+  const { POST } = load('app/api/quote-request/route.ts', { '@/lib/db': { getPool: () => ({ query: async () => ({ rows: [{ business_name: 'Real Shop', email: 'real@example.test', routing_email: 'real@example.test', status:'active', quote_routing_enabled:true, zip_code: '10001' }] }) }) } }, { fetch: async (url, opts) => { requests.push({ url, body: JSON.parse(opts.body) }); return new Response(JSON.stringify({ ok: true, submission_id: 42, receipt_token:'test-receipt-token', installers_notified: 1 })); } });
   const result = await POST(request('/api/quote-request', { ...validQuote(), installer_id: '123', installer_email: 'attacker@example.test' }));
   assert.equal(result.status, 200); assert.equal((await result.json()).reference, 'VZ-42'); assert.equal(requests.length, 1);
   assert.equal(requests[0].body.preferred_installer_id, '123'); assert.ok(!JSON.stringify(requests).includes('attacker'));
@@ -107,15 +117,15 @@ test('quote endpoint rejects malformed or oversized bodies before any delivery',
   assert.equal((await POST(request('/api/quote-request', '{bad'))).status, 400);
   assert.equal((await POST(request('/api/quote-request', { ...validQuote(), additional_notes: 'x'.repeat(17000) }))).status, 413);
 });
-test('saved quote stays accepted if the optional email fallback times out', async () => {
+test('saved quote returns its receipt without a second inline notification path', async () => {
   process.env.SENDGRID_API_KEY = 'isolated-test-key';
   let count = 0;
-  const { POST } = load('app/api/quote-request/route.ts', { '@/lib/db': { getPool: () => ({ query: async () => ({ rows: [{ business_name: 'Real Shop', email: 'real@example.test', zip_code: '10001' }] }) }) } }, { fetch: async () => {
-    if (++count === 1) return new Response(JSON.stringify({ ok: true, submission_id: 42, installers_notified: 0 }));
+  const { POST } = load('app/api/quote-request/route.ts', { '@/lib/db': { getPool: () => ({ query: async () => ({ rows: [{ business_name: 'Real Shop', email: 'real@example.test', routing_email: 'real@example.test', status:'active', quote_routing_enabled:true, zip_code: '10001' }] }) }) } }, { fetch: async () => {
+    if (++count === 1) return new Response(JSON.stringify({ ok: true, submission_id: 42, receipt_token:'test-receipt-token', installers_notified: 0 }));
     throw new Error('simulated mail timeout');
   } });
   const result = await POST(request('/api/quote-request', { ...validQuote(), installer_id: '123' }));
-  assert.equal(result.status, 200); assert.equal((await result.json()).reference, 'VZ-42');
+  assert.equal(result.status, 200); assert.equal((await result.json()).reference, 'VZ-42'); assert.equal(count, 1);
   delete process.env.SENDGRID_API_KEY;
 });
 

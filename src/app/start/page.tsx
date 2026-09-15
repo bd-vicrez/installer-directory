@@ -6,7 +6,7 @@ import Breadcrumbs from '@/components/Breadcrumbs';
 export const metadata: Metadata = {
   title: 'Start a Tire Shop — The Complete 2026 Resource | Vicrez',
   description:
-    'Everything you need to start a tire shop in 2026 — startup costs, licensing by state, mobile vs brick-and-mortar, wholesale tire sourcing, equipment, financing, and a free interactive cost calculator. Built by Vicrez, supplier to 16,500+ installers.',
+    'Everything you need to start a tire shop in 2026 — startup costs, licensing by state, mobile vs brick-and-mortar, wholesale tire sourcing, equipment, financing, and a free interactive cost calculator. Published by Vicrez, with installer-directory and wholesale-program resources.',
   openGraph: {
     title: 'Start a Tire Shop — Complete 2026 Resource',
     description:
@@ -95,8 +95,8 @@ export default function StartHubPage() {
               Start a Tire Shop — The Complete 2026 Resource
             </h1>
             <p className="text-vicrez-muted text-lg mt-4 max-w-3xl">
-              Built by Vicrez — supplier to 16,500+ aftermarket installers across the U.S. Real
-              numbers, real operator advice, no fluff. Whether you&apos;re opening a single-bay
+              Published by Vicrez. Explore planning resources and confirm current quotes and requirements for your business.
+              Whether you&apos;re opening a single-bay
               shop, scaling a mobile route, or buying an existing location, start here.
             </p>
           </section>
@@ -190,7 +190,7 @@ export default function StartHubPage() {
             </h2>
             <p className="text-white/90 mb-6 max-w-xl mx-auto">
               Vicrez supplies tires and aftermarket parts to thousands of installers nationwide.
-              Net-30 terms available for qualified shops.
+              Confirm account eligibility, current pricing and payment terms directly with Vicrez.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <a

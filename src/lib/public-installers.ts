@@ -1,5 +1,6 @@
 import type { Installer } from './types';
 import { getTier, parseCapabilities } from './utils';
+import { canReceiveQuote } from './installer-contact';
 
 export const PUBLIC_INSTALLER_FIELDS = [
   'id', 'slug', 'business_name', 'street_address', 'city', 'state', 'zip_code',
@@ -8,7 +9,7 @@ export const PUBLIC_INSTALLER_FIELDS = [
   'google_hours', 'google_phone', 'google_website', 'google_status',
 ] as const;
 export type PublicInstaller = Pick<Installer, typeof PUBLIC_INSTALLER_FIELDS[number]> & {
-  tier: 'verified' | 'listed'; distance: number | null; rating: number | null; capabilities: string[];
+  tier: 'verified' | 'listed'; distance: number | null; rating: number | null; capabilities: string[]; quote_available: boolean;
 };
 // Never spread a database row into a response or client-component prop.
 export function toPublicInstaller(row: Record<string, any>): PublicInstaller {
@@ -20,6 +21,7 @@ export function toPublicInstaller(row: Record<string, any>): PublicInstaller {
     distance: row.distance == null ? null : Math.round(Number(row.distance) * 10) / 10,
     rating: row.google_rating == null ? null : Number(row.google_rating),
     capabilities: parseCapabilities(row.install_capabilities || ''),
+    quote_available: row.quote_available === true || canReceiveQuote(row),
   } as PublicInstaller;
 }
 export const SERVICE_KEYWORDS: Record<string, string[]> = {

@@ -48,7 +48,7 @@ const FAQ = [
   },
   {
     q: 'Where do tire shops buy their tires wholesale?',
-    a: 'Most independent tire shops buy through national distributors (ATD/American Tire Distributors, K&M Tire, USAutoForce), direct manufacturer programs (Goodyear/Michelin dealer programs), or specialty wholesalers like Vicrez for performance and aftermarket sizes. Pricing typically runs 35–55% below MSRP at dealer-net, with Net-30 terms for established shops.',
+    a: 'Most independent tire shops buy through national distributors (ATD/American Tire Distributors, K&M Tire, USAutoForce), direct manufacturer programs (Goodyear/Michelin dealer programs), or specialty wholesalers like Vicrez for performance and aftermarket sizes. Request a current itemized supplier quote and confirm eligibility, freight and payment terms directly.',
   },
 ];
 
@@ -106,7 +106,7 @@ export default function HowToOpenATireShopPage() {
               capture more than 60% of it. This guide walks you through every step — from picking a
               business structure to your first paid customer — using real 2026 numbers from
               operators we work with at <strong>Vicrez</strong>, where we supply tires and
-              aftermarket parts to more than 16,500 installers nationwide.
+              aftermarket parts through its retail and wholesale channels. Directory inclusion does not establish a purchasing relationship.
             </p>
 
             <p className="text-gray-300 leading-relaxed mt-4">
@@ -405,17 +405,12 @@ export default function HowToOpenATireShopPage() {
             </p>
             <p className="text-gray-300 leading-relaxed mt-4">
               <strong>National distributors</strong> like American Tire Distributors (ATD), K&amp;M
-              Tire, and USAutoForce stock all major brands and deliver daily. Dealer-net pricing
-              runs 35–55% below MSRP. Net-30 terms are standard once you&apos;re approved.
+              Tire, and USAutoForce offer distribution services. Confirm brand availability, delivery schedules, current pricing and any credit terms with the supplier.
             </p>
             <p className="text-gray-300 leading-relaxed mt-4">
               <strong>Specialty wholesalers</strong> are where you go for performance,
               wide-fitment aftermarket, and custom sizes that national distributors don&apos;t
-              stock. <strong>Vicrez</strong> is one of those — we supply more than 16,500
-              installers across the U.S. with VCORSA performance tires, plus aftermarket body
-              kits, wheels, and accessories. Our wholesale tier offers Net-30 for qualified
-              shops, drop-ship from regional warehouses, and a dedicated rep for orders. If your
-              business mix leans performance/aftermarket,{' '}
+              stock. <strong>Vicrez</strong> offers VCORSA tires and aftermarket body kits, wheels and accessories. Confirm product availability, shipping options, account eligibility and payment terms through the wholesale program. If your business mix leans performance/aftermarket,{' '}
               <a
                 href="https://b2b.vicrez.com"
                 target="_blank"
@@ -506,7 +501,7 @@ export default function HowToOpenATireShopPage() {
               <a href="/" className="text-vicrez-red underline">
                 installer directory
               </a>{' '}
-              (free for verified shops).
+              (listing applications are reviewed before publication).
             </p>
             <p className="text-gray-300 leading-relaxed mt-4">
               <strong>Commercial accounts:</strong> one fleet account — say, a 40-vehicle local

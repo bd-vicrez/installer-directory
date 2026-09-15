@@ -8,6 +8,6 @@ export default function Page() { return (<><Header /><main className="flex-1"><a
 <h2 className="text-xl font-semibold mt-8">Use profiles as a starting point</h2>
 <p>Compare each shop&apos;s recorded services, location and contact details. Contact the business directly to confirm that it accepts your vehicle and parts, and agree on the work, price, timing and warranty before booking. A listing does not mean that every service mentioned elsewhere on this website is available at that shop.</p>
 <h2 className="text-xl font-semibold mt-8">Understand the labels</h2>
-<p>Verified and Listed are directory record designations. They are not an independent certification, an inspection of the business, or a guarantee of workmanship. <a href="/how-verification-works" className="text-vicrez-red underline">Read how the labels are assigned</a>.</p>
+<p>Vicrez-recorded and Listed describe directory record sources. They are not an independent certification, an inspection of the business, or a guarantee of workmanship. <a href="/how-verification-works" className="text-vicrez-red underline">Read how the labels are assigned</a>.</p>
 <h2 className="text-xl font-semibold mt-8">Keep information accurate</h2>
 <p>Business details can change. Shop owners and visitors can <a href="/contact" className="text-vicrez-red underline">contact Vicrez about corrections or removal</a>. Shops not yet in the directory can use the <a href="/apply" className="text-vicrez-red underline">listing application</a>.</p></article></main><Footer /></>); }

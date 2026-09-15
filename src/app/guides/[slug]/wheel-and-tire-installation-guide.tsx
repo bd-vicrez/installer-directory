@@ -238,10 +238,9 @@ export default function WheelAndTireInstallationGuide() {
         <a href="/directory" className="text-vicrez-red hover:underline">
           Vicrez Installer Directory
         </a>{' '}
-        lists over 6,000 shops nationwide that handle <strong>wheel and tire installation</strong>. Look for
-        shops that specifically mention wheel fitment experience, have a tire machine and balancer, and
-        can handle TPMS programming. Verified shops in our network have been confirmed through the Vicrez
-        dealer program.
+        includes shops with recorded <strong>wheel and tire installation</strong> services. Confirm wheel fitment experience,
+        tire mounting and balancing equipment, and TPMS capabilities directly with the shop.
+        A Vicrez-recorded badge identifies a source record; it does not certify equipment, skill or current dealer membership.
       </p>
 
       {/* CTA */}

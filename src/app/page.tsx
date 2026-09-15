@@ -5,6 +5,8 @@ import HomeSearch from '@/components/HomeSearch';
 import { queryTopCities, queryAllStatesWithCounts, queryInstallerStats, queryReviewedProfiles, getPool } from '@/lib/db';
 import { STATE_NAMES, toLocationSlug, toStateSlug } from '@/lib/seo';
 
+export const revalidate = 300;
+
 export const metadata: Metadata = {
   title: 'Find Body Kit, Wheel, Tire, Wrap & PPF Installers Near You | Vicrez Installer Network',
   description:
@@ -68,14 +70,14 @@ export default async function HomePage() {
     queryTopCities(20),
     queryAllStatesWithCounts(),
     queryInstallerStats(),
-    getPool().query("SELECT ROUND(AVG(google_rating)::numeric, 1) as avg_rating FROM installers WHERE status != 'removed' AND google_rating IS NOT NULL"),
+    getPool().query("SELECT ROUND(AVG(google_rating)::numeric, 1) as avg_rating FROM installers WHERE status = 'active' AND google_rating IS NOT NULL"),
     queryReviewedProfiles(),
   ]);
 
-  const totalInstallers = parseInt(stats?.total || '13000');
-  const verifiedCount = parseInt(stats?.verified || '377');
+  const totalInstallers = Number(stats?.total || 0);
+  const verifiedCount = Number(stats?.verified || 0);
   const stateCount = Math.min(parseInt(stats?.states || '50'), 50);
-  const avgRating = ratingResult.rows[0]?.avg_rating || '4.2';
+  const avgRating = ratingResult.rows[0]?.avg_rating || '—';
 
   return (
     <>
@@ -88,8 +90,8 @@ export default async function HomePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
               <div>
-                <div className="text-3xl font-bold text-white">{totalInstallers.toLocaleString()}+</div>
-                <div className="text-sm text-vicrez-muted mt-1">Installers Nationwide</div>
+                <div className="text-3xl font-bold text-white">{totalInstallers.toLocaleString()}</div>
+                <div className="text-sm text-vicrez-muted mt-1">Active directory records</div>
               </div>
               <div>
                 <div className="text-3xl font-bold text-white">{stateCount}</div>
@@ -97,16 +99,17 @@ export default async function HomePage() {
               </div>
               <div>
                 <div className="text-3xl font-bold text-green-400">{verifiedCount}</div>
-                <div className="text-sm text-vicrez-muted mt-1">Verified Dealers</div>
+                <div className="text-sm text-vicrez-muted mt-1">Vicrez-recorded shops</div>
               </div>
               <div>
                 <div className="text-3xl font-bold text-yellow-400">{avgRating}</div>
-                <div className="text-sm text-vicrez-muted mt-1">Avg Google Rating</div>
+                <div className="text-sm text-vicrez-muted mt-1">Mean recorded Google rating</div>
               </div>
             </div>
           </div>
         </section>
 
+        <p className="text-xs text-gray-600 text-center px-4 mt-3">Directory record counts do not establish active dealer membership or shop participation. Updated {new Date().toLocaleDateString('en-US')}.</p>
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <h2 className="text-2xl font-bold text-white mb-3">Explore shop profiles</h2>
           <p className="text-vicrez-muted mb-6">Compare recorded services and prepare questions for your project. These shops have dealer-form records in the directory; inclusion is not a ranking or workmanship guarantee.</p>
@@ -118,7 +121,7 @@ export default async function HomePage() {
               </a>
             ))}
           </div>
-          <p className="mt-5"><a href="/how-verification-works" className="text-vicrez-red hover:underline">Understand verified and listed profiles →</a></p>
+          <p className="mt-5"><a href="/how-verification-works" className="text-vicrez-red hover:underline">Understand directory record labels →</a></p>
         </section>
 
         {/* Browse by Category */}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vicrez installation inquiry</title></head>
+<body style="margin:0;background:#f3f4f6;font-family:Arial,sans-serif;color:#111827;line-height:1.6">
+<div style="max-width:620px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+  <div style="background:#b91c1c;color:#fff;padding:24px"><p style="margin:0;font-size:13px;letter-spacing:1px">VICREZ INSTALLER DIRECTORY</p><h1 style="font-size:25px;margin:8px 0 0">Installation inquiry</h1></div>
+  <div style="padding:24px">
+    <p>Hello {{ event.business_name|default:event.installer_business_name|escape }},</p>
+    {% if event.request_type == "selected" %}<p>A customer selected your shop for this installation request. Vicrez has not sent this request to other shops.</p>{% elif event.request_type == "network" %}<p>Your shop was selected using the request’s location and recorded service information. Please confirm whether the work fits your current services and availability.</p>{% else %}<p>A customer requested installation help near your shop. Please confirm whether the work fits your current services and availability.</p>{% endif %}
+    <div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px">
+      <p style="margin:0 0 8px"><strong>Reference:</strong> {{ event.rfq_id|default:"See request details below"|escape }}</p>
+      {% if event.vehicle_year %}<p style="margin:0 0 8px"><strong>Vehicle:</strong> {{ event.vehicle_year|escape }} {{ event.vehicle_make|escape }} {{ event.vehicle_model|escape }}</p>{% else %}<p style="margin:0 0 8px"><strong>Vehicle:</strong> {{ event.lead.vehicle_ymm|escape }}</p>{% endif %}
+      <p style="margin:0 0 8px"><strong>Requested work:</strong> {{ event.kit_interest|default:event.lead.kit_interest|escape }}</p>
+      {% if event.service %}<p style="margin:0 0 8px"><strong>Service:</strong> {{ event.service|escape }}</p>{% endif %}
+      <p style="margin:0 0 8px"><strong>Timeline:</strong> {{ event.install_timeline|default:event.lead.install_timeline|default:"Not specified"|escape }}</p>
+      <p style="margin:0"><strong>Budget:</strong> {{ event.budget_range|default:event.lead.budget_range|default:"Not specified"|escape }}</p>
+      {% if event.request_type == "network" %}<p style="margin:8px 0 0"><strong>Customer ZIP:</strong> {{ event.customer_zip|escape }} · approximately {{ event.distance_miles|escape }} miles away (geographic distance)</p>{% endif %}
+    </div>
+    {% if event.notes %}<h2 style="font-size:18px;margin:20px 0 8px">Project notes</h2><p style="white-space:pre-wrap">{{ event.notes|escape }}</p>{% elif event.lead.notes %}<p style="white-space:pre-wrap">{{ event.lead.notes|escape }}</p>{% endif %}
+    {% if event.customer_email %}
+      <h2 style="font-size:18px;margin:20px 0 8px">Contact the customer</h2>
+      <p>The customer asked Vicrez to share these details for this installation inquiry.</p>
+      <p><strong>Name:</strong> {{ event.customer_name|escape }}<br><strong>Email:</strong> {{ event.customer_email|escape }}<br><strong>Phone:</strong> {{ event.customer_phone|escape }}</p>
+      <p>Contact the customer to confirm the parts and vehicle, scope of work, pricing and availability. This inquiry is not a booking or a commitment to purchase.</p>
+    {% else %}
+      <p>To respond to this request, contact <a href="mailto:quotes@vicrez.com" style="color:#b91c1c">quotes@vicrez.com</a> with the request reference and your shop name so Vicrez can coordinate the next step.</p>
+    {% endif %}
+    <p style="font-size:13px;color:#4b5563">Use the customer’s information only to handle this request. To update your contact details or stop directory quote routing, contact <a href="mailto:quotes@vicrez.com" style="color:#b91c1c">quotes@vicrez.com</a>.</p>
+    <p style="font-size:12px;color:#6b7280">Directory inclusion does not certify workmanship or guarantee an appointment. <a href="https://installers.vicrez.com/how-verification-works" style="color:#b91c1c">About directory records</a>.</p>
+  </div>
+  <div style="padding:16px 24px;background:#f9fafb;font-size:12px;color:#6b7280">Vicrez Installer Directory · <a href="https://installers.vicrez.com/" style="color:#b91c1c">Visit directory</a><br><a href="{{ unsubscribe_url }}" style="color:#6b7280">Stop receiving installer lead notifications</a></div>
+</div></body></html>

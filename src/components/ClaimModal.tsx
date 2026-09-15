@@ -46,8 +46,7 @@ export default function ClaimModal({ isOpen, onClose }: ClaimModalProps) {
 
           <h2 className="text-2xl font-bold mb-2">Claim Your Listing</h2>
           <p className="text-vicrez-muted mb-6">
-            Want priority placement, a verified badge, and a dealer account?
-            Sign up for the Vicrez Business Network.
+            For a correction or ownership review, contact Vicrez with this listing’s URL and your relationship to the shop. Wholesale dealer enrollment is a separate option.
           </p>
 
           <a
@@ -56,11 +55,12 @@ export default function ClaimModal({ isOpen, onClose }: ClaimModalProps) {
             rel="noopener noreferrer"
             className="btn-primary inline-block w-full text-center text-lg"
           >
-            Sign Up at b2b.vicrez.com
+            Explore the wholesale dealer program
           </a>
 
+          <p className="mt-4"><a href="/contact" className="text-vicrez-red underline">Request a listing correction or ownership review</a></p>
           <p className="text-xs text-vicrez-muted mt-4">
-            Get wholesale pricing, marketing support, and verified status in our installer directory.
+            Dealer enrollment does not certify installation work or automatically verify ownership of a directory listing.
           </p>
         </div>
       </div>

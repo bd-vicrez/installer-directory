@@ -22,8 +22,8 @@ export default function InstallerCardStatic({ installer }: InstallerCardStaticPr
   // Prefer Google rating, fall back to parsed internal notes rating
   const googleRating = installer.google_rating;
   const googleReviewCount = installer.google_review_count;
-  const fallbackRating = parseRating(installer.internal_notes);
-  const displayRating = googleRating || fallbackRating;
+
+  const displayRating = googleRating;
 
   return (
     <div className={`card relative ${isVerified ? 'border-green-500/30' : ''}`}>
@@ -40,7 +40,7 @@ export default function InstallerCardStatic({ installer }: InstallerCardStaticPr
               <path d="M12 1L14.7 3.3H18.4L19 7L22 9.5L20.7 13L22 16.5L19 19L18.4 22.7H14.7L12 25L9.3 22.7H5.6L5 19L2 16.5L3.3 13L2 9.5L5 7L5.6 3.3H9.3L12 1Z" fill="#1DA1F2" transform="scale(0.88) translate(1.5, 1.5)"/>
               <path d="M9.55 18.5L3.85 12.8L5.275 11.375L9.55 15.65L18.725 6.475L20.15 7.9L9.55 18.5Z" fill="white" transform="scale(0.7) translate(5, 4.5)"/>
             </svg>
-            Verified Vicrez Installer
+            Vicrez-recorded shop
           </>
         ) : (
           <>

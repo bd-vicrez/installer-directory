@@ -77,7 +77,7 @@ export default function Footer() {
             <h4 className="text-sm font-semibold uppercase tracking-wider mb-4 text-gray-400">Legal</h4>
             <p className="text-xs text-gray-500 leading-relaxed">
               Directory records include business submissions and publicly available information.
-              Verified is a directory record designation, not an independent certification or workmanship guarantee.
+              Vicrez-recorded identifies a source record. It does not certify installation skill, current dealer membership or workmanship.
               For corrections or removal, use the listing contact link or our Contact page.
             </p>
           </div>

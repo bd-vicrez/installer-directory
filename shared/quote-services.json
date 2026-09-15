@@ -1,0 +1,10 @@
+[
+  {"id":"body-kits","label":"Body kits & aero parts","aliases":["body kit","body kits","widebody","aero","bumper","splitter","diffuser","spoiler","fender flare","side skirt"]},
+  {"id":"paint-bodywork","label":"Paint & bodywork","aliases":["paint/bodywork","paint bodywork","paint","bodywork","body work","auto body","collision","refinish"]},
+  {"id":"wheels-tires","label":"Wheels & tires","aliases":["wheels/tires","wheel","wheels","tire","tires","rim","rims","balancing","alignment"]},
+  {"id":"vinyl-wrap","label":"Vinyl wrap","aliases":["vinyl/wraps","vinyl wrap","vinyl wraps","wrap","wraps","wrapping"]},
+  {"id":"ppf","label":"Paint protection film (PPF)","aliases":["ppf","paint protection film","clear bra"]},
+  {"id":"window-tint","label":"Window tint","aliases":["window tint","tint","tinting"]},
+  {"id":"performance","label":"Performance & suspension","aliases":["performance mods","performance","suspension","coilover","coilovers","exhaust","tuning","turbo","supercharger","intake"]},
+  {"id":"other","label":"Other / help choosing a service","aliases":[]}
+]

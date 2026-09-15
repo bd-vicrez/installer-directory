@@ -68,7 +68,7 @@ export default function HomeSearch() {
       {loading && <p role="status" className="text-center py-10 text-gray-700">Finding nearby installers…</p>}
       {error && <p role="alert" className="p-4 rounded-lg bg-red-50 text-red-800">{error}</p>}
       {results && !loading && <>
-        <p className="mb-6 text-sm text-gray-700" role="status">{results.total} results · {results.verified} verified · {results.listed} listed</p>
+        <p className="mb-6 text-sm text-gray-700" role="status">{results.total} results · {results.verified} Vicrez records · {results.listed} listed</p>
         {results.total === 0 ? <div className="text-center py-12">
           <h2 className="text-xl font-semibold mb-2">No installers found</h2>
           <p className="text-gray-700">Try a wider radius, another service or a nearby ZIP code.</p>

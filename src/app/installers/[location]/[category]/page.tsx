@@ -292,7 +292,7 @@ export default async function LocationCategoryPage({ params: pendingParams }: Pa
                 <h3 className="font-semibold text-white mb-2">How do I find a {config.shortLabel.toLowerCase()} in {locationLabel}?</h3>
                 <p className="text-sm text-gray-400">
                   Browse the verified Vicrez Installer Network for {locationLabel}. Each shop listing includes contact info,
-                  hours, Google ratings, and directions. Look for shops marked &quot;Verified&quot; for partners that work directly with Vicrez.
+                  hours, recorded Google ratings, and directions. Confirm current services, parts acceptance and availability with the shop.
                 </p>
               </div>
               <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-5">
@@ -303,10 +303,9 @@ export default async function LocationCategoryPage({ params: pendingParams }: Pa
                 </p>
               </div>
               <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-5">
-                <h3 className="font-semibold text-white mb-2">What does &quot;Verified&quot; mean?</h3>
+                <h3 className="font-semibold text-white mb-2">What does &quot;Vicrez-recorded shop&quot; mean?</h3>
                 <p className="text-sm text-gray-400">
-                  Verified installers have been confirmed through the Vicrez dealer network. They are familiar with Vicrez products and have
-                  agreed to work with our customers. Other listings are aggregated from public sources for convenience.
+                  The badge identifies a business source record held by Vicrez. It does not certify workmanship, insurance, current dealer membership or experience with your parts. Other listings use publicly available information.
                 </p>
               </div>
             </div>

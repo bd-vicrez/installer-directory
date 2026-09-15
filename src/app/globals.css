@@ -87,3 +87,9 @@
 .animate-pulse-red {
   animation: pulse-red 2s infinite;
 }
+
+/* Native modal supplies focus containment, background inertness and Escape. */
+.quote-dialog { margin: auto; padding: 0; width: min(36rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow-y: auto; border: 1px solid #d1d5db; border-radius: 1rem; background: #fff; color: #111827; box-shadow: 0 24px 64px #0004; }
+.quote-dialog::backdrop { background: #0009; }
+.quote-dialog input, .quote-dialog select, .quote-dialog textarea { background: #fff; color: #111827; }
+.quote-dialog :focus-visible { outline: 2px solid #b91c1c; outline-offset: 3px; }
