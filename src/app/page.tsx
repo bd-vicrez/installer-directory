@@ -1,83 +1,97 @@
-import { Metadata } from 'next';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import HomeSearch from '@/components/HomeSearch';
-import { queryTopCities, queryAllStatesWithCounts, queryInstallerStats, queryReviewedProfiles, getPool } from '@/lib/db';
-import { STATE_NAMES, toLocationSlug, toStateSlug } from '@/lib/seo';
+export const dynamic = "force-dynamic";
+import { Metadata } from "next";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import HomeSearch from "@/components/HomeSearch";
+import {
+  queryTopCities,
+  queryAllStatesWithCounts,
+  queryInstallerStats,
+  queryReviewedProfiles,
+  getPool,
+} from "@/lib/db";
+import { STATE_NAMES, toLocationSlug, toStateSlug } from "@/lib/seo";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: 'Find Body Kit, Wheel, Tire, Wrap & PPF Installers Near You | Vicrez Installer Network',
+  title:
+    "Find Body Kit, Wheel, Tire, Wrap & PPF Installers Near You | Vicrez Installer Network",
   description:
-    'Search the Vicrez Installer Network to find local shops for body kits, widebody kits, OE bumpers, wheels, tires, vinyl wrap, PPF, tint, suspension, and exterior upgrades. Browse thousands of installers across the U.S.',
+    "Search the Vicrez Installer Network to find local shops for body kits, widebody kits, OE bumpers, wheels, tires, vinyl wrap, PPF, tint, suspension, and exterior upgrades. Browse thousands of installers across the U.S.",
   alternates: {
-    canonical: 'https://installers.vicrez.com/',
+    canonical: "https://installers.vicrez.com/",
   },
   openGraph: {
-    title: 'Find Body Kit, Wheel, Tire, Wrap & PPF Installers Near You | Vicrez Installer Network',
+    title:
+      "Find Body Kit, Wheel, Tire, Wrap & PPF Installers Near You | Vicrez Installer Network",
     description:
-      'Browse local installers for body kits, bumpers, wheels, tires, vinyl wrap, paint protection film, tint, and aftermarket upgrades.',
-    url: 'https://installers.vicrez.com/',
-    type: 'website',
+      "Browse local installers for body kits, bumpers, wheels, tires, vinyl wrap, paint protection film, tint, and aftermarket upgrades.",
+    url: "https://installers.vicrez.com/",
+    type: "website",
   },
 };
 
 const CATEGORIES = [
-  { slug: 'body-kits', label: 'Body Kits & Bumpers' },
-  { slug: 'wheels-and-tires', label: 'Wheels & Tires' },
-  { slug: 'vinyl-wrap', label: 'Vinyl Wrap & Tint' },
-  { slug: 'ppf-installers', label: 'PPF / Clear Bra' },
-  { slug: 'paint-bodywork', label: 'Paint & Bodywork' },
-  { slug: 'widebody-kits', label: 'Widebody Kits' },
-  { slug: 'aero-parts', label: 'Aero Parts & Spoilers' },
-  { slug: 'custom-builds', label: 'Custom Builds' },
+  { slug: "body-kits", label: "Body Kits & Bumpers" },
+  { slug: "wheels-and-tires", label: "Wheels & Tires" },
+  { slug: "vinyl-wrap", label: "Vinyl Wrap" },
+  { slug: "ppf-installers", label: "PPF / Clear Bra" },
+  { slug: "paint-bodywork", label: "Paint & Bodywork" },
+  { slug: "widebody-kits", label: "Widebody Kits" },
+  { slug: "aero-parts", label: "Aero Parts & Spoilers" },
+  { slug: "custom-builds", label: "Custom Builds" },
 ];
 
 const SEO_GUIDES = [
   {
-    slug: 'body-kit-installation-cost',
-    title: 'How Much Does Body Kit Installation Cost? (2026 Guide)',
+    slug: "body-kit-installation-cost",
+    title: "How Much Does Body Kit Installation Cost? (2026 Guide)",
   },
   {
-    slug: 'widebody-kit-installation-guide',
-    title: 'Complete Widebody Kit Installation Guide: What to Expect',
+    slug: "widebody-kit-installation-guide",
+    title: "Complete Widebody Kit Installation Guide: What to Expect",
   },
   {
-    slug: 'how-to-choose-body-kit-installer',
-    title: 'How to Choose a Body Kit Installer: 7 Things to Look For',
+    slug: "how-to-choose-body-kit-installer",
+    title: "How to Choose a Body Kit Installer: 7 Things to Look For",
   },
   {
-    slug: 'wheel-and-tire-installation-guide',
-    title: 'Wheel & Tire Installation Guide: Everything You Need to Know (2026)',
+    slug: "wheel-and-tire-installation-guide",
+    title:
+      "Wheel & Tire Installation Guide: Everything You Need to Know (2026)",
   },
   {
-    slug: 'vinyl-wrap-cost-guide',
-    title: 'How Much Does a Vinyl Wrap Cost? Complete 2026 Guide',
+    slug: "vinyl-wrap-cost-guide",
+    title: "How Much Does a Vinyl Wrap Cost? Complete 2026 Guide",
   },
   {
-    slug: 'ppf-installation-guide',
-    title: 'PPF Installation Guide: Cost, Process & How to Find an Installer (2026)',
+    slug: "ppf-installation-guide",
+    title:
+      "PPF Installation Guide: Cost, Process & How to Find an Installer (2026)",
   },
   {
-    slug: 'coilover-installation-guide',
-    title: 'Coilover Installation Guide: Cost, Process & What to Expect (2026)',
+    slug: "coilover-installation-guide",
+    title: "Coilover Installation Guide: Cost, Process & What to Expect (2026)",
   },
 ];
 
 export default async function HomePage() {
-  const [topCities, states, stats, ratingResult, reviewedProfiles] = await Promise.all([
-    queryTopCities(20),
-    queryAllStatesWithCounts(),
-    queryInstallerStats(),
-    getPool().query("SELECT ROUND(AVG(google_rating)::numeric, 1) as avg_rating FROM installers WHERE status = 'active' AND google_rating IS NOT NULL"),
-    queryReviewedProfiles(),
-  ]);
+  const [topCities, states, stats, ratingResult, reviewedProfiles] =
+    await Promise.all([
+      queryTopCities(20),
+      queryAllStatesWithCounts(),
+      queryInstallerStats(),
+      getPool().query(
+        "SELECT ROUND(AVG(google_rating)::numeric, 1) as avg_rating FROM installers WHERE status = 'active' AND google_rating IS NOT NULL",
+      ),
+      queryReviewedProfiles(),
+    ]);
 
   const totalInstallers = Number(stats?.total || 0);
   const verifiedCount = Number(stats?.verified || 0);
-  const stateCount = Math.min(parseInt(stats?.states || '50'), 50);
-  const avgRating = ratingResult.rows[0]?.avg_rating || '—';
+  const stateCount = Math.min(parseInt(stats?.states || "50"), 50);
+  const avgRating = ratingResult.rows[0]?.avg_rating || "—";
 
   return (
     <>
@@ -90,43 +104,92 @@ export default async function HomePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
               <div>
-                <div className="text-3xl font-bold text-white">{totalInstallers.toLocaleString()}</div>
-                <div className="text-sm text-vicrez-muted mt-1">Active directory records</div>
+                <div className="text-3xl font-bold text-white">
+                  {totalInstallers.toLocaleString()}
+                </div>
+                <div className="text-sm text-vicrez-muted mt-1">
+                  Active directory records
+                </div>
               </div>
               <div>
-                <div className="text-3xl font-bold text-white">{stateCount}</div>
-                <div className="text-sm text-vicrez-muted mt-1">States Covered</div>
+                <div className="text-3xl font-bold text-white">
+                  {stateCount}
+                </div>
+                <div className="text-sm text-vicrez-muted mt-1">
+                  States Covered
+                </div>
               </div>
               <div>
-                <div className="text-3xl font-bold text-green-400">{verifiedCount}</div>
-                <div className="text-sm text-vicrez-muted mt-1">Vicrez-recorded shops</div>
+                <div className="text-3xl font-bold text-green-400">
+                  {verifiedCount}
+                </div>
+                <div className="text-sm text-vicrez-muted mt-1">
+                  Vicrez-recorded shops
+                </div>
               </div>
               <div>
-                <div className="text-3xl font-bold text-yellow-400">{avgRating}</div>
-                <div className="text-sm text-vicrez-muted mt-1">Mean recorded Google rating</div>
+                <div className="text-3xl font-bold text-yellow-400">
+                  {avgRating}
+                </div>
+                <div className="text-sm text-vicrez-muted mt-1">
+                  Mean recorded Google rating
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <p className="text-xs text-gray-600 text-center px-4 mt-3">Directory record counts do not establish active dealer membership or shop participation. Updated {new Date().toLocaleDateString('en-US')}.</p>
+        <p className="text-xs text-gray-600 text-center px-4 mt-3">
+          Directory record counts do not establish active dealer membership or
+          shop participation. Updated {new Date().toLocaleDateString("en-US")}.
+        </p>
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <h2 className="text-2xl font-bold text-white mb-3">Explore shop profiles</h2>
-          <p className="text-vicrez-muted mb-6">Compare recorded services and prepare questions for your project. These shops have dealer-form records in the directory; inclusion is not a ranking or workmanship guarantee.</p>
+          <h2 className="text-2xl font-bold text-white mb-3">
+            Explore shop profiles
+          </h2>
+          <p className="text-vicrez-muted mb-6">
+            Compare recorded services and prepare questions for your project.
+            These shops have dealer-form records in the directory; inclusion is
+            not a ranking or workmanship guarantee.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {reviewedProfiles.map((shop: { slug: string; business_name: string; city: string; state: string }) => (
-              <a key={shop.slug} href={`/installer/${shop.slug}`} className="card p-5 hover:border-vicrez-red/50">
-                <h3 className="font-semibold text-white">{shop.business_name}</h3>
-                <p className="text-sm text-vicrez-muted mt-2">{shop.city}, {shop.state}</p>
-              </a>
-            ))}
+            {reviewedProfiles.map(
+              (shop: {
+                slug: string;
+                business_name: string;
+                city: string;
+                state: string;
+              }) => (
+                <a
+                  key={shop.slug}
+                  href={`/installer/${shop.slug}`}
+                  className="card p-5 hover:border-vicrez-red/50"
+                >
+                  <h3 className="font-semibold text-white">
+                    {shop.business_name}
+                  </h3>
+                  <p className="text-sm text-vicrez-muted mt-2">
+                    {shop.city}, {shop.state}
+                  </p>
+                </a>
+              ),
+            )}
           </div>
-          <p className="mt-5"><a href="/how-verification-works" className="text-vicrez-red hover:underline">Understand directory record labels →</a></p>
+          <p className="mt-5">
+            <a
+              href="/how-verification-works"
+              className="text-vicrez-red hover:underline"
+            >
+              Understand directory record labels →
+            </a>
+          </p>
         </section>
 
         {/* Browse by Category */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <h2 className="text-2xl font-bold text-white mb-6">Browse by Category</h2>
+          <h2 className="text-2xl font-bold text-white mb-6">
+            Browse by Category
+          </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {CATEGORIES.map((cat) => (
               <a
@@ -145,9 +208,17 @@ export default async function HomePage() {
         {/* CTA Banner */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-gradient-to-r from-vicrez-red/10 to-vicrez-red/5 border border-vicrez-red/20 rounded-xl p-8 text-center">
-            <h2 className="text-xl font-bold text-black mb-2">Own an Automotive Shop?</h2>
-            <p className="text-vicrez-muted mb-4">Showcase your tire, wheel, body, wrap, PPF or performance installation services. Join the Vicrez Installer Network with a free shop listing.</p>
-            <a href="/apply" className="btn-primary inline-block">List Your Shop — Free</a>
+            <h2 className="text-xl font-bold text-black mb-2">
+              Own an Automotive Shop?
+            </h2>
+            <p className="text-vicrez-muted mb-4">
+              Showcase your tire, wheel, body, wrap, PPF or performance
+              installation services. Join the Vicrez Installer Network with a
+              free shop listing.
+            </p>
+            <a href="/apply" className="btn-primary inline-block">
+              List Your Shop — Free
+            </a>
           </div>
         </section>
 
@@ -172,7 +243,10 @@ export default async function HomePage() {
               ))}
             </div>
             <div className="text-center mt-6">
-              <a href="/directory" className="text-sm text-vicrez-red hover:underline">
+              <a
+                href="/directory"
+                className="text-sm text-vicrez-red hover:underline"
+              >
                 View all cities and states →
               </a>
             </div>
@@ -181,7 +255,9 @@ export default async function HomePage() {
 
         {/* Browse by State */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <h2 className="text-2xl font-bold text-white mb-6">Browse by State</h2>
+          <h2 className="text-2xl font-bold text-white mb-6">
+            Browse by State
+          </h2>
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
             {states
               .filter((s: any) => STATE_NAMES[s.state?.toUpperCase()])
@@ -191,7 +267,9 @@ export default async function HomePage() {
                   href={`/installers/${toStateSlug(s.state.toUpperCase())}`}
                   className="text-center px-2 py-2 rounded-lg bg-vicrez-card border border-vicrez-border hover:border-vicrez-red/50 transition-colors"
                 >
-                  <div className="text-sm font-medium text-white">{s.state}</div>
+                  <div className="text-sm font-medium text-white">
+                    {s.state}
+                  </div>
                   <div className="text-xs text-vicrez-muted">{s.count}</div>
                 </a>
               ))}
@@ -203,12 +281,18 @@ export default async function HomePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             <div className="flex items-center justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-white">Installation Guides</h2>
+                <h2 className="text-2xl font-bold text-white">
+                  Installation Guides
+                </h2>
                 <p className="text-sm text-vicrez-muted mt-2">
-                  Practical guides covering body kits, wheels, tires, suspension, wraps, and paint protection.
+                  Practical guides covering body kits, wheels, tires,
+                  suspension, wraps, and paint protection.
                 </p>
               </div>
-              <a href="/guides" className="text-sm text-vicrez-red hover:underline whitespace-nowrap">
+              <a
+                href="/guides"
+                className="text-sm text-vicrez-red hover:underline whitespace-nowrap"
+              >
                 View all guides →
               </a>
             </div>
@@ -219,7 +303,9 @@ export default async function HomePage() {
                   href={`/guides/${guide.slug}`}
                   className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 hover:border-vicrez-red/30 transition-colors"
                 >
-                  <h3 className="text-sm font-semibold text-white">{guide.title}</h3>
+                  <h3 className="text-sm font-semibold text-white">
+                    {guide.title}
+                  </h3>
                 </a>
               ))}
             </div>

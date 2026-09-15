@@ -1,6 +1,6 @@
-import { Pool } from 'pg';
-import { VERIFIED_KEYWORDS } from './utils';
-import { REVIEWED_PROFILE_SLUGS } from './profile-content';
+import { Pool } from "pg";
+import { VERIFIED_KEYWORDS } from "./utils";
+import { REVIEWED_PROFILE_SLUGS } from "./profile-content";
 
 let pool: Pool;
 
@@ -15,22 +15,22 @@ export function getPool(): Pool {
   return pool;
 }
 
-export async function queryInstallers(whereClause = '', params: any[] = []) {
+export async function queryInstallers(whereClause = "", params: any[] = []) {
   const db = getPool();
-  const query = `SELECT * FROM installers WHERE status != 'removed' ${whereClause} ORDER BY id`;
+  const query = `SELECT * FROM installers WHERE status NOT IN ('removed','non_us_excluded') ${whereClause} ORDER BY id`;
   const { rows } = await db.query(query, params);
   return rows;
 }
 
 export async function queryInstallersByCity(city: string, state: string) {
   return queryInstallers(
-    'AND LOWER(city) = LOWER($1) AND LOWER(state) = LOWER($2)',
-    [city, state]
+    "AND LOWER(city) = LOWER($1) AND LOWER(state) = LOWER($2)",
+    [city, state],
   );
 }
 
 export async function queryInstallersByState(state: string) {
-  return queryInstallers('AND LOWER(state) = LOWER($1)', [state]);
+  return queryInstallers("AND LOWER(state) = LOWER($1)", [state]);
 }
 
 export async function queryAllCitiesWithCounts() {
@@ -61,22 +61,25 @@ export async function queryAllStatesWithCounts() {
 
 export async function queryTopCities(limit = 50) {
   const db = getPool();
-  const { rows } = await db.query(`
+  const { rows } = await db.query(
+    `
     SELECT city, state, COUNT(*) as count
     FROM installers
-    WHERE status != 'removed' AND city IS NOT NULL AND city != ''
+    WHERE status NOT IN ('removed','non_us_excluded') AND city IS NOT NULL AND city != ''
     GROUP BY city, state
     ORDER BY count DESC
     LIMIT $1
-  `, [limit]);
+  `,
+    [limit],
+  );
   return rows;
 }
 
 export async function queryInstallerBySlug(slug: string) {
   const db = getPool();
   const { rows } = await db.query(
-    `SELECT * FROM installers WHERE slug = $1 AND status != 'removed' LIMIT 1`,
-    [slug]
+    `SELECT * FROM installers WHERE slug = $1 AND status NOT IN ('removed','non_us_excluded') LIMIT 1`,
+    [slug],
   );
   return rows[0] || null;
 }
@@ -88,7 +91,10 @@ export interface CitySeoContent {
   cost_context: string | null;
 }
 
-export async function queryCitySeoContent(city: string, state: string): Promise<CitySeoContent | null> {
+export async function queryCitySeoContent(
+  city: string,
+  state: string,
+): Promise<CitySeoContent | null> {
   const db = getPool();
   try {
     const { rows } = await db.query(
@@ -96,22 +102,25 @@ export async function queryCitySeoContent(city: string, state: string): Promise<
          FROM city_seo
         WHERE LOWER(city) = LOWER($1) AND LOWER(state) = LOWER($2)
         LIMIT 1`,
-      [city, state]
+      [city, state],
     );
     return rows[0] || null;
   } catch (e: any) {
     // Table may not exist yet in dev; fail soft.
-    if (e && e.code === '42P01') return null;
+    if (e && e.code === "42P01") return null;
     throw e;
   }
 }
 
-export async function queryInstallersByCapability(capability: string, limit = 100) {
+export async function queryInstallersByCapability(
+  capability: string,
+  limit = 100,
+) {
   const db = getPool();
   const pattern = `%${capability}%`;
   const { rows } = await db.query(
     `SELECT * FROM installers
-     WHERE status != 'removed'
+     WHERE status NOT IN ('removed','non_us_excluded')
        AND (
          install_capabilities::text ILIKE $1
          OR specialize_in ILIKE $1
@@ -119,7 +128,7 @@ export async function queryInstallersByCapability(capability: string, limit = 10
        )
      ORDER BY google_rating DESC NULLS LAST, google_review_count DESC NULLS LAST
      LIMIT $2`,
-    [pattern, limit]
+    [pattern, limit],
   );
   return rows;
 }
@@ -150,14 +159,16 @@ export async function queryInstallerStats() {
  */
 export async function queryVerifiedInstallerSlugs() {
   const db = getPool();
-  const clause = VERIFIED_KEYWORDS.map((_, i) => `source ILIKE $${i + 1}`).join(' OR ');
+  const clause = VERIFIED_KEYWORDS.map((_, i) => `source ILIKE $${i + 1}`).join(
+    " OR ",
+  );
   const params = VERIFIED_KEYWORDS.map((kw) => `%${kw}%`);
   const { rows } = await db.query(
     `SELECT slug FROM installers
-     WHERE status != 'removed' AND slug IS NOT NULL AND slug != ''
+     WHERE status NOT IN ('removed','non_us_excluded') AND slug IS NOT NULL AND slug != ''
        AND (${clause})
      ORDER BY google_review_count DESC NULLS LAST`,
-    params
+    params,
   );
   return rows.map((r: any) => r.slug);
 }
@@ -166,7 +177,9 @@ export async function queryVerifiedInstallerSlugs() {
  * Cities that have unique AI-written SEO content in city_seo AND at least
  * one live installer. These are the only city pages in the sitemap.
  */
-export async function queryCitySeoCities(): Promise<{ city: string; state: string }[]> {
+export async function queryCitySeoCities(): Promise<
+  { city: string; state: string }[]
+> {
   const db = getPool();
   try {
     const { rows } = await db.query(`
@@ -179,7 +192,7 @@ export async function queryCitySeoCities(): Promise<{ city: string; state: strin
     `);
     return rows;
   } catch (e: any) {
-    if (e && e.code === '42P01') return [];
+    if (e && e.code === "42P01") return [];
     throw e;
   }
 }
@@ -188,10 +201,10 @@ export async function queryAllInstallerSlugs(limit = 500) {
   const db = getPool();
   const { rows } = await db.query(
     `SELECT slug FROM installers
-     WHERE status != 'removed' AND slug IS NOT NULL AND slug != ''
+     WHERE status NOT IN ('removed','non_us_excluded') AND slug IS NOT NULL AND slug != ''
      ORDER BY google_review_count DESC NULLS LAST
      LIMIT $1`,
-    [limit]
+    [limit],
   );
   return rows.map((r: any) => r.slug);
 }
@@ -202,7 +215,7 @@ export async function queryReviewedProfiles() {
     `SELECT slug, business_name, city, state FROM installers
      WHERE slug = ANY($1::text[]) AND status NOT IN ('removed', 'non_us_excluded')
        AND source ILIKE $2 ORDER BY business_name LIMIT 10`,
-    [REVIEWED_PROFILE_SLUGS, '%[New Dealer Form]%']
+    [REVIEWED_PROFILE_SLUGS, "%[New Dealer Form]%"],
   );
   return rows;
 }

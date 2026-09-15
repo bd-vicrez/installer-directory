@@ -3,6 +3,8 @@ export interface GoogleHours {
 }
 
 export interface Installer {
+  owner_details?: Record<string, any>;
+  owner_details_confirmed_at?: string | null;
   id: string | number;
   slug: string;
   business_name: string;
@@ -41,7 +43,7 @@ export interface Installer {
 }
 
 export interface InstallerWithMeta extends Installer {
-  tier: 'verified' | 'listed';
+  tier: "verified" | "listed";
   distance: number | null;
   rating: number | null;
   capabilities: string[];

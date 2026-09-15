@@ -1,36 +1,69 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { sameOrigin, withinRateLimit } from "@/lib/directory-rfq";
+import {
+  readSmallJson,
+  textField,
+  emailField,
+  InputError,
+} from "@/lib/onboarding";
+const escapeHtml = (s: string) =>
+  s.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ]!,
+  );
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { shop_name, email, reason, installer_id, business_name } = body;
+    if (!sameOrigin(request)) throw new InputError("Invalid origin.", 403);
+    if (
+      !(await withinRateLimit(
+        request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown",
+        "removal",
+        6,
+        3600,
+      ))
+    )
+      throw new InputError("Please wait before trying again.", 429);
+    const body = await readSmallJson(request, 5000);
+    const shop_name = escapeHtml(
+        textField(body.shop_name, "shop name", 2, 150),
+      ),
+      email = escapeHtml(emailField(body.email)),
+      reason = escapeHtml(textField(body.reason, "reason", 10, 2000)),
+      installer_id = escapeHtml(textField(body.installer_id, "listing", 0, 80)),
+      business_name = escapeHtml(
+        textField(body.business_name, "business name", 0, 150),
+      );
 
     // Validate required fields
     if (!shop_name || !email || !reason) {
       return NextResponse.json(
-        { error: 'Missing required fields: shop_name, email, reason' },
-        { status: 400 }
+        { error: "Missing required fields: shop_name, email, reason" },
+        { status: 400 },
       );
     }
 
     // Send email via SendGrid
     const sendgridApiKey = process.env.SENDGRID_API_KEY;
     if (!sendgridApiKey) {
-      console.error('SendGrid API key not configured');
+      console.error("SendGrid API key not configured");
       return NextResponse.json(
-        { error: 'Email service not configured' },
-        { status: 500 }
+        { error: "Email service not configured" },
+        { status: 500 },
       );
     }
 
     const emailSubject = `Removal Request: ${business_name || shop_name}`;
-    const submittedDate = new Date().toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'America/New_York'
+    const submittedDate = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "America/New_York",
     });
 
     const htmlBody = `
@@ -40,8 +73,8 @@ export async function POST(request: NextRequest) {
         <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <p><strong>Shop Name:</strong> ${shop_name}</p>
           <p><strong>Contact Email:</strong> ${email}</p>
-          <p><strong>Business Name:</strong> ${business_name || 'Not provided'}</p>
-          <p><strong>Installer ID:</strong> ${installer_id || 'Not provided'}</p>
+          <p><strong>Business Name:</strong> ${business_name || "Not provided"}</p>
+          <p><strong>Installer ID:</strong> ${installer_id || "Not provided"}</p>
           <p><strong>Submitted:</strong> ${submittedDate}</p>
         </div>
 
@@ -60,53 +93,63 @@ export async function POST(request: NextRequest) {
       personalizations: [
         {
           to: [
-            { email: 'luchovillacrez@gmail.com' },
-            { email: 'luis.rbd@vicrez.com' },
-            { email: 'support@vicrez.com' }
-          ]
-        }
+            { email: "luchovillacrez@gmail.com" },
+            { email: "luis.rbd@vicrez.com" },
+            { email: "support@vicrez.com" },
+          ],
+        },
       ],
       from: {
-        email: 'noreply@vicrez.com',
-        name: 'Vicrez Installer Network'
+        email: "noreply@vicrez.com",
+        name: "Vicrez Installer Network",
       },
       subject: emailSubject,
       content: [
         {
-          type: 'text/html',
-          value: htmlBody
-        }
-      ]
+          type: "text/html",
+          value: htmlBody,
+        },
+      ],
     };
 
-    const sendgridResponse = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${sendgridApiKey}`,
-        'Content-Type': 'application/json'
+    const sendgridResponse = await fetch(
+      "https://api.sendgrid.com/v3/mail/send",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sendgridApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(sendgridPayload),
       },
-      body: JSON.stringify(sendgridPayload)
-    });
+    );
 
     if (!sendgridResponse.ok) {
       const errorText = await sendgridResponse.text();
-      console.error('SendGrid error:', sendgridResponse.status, errorText);
+      console.error(
+        "Removal notification unavailable:",
+        sendgridResponse.status,
+      );
       return NextResponse.json(
-        { error: 'Failed to send email notification' },
-        { status: 500 }
+        { error: "Failed to send email notification" },
+        { status: 500 },
       );
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Removal request submitted successfully' 
+    return NextResponse.json({
+      success: true,
+      message: "Removal request submitted successfully",
     });
-
   } catch (error) {
-    console.error('Removal request error:', error);
+    if (error instanceof InputError)
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    console.error("Removal request could not be confirmed");
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

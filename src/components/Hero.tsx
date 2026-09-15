@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 interface HeroProps {
   onSearch: (input: string, coords?: { lat: number; lng: number }) => void;
@@ -10,9 +10,17 @@ interface HeroProps {
   initialInput?: string;
 }
 
-export default function Hero({ onSearch, isLoading, resultCount, locationLabel, initialInput = '' }: HeroProps) {
+export default function Hero({
+  onSearch,
+  isLoading,
+  resultCount,
+  locationLabel,
+  initialInput = "",
+}: HeroProps) {
   const [input, setInput] = useState(initialInput);
-  useEffect(() => { setInput(initialInput); }, [initialInput]);
+  useEffect(() => {
+    setInput(initialInput);
+  }, [initialInput]);
   const [locationLoading, setLocationLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -24,23 +32,28 @@ export default function Hero({ onSearch, isLoading, resultCount, locationLabel, 
 
   const handleUseLocation = async () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser');
+      alert("Geolocation is not supported by your browser");
       return;
     }
 
     setLocationLoading(true);
-    
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        setInput('Your location');
-        onSearch('', { lat: position.coords.latitude, lng: position.coords.longitude });
+        setInput("Your location");
+        onSearch("", {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
         setLocationLoading(false);
       },
       (error) => {
-        console.error('Geolocation error:', error);
-        alert('Unable to get your location. Please enter a zip code or city manually.');
+        console.error("Geolocation error:", error);
+        alert(
+          "Unable to get your location. Please enter a zip code or city manually.",
+        );
         setLocationLoading(false);
-      }
+      },
     );
   };
 
@@ -53,8 +66,9 @@ export default function Hero({ onSearch, isLoading, resultCount, locationLabel, 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
         <div className="text-center max-w-3xl mx-auto">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
-            Find an <span className="text-vicrez-red">Installer Near You</span>
-            <br />Near You
+            Find an <span className="text-vicrez-red">Installer</span>
+            <br />
+            Near You
           </h1>
           <p className="text-lg md:text-xl text-vicrez-muted mb-10 max-w-2xl mx-auto">
             Search our nationwide network of installers for body kits, bumpers,
@@ -62,7 +76,10 @@ export default function Hero({ onSearch, isLoading, resultCount, locationLabel, 
           </p>
 
           <div className="max-w-lg mx-auto">
-            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
+            <form
+              onSubmit={handleSubmit}
+              className="flex flex-col sm:flex-row gap-3"
+            >
               <div className="relative flex-1">
                 <svg
                   className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-vicrez-muted"
@@ -101,17 +118,29 @@ export default function Hero({ onSearch, isLoading, resultCount, locationLabel, 
                 {isLoading ? (
                   <>
                     <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
                     </svg>
                     Searching…
                   </>
                 ) : (
-                  'Search'
+                  "Search"
                 )}
               </button>
             </form>
-            
+
             {/* Use Location Button */}
             <div className="text-center mt-4">
               <button
@@ -122,16 +151,43 @@ export default function Hero({ onSearch, isLoading, resultCount, locationLabel, 
                 {locationLoading ? (
                   <>
                     <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
                     </svg>
                     Getting location…
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
                     </svg>
                     Use My Location
                   </>
@@ -142,26 +198,50 @@ export default function Hero({ onSearch, isLoading, resultCount, locationLabel, 
 
           {resultCount !== null && locationLabel && (
             <p className="mt-6 text-vicrez-muted">
-              Found <span className="text-white font-semibold">{resultCount.toLocaleString()}</span> installers
-              near <span className="text-white font-semibold">{locationLabel}</span>
+              Found{" "}
+              <span className="text-white font-semibold">
+                {resultCount.toLocaleString()}
+              </span>{" "}
+              installers near{" "}
+              <span className="text-white font-semibold">{locationLabel}</span>
             </p>
           )}
 
           <div className="flex flex-wrap justify-center gap-6 mt-10 text-sm text-vicrez-muted">
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              <svg
+                className="w-5 h-5 text-green-500"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
               </svg>
               Shop directory
             </div>
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-vicrez-red" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+              <svg
+                className="w-5 h-5 text-vicrez-red"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                  clipRule="evenodd"
+                />
               </svg>
               Nationwide Coverage
             </div>
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+              <svg
+                className="w-5 h-5 text-yellow-500"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
               Vicrez-recorded shops

@@ -1,6 +1,11 @@
-'use client';
+"use client";
+import { QUOTE_SERVICES } from "@/lib/quote-services";
 
 interface FiltersProps {
+  sort: string;
+  inquiry: string;
+  onSortChange: (s: string) => void;
+  onInquiryChange: (s: string) => void;
   capabilityFilter: string;
   tierFilter: string;
   onCapabilityChange: (cap: string) => void;
@@ -9,18 +14,14 @@ interface FiltersProps {
   onRadiusChange: (r: number) => void;
 }
 
-const CAPABILITIES = [
-  'Body Kits',
-  'Paint/Bodywork',
-  'Vinyl/Wraps',
-  'PPF',
-  'Performance Mods',
-  'Wheels/Tires',
-];
-
+const CAPABILITIES = QUOTE_SERVICES.filter((s) => s.id !== "other");
 const RADII = [10, 25, 50, 100, 250];
 
 export default function Filters({
+  sort,
+  inquiry,
+  onSortChange,
+  onInquiryChange,
   capabilityFilter,
   tierFilter,
   onCapabilityChange,
@@ -38,28 +39,30 @@ export default function Filters({
           </label>
           <div className="flex flex-wrap gap-2">
             <button
-              aria-pressed={capabilityFilter === ''}
-              onClick={() => onCapabilityChange('')}
+              aria-pressed={capabilityFilter === ""}
+              onClick={() => onCapabilityChange("")}
               className={`text-sm px-3 py-1.5 rounded-full border transition-all ${
-                capabilityFilter === ''
-                  ? 'bg-vicrez-red border-vicrez-red text-white'
-                  : 'border-vicrez-border text-vicrez-muted hover:border-vicrez-muted'
+                capabilityFilter === ""
+                  ? "bg-vicrez-red border-vicrez-red text-white"
+                  : "border-vicrez-border text-vicrez-muted hover:border-vicrez-muted"
               }`}
             >
               All
             </button>
             {CAPABILITIES.map((cap) => (
               <button
-                key={cap}
-                aria-pressed={capabilityFilter === cap}
-                onClick={() => onCapabilityChange(cap === capabilityFilter ? '' : cap)}
+                key={cap.id}
+                aria-pressed={capabilityFilter === cap.id}
+                onClick={() =>
+                  onCapabilityChange(cap.id === capabilityFilter ? "" : cap.id)
+                }
                 className={`text-sm px-3 py-1.5 rounded-full border transition-all ${
-                  capabilityFilter === cap
-                    ? 'bg-vicrez-red border-vicrez-red text-white'
-                    : 'border-vicrez-border text-vicrez-muted hover:border-vicrez-muted'
+                  capabilityFilter === cap.id
+                    ? "bg-vicrez-red border-vicrez-red text-white"
+                    : "border-vicrez-border text-vicrez-muted hover:border-vicrez-muted"
                 }`}
               >
-                {cap}
+                {cap.label}
               </button>
             ))}
           </div>
@@ -100,6 +103,33 @@ export default function Filters({
           </select>
         </div>
       </div>
+      <div className="flex flex-wrap items-center gap-4 mt-5">
+        <label className="text-sm">
+          Sort by{" "}
+          <select
+            className="input-field ml-2"
+            value={sort}
+            onChange={(e) => onSortChange(e.target.value)}
+          >
+            <option value="recommended">Vicrez records, then distance</option>
+            <option value="nearest">Nearest first</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={inquiry === "1"}
+            onChange={(e) => onInquiryChange(e.target.checked ? "1" : "")}
+          />
+          Online inquiry available
+        </label>
+      </div>
+      <p className="text-xs text-gray-600 mt-3">
+        Service filters use recorded capabilities. Default ordering places
+        Vicrez-recorded shops first, then geographic distance. Radius is
+        straight-line distance, not driving time. Inquiry availability does not
+        guarantee an appointment.
+      </p>
     </div>
   );
 }

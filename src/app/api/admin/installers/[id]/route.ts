@@ -1,77 +1,37 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getPool } from '@/lib/db';
-import { requireAdmin } from '@/lib/admin-auth';
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/admin-auth";
+import { sameOrigin } from "@/lib/directory-rfq";
+import { InputError, readSmallJson } from "@/lib/onboarding";
+import { mutateInstallers } from "@/lib/admin-installer-mutation";
+import { refreshContactPages } from "@/lib/contact-refresh";
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const authError = requireAdmin(request);
-  if (authError) return authError;
-
+async function mutate(request: NextRequest, id: string, remove = false) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
   try {
-    const body = await request.json();
-    const db = getPool();
-    const { id } = await params;
-
-    const fields: string[] = [];
-    const values: any[] = [];
-    let paramIdx = 1;
-
-    const allowedFields = [
-      'business_name', 'street_address', 'city', 'state', 'zip_code',
-      'phone', 'email', 'website', 'install_capabilities', 'shop_type',
-      'specialize_in', 'source', 'status',
-    ];
-
-    for (const field of allowedFields) {
-      if (body[field] !== undefined) {
-        fields.push(`${field} = $${paramIdx}`);
-        values.push(body[field]);
-        paramIdx++;
-      }
-    }
-
-    if (fields.length === 0) {
-      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
-    }
-
-    values.push(id);
-    const result = await db.query(
-      `UPDATE installers SET ${fields.join(', ')} WHERE id = $${paramIdx} RETURNING *`,
-      values
+    if (!sameOrigin(request)) throw new InputError("Invalid origin.", 403);
+    const rows = await mutateInstallers(
+      [id],
+      remove ? { status: "removed" } : await readSmallJson(request),
     );
-
-    if (result.rows.length === 0) {
-      return NextResponse.json({ error: 'Installer not found' }, { status: 404 });
-    }
-
-    return NextResponse.json(result.rows[0]);
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Failed to update installer' }, { status: 500 });
+    refreshContactPages(rows[0].slug);
+    return NextResponse.json(remove ? { success: true, id } : rows[0]);
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof InputError ? e.message : "Update unavailable." },
+      { status: e instanceof InputError ? e.status : 503 },
+    );
   }
 }
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+export async function PUT(
+  r: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authError = requireAdmin(request);
-  if (authError) return authError;
-
-  try {
-    const db = getPool();
-    const result = await db.query(
-      `UPDATE installers SET status = 'removed' WHERE id = $1 RETURNING id, business_name`,
-      [(await params).id]
-    );
-
-    if (result.rows.length === 0) {
-      return NextResponse.json({ error: 'Installer not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true, ...result.rows[0] });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Failed to remove installer' }, { status: 500 });
-  }
+  return mutate(r, (await params).id);
+}
+export async function DELETE(
+  r: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  return mutate(r, (await params).id, true);
 }

@@ -1,4 +1,6 @@
-import Script from 'next/script';
+"use client";
+import { usePathname } from "next/navigation";
+import Script from "next/script";
 
 /**
  * GA4 tag (gtag.js). Renders nothing unless NEXT_PUBLIC_GA_MEASUREMENT_ID is set,
@@ -6,8 +8,15 @@ import Script from 'next/script';
  * first paint or SSR (Googlebot gets the same HTML either way).
  */
 export default function GoogleAnalytics() {
+  const pathname = usePathname();
   const id = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
-  if (!id || !/^G-[A-Z0-9]+$/.test(id)) return null;
+  if (
+    pathname.startsWith("/request-status") ||
+    pathname.startsWith("/admin") ||
+    !id ||
+    !/^G-[A-Z0-9]+$/.test(id)
+  )
+    return null;
 
   return (
     <>
@@ -19,7 +28,7 @@ export default function GoogleAnalytics() {
         {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', '${id}', { send_page_view: true });`}
+gtag('config', '${id}', { send_page_view: !/^\/request-status/.test(location.pathname), page_location: location.origin+location.pathname+location.search });`}
       </Script>
     </>
   );

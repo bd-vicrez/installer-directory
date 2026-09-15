@@ -1,142 +1,101 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getPool } from '@/lib/db';
-import { requireAdmin } from '@/lib/admin-auth';
-import { randomUUID } from 'crypto';
-
-// Coerce install_capabilities to a plain JS array no matter how it was stored.
-// Postgres TEXT[] columns return JS arrays directly; jsonb returns parsed objects;
-// occasionally legacy rows are stored as JSON-strings or comma-separated strings.
-function toCapArray(v: unknown): string[] {
-  if (v == null) return [];
-  if (Array.isArray(v)) return v.map(String).filter(Boolean);
-  if (typeof v === 'string') {
-    const s = v.trim();
-    if (!s) return [];
-    if (s.startsWith('[')) { try { const j = JSON.parse(s); return Array.isArray(j) ? j.map(String).filter(Boolean) : [s]; } catch { /* fall through */ } }
-    if (s.startsWith('{') && s.endsWith('}')) { // pg array literal e.g. {"a","b"}
-      return s.slice(1, -1).split(',').map(p => p.replace(/^"|"$/g, '').trim()).filter(Boolean);
-    }
-    return s.split(',').map(p => p.trim()).filter(Boolean);
-  }
-  return [];
-}
-
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // Admin only
-  const authError = requireAdmin(request);
-  if (authError) return authError;
-
+import { NextRequest, NextResponse } from "next/server";
+import { getPool } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-auth";
+import { sameOrigin } from "@/lib/directory-rfq";
+import { InputError, readSmallJson, textField } from "@/lib/onboarding";
+import { addressCandidate } from "@/lib/address-review";
+import { reviewApplication } from "@/lib/review-application";
+import { refreshContactPages } from "@/lib/contact-refresh";
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
   try {
-    const { id } = await params;
-    const body = await request.json();
-    const { status, rejection_reason } = body;
-
-    if (!['approved', 'rejected'].includes(status)) {
-      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
-    }
-
-    const db = getPool();
-
-    if (status === 'approved') {
-      // Get application data from applications table
-      const { rows: applications } = await db.query(
-        'SELECT * FROM applications WHERE id = $1',
-        [id]
-      );
-
-      if (applications.length === 0) {
-        return NextResponse.json({ error: 'Application not found' }, { status: 404 });
+    if (!sameOrigin(request)) throw new InputError("Invalid origin.", 403);
+    const { id } = await params,
+      body = await readSmallJson(request);
+    body.reviewer = textField(body.reviewer, "reviewer name", 2, 100);
+    body.note = textField(body.note, "review note", 10, 1500);
+    if (body.action === "address") {
+      const street = textField(body.street_address, "street address", 3, 200),
+        city = textField(body.city, "city", 2, 100),
+        state = textField(body.state, "state", 2, 2).toUpperCase(),
+        zip = textField(body.zip_code, "ZIP", 5, 10);
+      if (!/^[A-Z]{2}$/.test(state) || !/^\d{5}(?:-\d{4})?$/.test(zip))
+        throw new InputError("Check state and ZIP.");
+      const client = await getPool().connect();
+      try {
+        await client.query("BEGIN");
+        const old = (
+          await client.query(
+            "SELECT * FROM applications WHERE id=$1 AND status IN ('pending','needs_information') FOR UPDATE",
+            [id],
+          )
+        ).rows[0];
+        if (!old)
+          throw new InputError(
+            "Only pending applications can have their address corrected.",
+            409,
+          );
+        await client.query(
+          "UPDATE applications SET street_address=$1,city=$2,state=$3,zip_code=$4,location_evidence=NULL,location_confirmed_at=NULL,reviewer=$5,review_note=$6 WHERE id=$7",
+          [street, city, state, zip, body.reviewer, body.note, id],
+        );
+        await client.query(
+          "INSERT INTO directory_review_audit(kind,record_id,actor,action,note,before_data,after_data) VALUES('application',$1,$2,'address-correction',$3,$4,$5)",
+          [
+            id,
+            body.reviewer,
+            body.note,
+            JSON.stringify({
+              street_address: old.street_address,
+              city: old.city,
+              state: old.state,
+              zip_code: old.zip_code,
+            }),
+            JSON.stringify({
+              street_address: street,
+              city,
+              state,
+              zip_code: zip,
+            }),
+          ],
+        );
+        await client.query("COMMIT");
+        return NextResponse.json({ success: true });
+      } catch (e) {
+        await client.query("ROLLBACK");
+        throw e;
+      } finally {
+        client.release();
       }
-
-      const app = applications[0];
-
-      // Normalize install_capabilities into a plain JS array (handles TEXT[], jsonb, string, null)
-      const capabilities = toCapArray(app.install_capabilities);
-      const specializeIn = capabilities.join(', ');
-
-      // Generate slug from business_name + city + state
-      const slug = `${app.business_name}-${app.city}-${app.state}`
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
-
-      // Generate unique ID for installers table
-      const installerId = randomUUID();
-
-      // Get next legacy_id (sequential integer, NOT NULL constraint)
-      const { rows: maxRows } = await db.query(
-        `SELECT MAX(CAST(legacy_id AS INTEGER)) as max_id FROM installers WHERE legacy_id ~ '^[0-9]+$'`
-      );
-      const nextLegacyId = String((maxRows[0]?.max_id || 0) + 1);
-
-      // Copy to installers table with correct column mappings.
-      // Note: updated_at is NOT NULL with no default, so explicitly set it.
-      const insertQuery = `
-        INSERT INTO installers (
-          id, legacy_id, business_name, slug, street_address, city, state, zip_code, phone, email,
-          website, install_capabilities, shop_type, specialize_in, source, status,
-          date_added, created_at, updated_at
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW(), NOW()
-        ) RETURNING id
-      `;
-
-      const { rows: newInstaller } = await db.query(insertQuery, [
-        installerId,
-        nextLegacyId,
-        app.business_name,
-        slug,
-        app.street_address,
-        app.city,
-        app.state,
-        app.zip_code,
-        app.phone,
-        app.email,
-        app.website,
-        capabilities,           // plain JS array -> Postgres TEXT[]
-        'Auto Shop',
-        specializeIn,
-        '[Installer Application]',
-        'active'
-      ]);
-
-      // Update applications row: status='approved', reviewed_at=NOW()
-      await db.query(
-        'UPDATE applications SET status = $1, reviewed_at = NOW() WHERE id = $2',
-        ['approved', id]
-      );
-
-      return NextResponse.json({
-        success: true,
-        installer_id: newInstaller[0].id,
-        message: 'Application approved and installer created'
-      });
-
-    } else if (status === 'rejected') {
-      // Update applications row: status='rejected', rejection_reason, reviewed_at=NOW()
-      await db.query(
-        'UPDATE applications SET status = $1, rejection_reason = $2, reviewed_at = NOW() WHERE id = $3',
-        ['rejected', rejection_reason || null, id]
-      );
-
-      return NextResponse.json({
-        success: true,
-        message: 'Application rejected'
-      });
     }
-
-  } catch (error: any) {
-    // Expose the real error so we can debug from the client. Postgres errors come back
-    // with .message, .code, .detail, .constraint — surface them all.
-    console.error('Update application error:', error);
-    return NextResponse.json({
-      error: 'Internal server error',
-      message: error?.message || String(error),
-      code: error?.code,
-      detail: error?.detail,
-      constraint: error?.constraint,
-      table: error?.table,
-      column: error?.column,
-    }, { status: 500 });
+    if (body.action === "locate") {
+      const app = (
+        await getPool().query("SELECT * FROM applications WHERE id=$1", [id])
+      ).rows[0];
+      if (!app) throw new InputError("Application not found.", 404);
+      const location = await addressCandidate(app);
+      await getPool().query(
+        "UPDATE applications SET location_evidence=$1,location_confirmed_at=NULL WHERE id=$2 AND status IN ('pending','needs_information')",
+        [JSON.stringify(location), id],
+      );
+      return NextResponse.json({ location });
+    }
+    const result = await reviewApplication(getPool(), id, body);
+    refreshContactPages(result.slug || "");
+    return NextResponse.json(result);
+  } catch (e) {
+    return NextResponse.json(
+      {
+        error:
+          e instanceof InputError
+            ? e.message
+            : "Review could not be saved. Retry safely.",
+      },
+      { status: e instanceof InputError ? e.status : 503 },
+    );
   }
 }

@@ -1,11 +1,16 @@
-import { Installer, InstallerWithMeta, GeoLocation } from './types';
+import {
+  directoryServices,
+  normalizeService,
+  serviceLabels,
+} from "./service-taxonomy";
+import { Installer, InstallerWithMeta, GeoLocation } from "./types";
 
 export const VERIFIED_KEYWORDS = [
-  '[New Dealer Form]',
-  '[CS Sheet]',
-  '[Vicrez Business Network]',
-  'Alex Cold Call',
-  'manual',
+  "[New Dealer Form]",
+  "[CS Sheet]",
+  "[Vicrez Business Network]",
+  "Alex Cold Call",
+  "manual",
 ];
 
 export function isVerified(source: string): boolean {
@@ -14,8 +19,8 @@ export function isVerified(source: string): boolean {
   return VERIFIED_KEYWORDS.some((kw) => lower.includes(kw.toLowerCase()));
 }
 
-export function getTier(source: string): 'verified' | 'listed' {
-  return isVerified(source) ? 'verified' : 'listed';
+export function getTier(source: string): "verified" | "listed" {
+  return isVerified(source) ? "verified" : "listed";
 }
 
 export function parseRating(internalNotes: string | null): number | null {
@@ -34,31 +39,73 @@ export function parseRating(internalNotes: string | null): number | null {
 }
 
 export function parseCapabilities(capString: string | string[]): string[] {
-  if (!capString) return [];
-  if (Array.isArray(capString)) return capString.filter(Boolean);
-  return capString
-    .split(/[,;|]/)
-    .map((c) => c.trim())
-    .filter(Boolean);
+  return serviceLabels(capString);
 }
 
 const CAPABILITY_CATEGORIES: Record<string, string[]> = {
-  'Body Kits': ['body kit', 'body kits', 'aero', 'aerodynamic', 'bumper', 'splitter', 'diffuser', 'spoiler', 'lip', 'side skirt', 'fender'],
-  'Paint/Bodywork': ['paint', 'body work', 'bodywork', 'collision', 'auto body', 'autobody', 'refinish', 'ppf', 'paint protection'],
-  'Vinyl/Wraps': ['vinyl', 'wrap', 'wraps', 'tint', 'window tint', 'ceramic coat', 'detail'],
-  'Performance Mods': ['performance', 'exhaust', 'turbo', 'supercharger', 'tune', 'tuning', 'suspension', 'intake', 'engine'],
-  'Wheels/Tires': ['wheel', 'wheels', 'tire', 'tires', 'rim', 'rims', 'alignment'],
+  "Body Kits": [
+    "body kit",
+    "body kits",
+    "aero",
+    "aerodynamic",
+    "bumper",
+    "splitter",
+    "diffuser",
+    "spoiler",
+    "lip",
+    "side skirt",
+    "fender",
+  ],
+  "Paint/Bodywork": [
+    "paint",
+    "body work",
+    "bodywork",
+    "collision",
+    "auto body",
+    "autobody",
+    "refinish",
+    "ppf",
+    "paint protection",
+  ],
+  "Vinyl/Wraps": [
+    "vinyl",
+    "wrap",
+    "wraps",
+    "tint",
+    "window tint",
+    "ceramic coat",
+    "detail",
+  ],
+  "Performance Mods": [
+    "performance",
+    "exhaust",
+    "turbo",
+    "supercharger",
+    "tune",
+    "tuning",
+    "suspension",
+    "intake",
+    "engine",
+  ],
+  "Wheels/Tires": [
+    "wheel",
+    "wheels",
+    "tire",
+    "tires",
+    "rim",
+    "rims",
+    "alignment",
+  ],
 };
 
 export function matchesCapabilityFilter(
   installer: InstallerWithMeta,
-  filter: string
+  filter: string,
 ): boolean {
   if (!filter) return true;
-  const keywords = CAPABILITY_CATEGORIES[filter];
-  if (!keywords) return true;
-  const text = `${installer.install_capabilities} ${installer.specialize_in} ${installer.shop_type}`.toLowerCase();
-  return keywords.some((kw) => text.includes(kw));
+  return directoryServices(installer.install_capabilities).includes(
+    normalizeService(filter),
+  );
 }
 
 /**
@@ -68,7 +115,7 @@ export function haversineDistance(
   lat1: number,
   lng1: number,
   lat2: number,
-  lng2: number
+  lng2: number,
 ): number {
   const R = 3958.8; // Earth's radius in miles
   const dLat = toRad(lat2 - lat1);
@@ -94,8 +141,8 @@ export async function geocodeZip(zip: string): Promise<GeoLocation | null> {
     return {
       lat: parseFloat(place.latitude),
       lng: parseFloat(place.longitude),
-      city: place['place name'],
-      state: place['state abbreviation'],
+      city: place["place name"],
+      state: place["state abbreviation"],
     };
   } catch {
     return null;
@@ -104,7 +151,7 @@ export async function geocodeZip(zip: string): Promise<GeoLocation | null> {
 
 export function enrichInstaller(
   installer: Installer,
-  userLocation: GeoLocation | null
+  userLocation: GeoLocation | null,
 ): InstallerWithMeta {
   const tier = getTier(installer.source);
   const rating = parseRating(installer.internal_notes);
@@ -116,7 +163,7 @@ export function enrichInstaller(
       userLocation.lat,
       userLocation.lng,
       installer.lat,
-      installer.lng
+      installer.lng,
     );
     distance = Math.round(distance * 10) / 10;
   }
@@ -130,14 +177,17 @@ export function enrichInstaller(
   };
 }
 
-export function sortInstallers(installers: InstallerWithMeta[]): InstallerWithMeta[] {
+export function sortInstallers(
+  installers: InstallerWithMeta[],
+): InstallerWithMeta[] {
   return installers.sort((a, b) => {
     // Verified first
-    if (a.tier === 'verified' && b.tier !== 'verified') return -1;
-    if (a.tier !== 'verified' && b.tier === 'verified') return 1;
+    if (a.tier === "verified" && b.tier !== "verified") return -1;
+    if (a.tier !== "verified" && b.tier === "verified") return 1;
 
     // Then by distance (null distances go last)
-    if (a.distance !== null && b.distance !== null) return a.distance - b.distance;
+    if (a.distance !== null && b.distance !== null)
+      return a.distance - b.distance;
     if (a.distance !== null) return -1;
     if (b.distance !== null) return 1;
 
@@ -146,19 +196,19 @@ export function sortInstallers(installers: InstallerWithMeta[]): InstallerWithMe
 }
 
 export function formatPhone(phone: string): string {
-  if (!phone) return '';
-  const digits = phone.replace(/\D/g, '');
+  if (!phone) return "";
+  const digits = phone.replace(/\D/g, "");
   if (digits.length === 10) {
     return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
   }
-  if (digits.length === 11 && digits[0] === '1') {
+  if (digits.length === 11 && digits[0] === "1") {
     return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
   }
   return phone;
 }
 
 export function formatDistance(miles: number | null): string {
-  if (miles === null) return '';
-  if (miles < 1) return '< 1 mi';
+  if (miles === null) return "";
+  if (miles < 1) return "< 1 mi";
   return `${miles.toFixed(1)} mi`;
 }
