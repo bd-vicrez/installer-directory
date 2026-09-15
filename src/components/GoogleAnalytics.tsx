@@ -28,7 +28,7 @@ export default function GoogleAnalytics() {
         {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', '${id}', { send_page_view: !/^\/request-status/.test(location.pathname), page_location: location.origin+location.pathname+location.search });`}
+gtag('config', '${id}', { send_page_view: !location.pathname.startsWith('/request-status') && !location.pathname.startsWith('/admin'), page_location: location.origin+location.pathname+location.search });`}
       </Script>
     </>
   );

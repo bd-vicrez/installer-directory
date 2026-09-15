@@ -2,6 +2,25 @@ const test = require("node:test"),
   assert = require("node:assert/strict"),
   load = require("./load-module.cjs"),
   { NextRequest } = require("next/server");
+
+test("rendered analytics initializer executes and excludes private status fragments", () => {
+  const fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
+  const source = fs.readFileSync(path.join(__dirname, "../src/components/GoogleAnalytics.tsx"), "utf8");
+  const template = source.match(/\{`(window\.dataLayer[\s\S]*?)`\}/)[1];
+  const script = vm.runInNewContext("`" + template + "`", { id: "G-QATEST" });
+  for (const pathname of ["/", "/request-status", "/admin/applications"]) {
+    const context = {
+      location: { origin: "https://example.test", pathname, search: "", hash: "#private-status-token" },
+    };
+    context.window = context;
+    vm.runInNewContext(script, context);
+    const config = context.dataLayer.find((event) => event[0] === "config");
+    assert.equal(config[1], "G-QATEST");
+    assert.equal(config[2].send_page_view, pathname === "/");
+    assert.equal(config[2].page_location, "https://example.test" + pathname);
+    assert.equal(JSON.stringify(context.dataLayer).includes("private-status-token"), false);
+  }
+});
 test("attribution preserves explicit campaign values and rejects lookalike domains", () => {
   const { attributedLink } = load("lib/attribution.ts");
   const original = "https://b2b.vicrez.com/path?utm_campaign=owned#apply";
