@@ -74,7 +74,15 @@ def init_directory_db():
         CREATE INDEX IF NOT EXISTS directory_outbox_due ON directory_outbox(state,next_attempt,lease_until);
         CREATE INDEX IF NOT EXISTS directory_outbox_request ON directory_outbox(submission_id);
         CREATE TABLE IF NOT EXISTS directory_worker_state (id INTEGER PRIMARY KEY, heartbeat REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS directory_measurement_events (
+          id TEXT PRIMARY KEY, request_ref TEXT NOT NULL, event TEXT NOT NULL,
+          flow TEXT NOT NULL, service TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         ''')
+        # Reconcile saved-event measurement after rollout without replaying delivery jobs.
+        for row in conn.execute('SELECT submission_id FROM directory_requests').fetchall():
+            measure(conn,row['submission_id'],'quote_saved',f"{row['submission_id']}:saved")
 
 
 def secret():
@@ -200,7 +208,18 @@ def save_submission(data):
               VALUES(?,?,?,?,?,?,?,?)''', (sid,data['request_id'],digest,encoded,data['flow'],data['service'],data['consent_version'],datetime.now(timezone.utc).isoformat()))
             conn.execute('INSERT INTO directory_outbox(id,submission_id,kind,target_id,payload) VALUES(?,?,?,?,?)',
                          (str(uuid.uuid5(uuid.NAMESPACE_URL, f'vicrez-directory:{sid}:route')),sid,'route','',encoded))
+            measure(conn,sid,'quote_saved',f'{sid}:saved')
     return {'ok': True, 'submission_id': sid, 'duplicate': duplicate, 'receipt_token': receipt_token(sid, data['request_id'])}
+
+
+def measure(conn,submission_id,event,key):
+    row=conn.execute('SELECT request_id,flow,service,created_at FROM directory_requests WHERE submission_id=?',(submission_id,)).fetchone()
+    if row:
+        reference=str(uuid.uuid5(uuid.NAMESPACE_URL,'vicrez-measurement:'+row['request_id']))
+        event_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'vicrez-measurement-event:'+key))
+        timestamp=row['created_at'] if event=='quote_saved' else datetime.now(timezone.utc).isoformat()
+        conn.execute('INSERT OR IGNORE INTO directory_measurement_events(id,request_ref,event,flow,service,created_at) VALUES(?,?,?,?,?,?)',
+                     (event_id,reference,event,row['flow'],row['service'],timestamp))
 
 
 @router.post('/webhook/rfq/directory')
@@ -310,9 +329,11 @@ def lease_job():
 
 def finish_job(job,state,error=None):
     with connect() as conn:
-        conn.execute('''UPDATE directory_outbox SET state=?,last_error=?,lease_until=0,
+        updated=conn.execute('''UPDATE directory_outbox SET state=?,last_error=?,lease_until=0,
           accepted_at=CASE WHEN ?='accepted' THEN CURRENT_TIMESTAMP ELSE accepted_at END
           WHERE id=? AND lease_token=? AND state='sending' ''', (state,error,state,job['id'],job['lease_token']))
+        if updated.rowcount and job['kind']=='installer':
+            measure(conn,job['submission_id'],'quote_notification_'+state,job['id']+':'+state)
 
 
 def retry_job(job,error,permanent=False):
@@ -323,6 +344,9 @@ def retry_job(job,error,permanent=False):
           WHERE id=? AND lease_token=? AND state='sending' ''', ('failed' if failed else 'pending',error,time.time()+delay,job['id'],job['lease_token']))
         if failed and updated.rowcount and job['kind']=='route':
             conn.execute("UPDATE directory_requests SET routing_state='failed',routing_reason=? WHERE submission_id=?",(error,job['submission_id']))
+        if updated.rowcount:
+            event='quote_'+('routing' if job['kind']=='route' else 'notification')+('_failed' if failed else '_retry')
+            measure(conn,job['submission_id'],event,job['id']+':'+event+':'+str(job['attempts']))
 
 
 async def run_route_job(job):
@@ -340,6 +364,7 @@ async def run_route_job(job):
         reason = None if targets else ('selected_shop_unavailable' if data['flow']=='selected' else 'no_eligible_service_match')
         conn.execute('UPDATE directory_requests SET routing_state=?,routing_reason=? WHERE submission_id=?',('matched' if targets else 'needs_review',reason,job['submission_id']))
         conn.execute("UPDATE directory_outbox SET state='completed',lease_until=0,last_error=NULL WHERE id=? AND lease_token=?",(job['id'],job['lease_token']))
+        measure(conn,job['submission_id'],'quote_matched' if targets else 'quote_routing_needed',job['id']+':routing-outcome')
 
 
 def installer_event(job):
@@ -458,3 +483,15 @@ async def directory_health():
         return JSONResponse({'ok':ok,'version':'phase-a'},status_code=200 if ok else 503,headers={'Cache-Control':'no-store'})
     except Exception:
         return JSONResponse({'ok':False,'version':'phase-a'},status_code=503,headers={'Cache-Control':'no-store'})
+
+
+@router.get('/internal/directory-rfq/measurement')
+async def directory_measurement(request: Request):
+    require_service(request)
+    with connect() as conn:
+        saved=conn.execute('SELECT COUNT(*) FROM directory_requests').fetchone()[0]
+        counts={row['event']:row['n'] for row in conn.execute('SELECT event,COUNT(*) n FROM directory_measurement_events GROUP BY event')}
+        routing={row['routing_state']:row['n'] for row in conn.execute('SELECT routing_state,COUNT(*) n FROM directory_requests GROUP BY routing_state')}
+        delivery={row['state']:row['n'] for row in conn.execute("SELECT state,COUNT(*) n FROM directory_outbox WHERE kind='installer' GROUP BY state")}
+    return JSONResponse({'source':'durable-directory-records','saved_requests':saved,'recorded_save_events':counts.get('quote_saved',0),
+      'reconciled':saved==counts.get('quote_saved',0),'events':counts,'routing':routing,'notifications':delivery},headers={'Cache-Control':'private, no-store'})

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
+import { rfqFetch } from '@/lib/directory-rfq';
 
 export const dynamic = 'force-dynamic';
 
@@ -169,7 +170,14 @@ export async function GET(request: NextRequest) {
     const incompleteListings = incompleteListingsRes.rows[0];
     const staleListings = staleListingsRes.rows[0];
 
+    let inquiryOutcomes = null;
+    try {
+      const response = await rfqFetch('/internal/directory-rfq/measurement');
+      if (response.ok) inquiryOutcomes = await response.json();
+    } catch { /* Keep historical analytics available if the inquiry service is unreachable. */ }
+
     return NextResponse.json({
+      inquiryOutcomes,
       // Traffic stats
       traffic: {
         totalEvents: parseInt(trafficStats.total_events),

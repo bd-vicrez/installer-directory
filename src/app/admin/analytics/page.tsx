@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 
 interface AnalyticsData {
+  inquiryOutcomes: { saved_requests:number; recorded_save_events:number; reconciled:boolean; events:Record<string,number>; routing:Record<string,number>; notifications:Record<string,number> } | null;
   traffic: {
     totalEvents: number;
     events7d: number;
@@ -86,6 +87,17 @@ export default function AnalyticsPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold" style={{ color: '#ffffff' }}>Analytics</h1>
+
+      <section className="card p-5 space-y-3" aria-label="Inquiry outcome measurement">
+        <h2 className="text-lg font-semibold">Inquiry outcomes</h2>
+        <p className="text-sm text-gray-600">Saved inquiry and outcome totals come from the delivery service. Browser events below measure form interactions. The outcome report contains counts, without customer contact details.</p>
+        {data.inquiryOutcomes ? <>
+          <p>Saved inquiries: <strong>{data.inquiryOutcomes.saved_requests}</strong> · Saved events: <strong>{data.inquiryOutcomes.recorded_save_events}</strong> · {data.inquiryOutcomes.reconciled ? 'Counts reconcile' : 'Reconciliation needs review'}</p>
+          <p>Matched: <strong>{data.inquiryOutcomes.routing.matched || 0}</strong> · Routing needs review: <strong>{(data.inquiryOutcomes.routing.needs_review || 0)+(data.inquiryOutcomes.routing.failed || 0)}</strong> · Notifications accepted by provider: <strong>{data.inquiryOutcomes.notifications.accepted || 0}</strong></p>
+          <details><summary className="cursor-pointer">Routing and delivery event counts</summary><ul className="mt-2 text-sm space-y-1">{Object.entries(data.inquiryOutcomes.events).map(([event,count])=><li key={event}>{event}: {count}</li>)}</ul></details>
+        </> : <p role="status">Inquiry outcome reporting is temporarily unavailable.</p>}
+        <a className="text-vicrez-red underline" href="/admin/inquiries">Review individual inquiry status</a>
+      </section>
 
       {/* Section 1: Traffic Overview */}
       <div className="space-y-4">

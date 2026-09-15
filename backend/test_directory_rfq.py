@@ -46,6 +46,29 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(rfq,'routing_targets',AsyncMock(return_value=[self.shop])):await rfq.run_one_job()
         return saved
 
+    async def test_durable_measurement_reconciles_without_personal_data_or_duplicate_events(self):
+        await self.routed()
+        rfq.save_submission(self.data)
+        with patch.object(rfq,'fetch_candidates',AsyncMock(return_value=[self.shop])),patch.object(rfq,'send_installer_event',AsyncMock(return_value=202)):
+            await rfq.run_one_job()
+        with rfq.connect() as conn:
+            rows=[dict(row) for row in conn.execute('SELECT * FROM directory_measurement_events')]
+        self.assertEqual(sorted(row['event'] for row in rows),['quote_matched','quote_notification_accepted','quote_saved'])
+        self.assertEqual(len({row['request_ref'] for row in rows}),1)
+        for value in [self.data['email'],self.data['phone'],self.data['full_name'],self.data['zip_code'],self.data['notes'],self.shop['email']]:
+            if value:self.assertNotIn(value,json.dumps(rows))
+        rfq.init_directory_db()
+        self.assertEqual(self.count('directory_measurement_events'),3)
+
+    async def test_measurement_endpoint_is_private_aggregate_and_reconciles(self):
+        rfq.save_submission(self.data)
+        app=FastAPI();app.include_router(rfq.router)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='https://example.test') as client:
+            self.assertEqual((await client.get('/internal/directory-rfq/measurement')).status_code,401)
+            response=await client.get('/internal/directory-rfq/measurement',headers={'Authorization':'Bearer '+rfq.secret()})
+        data=response.json();self.assertEqual(data['saved_requests'],1);self.assertTrue(data['reconciled'])
+        self.assertNotIn(self.data['email'],response.text);self.assertNotIn('request_ref',response.text)
+
     def test_migration_keeps_legacy_and_does_not_backfill_notifications(self):
         rfq.init_directory_db();rfq.init_directory_db()
         self.assertEqual(self.count('rfq_submissions'),1);self.assertEqual(self.count('directory_outbox'),0)
