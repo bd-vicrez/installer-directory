@@ -2,6 +2,16 @@
 const nextConfig = {
   outputFileTracingRoot: __dirname,
   poweredByHeader: false,
+  async redirects() {
+    return [
+      {
+        // Historical Google URL omitted the period in the recorded city name.
+        source: "/installers/port-st-lucie-fl",
+        destination: "/installers/port-st.-lucie-fl",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

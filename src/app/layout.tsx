@@ -27,11 +27,10 @@ export const metadata: Metadata = {
     description:
       "Find local shops for Vicrez body kits, bumpers, wheels, tires, vinyl wrap, PPF, and more. Browse recorded shop services nationwide.",
   },
-  robots: "index, follow",
   metadataBase: new URL("https://installers.vicrez.com"),
-  alternates: {
-    canonical: "/",
-  },
+  // Public routes define their own canonical. A global homepage canonical
+  // also reaches not-found routes and incorrectly describes unrelated URLs.
+  // Index/follow is the default; omit it so Next's 404 noindex is unambiguous.
 };
 
 export default function RootLayout({
