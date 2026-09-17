@@ -85,7 +85,7 @@ export async function processNotifications(
   const rows = (
     await pool.query(`WITH candidates AS (
     SELECT id FROM directory_notifications WHERE state IN ('pending','retry') AND next_attempt_at<=NOW()
-    ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 3
+    ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 2
   ) UPDATE directory_notifications n SET state='sending',attempts=attempts+1,lease_until=NOW()+INTERVAL '3 minutes',updated_at=NOW()
     FROM candidates c WHERE n.id=c.id RETURNING n.*`)
   ).rows;
@@ -128,7 +128,7 @@ export async function processNotifications(
   }
   const accepted = (
     await pool.query(
-      "SELECT id,provider_id,recipient FROM directory_notifications WHERE state='accepted' AND provider_id IS NOT NULL AND accepted_at>NOW()-INTERVAL '7 days' AND (checked_at IS NULL OR checked_at<NOW()-INTERVAL '15 minutes') ORDER BY checked_at NULLS FIRST LIMIT 2",
+      "SELECT id,provider_id,recipient FROM directory_notifications WHERE state='accepted' AND provider_id IS NOT NULL AND accepted_at>NOW()-INTERVAL '7 days' AND (checked_at IS NULL OR checked_at<NOW()-INTERVAL '15 minutes') ORDER BY checked_at NULLS FIRST LIMIT 1",
     )
   ).rows;
   for (const row of accepted) {
@@ -142,7 +142,9 @@ export async function processNotifications(
         "https://api.sendgrid.com/v3/messages?" + params,
         {
           headers: { Authorization: "Bearer " + process.env.SENDGRID_API_KEY },
-          signal: AbortSignal.timeout(7000),
+          // Email Activity searches can exceed ten seconds. Two sends plus one
+          // lookup keep the network budget below this route's 60-second limit.
+          signal: AbortSignal.timeout(20000),
         },
       );
       if (!response.ok) throw Error();
