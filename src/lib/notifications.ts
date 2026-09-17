@@ -126,6 +126,23 @@ export async function processNotifications(
       [row.id, state, error, providerId],
     );
   }
+  await pool.query(
+    "INSERT INTO directory_operation_runs(name,ok,details) VALUES('notifications',true,$1) ON CONFLICT(name) DO UPDATE SET checked_at=NOW(),ok=true,details=EXCLUDED.details",
+    [JSON.stringify({ processed: rows.length })],
+  );
+  return { enabled: true, processed: rows.length };
+}
+
+// SendGrid Email Activity can take over 40 seconds even for a single result.
+// Run reconciliation in a separate invocation so it never consumes a send batch's budget.
+export async function reconcileNotificationDelivery(
+  pool: Pool,
+  transport: typeof fetch = fetch,
+) {
+  if (process.env.DIRECTORY_NOTIFICATIONS_ENABLED !== "1")
+    return { enabled: false, checked: 0 };
+  if (!process.env.SENDGRID_API_KEY)
+    throw new Error("Notification provider is not configured");
   const accepted = (
     await pool.query(
       "SELECT id,provider_id,recipient FROM directory_notifications WHERE state='accepted' AND provider_id IS NOT NULL AND accepted_at>NOW()-INTERVAL '7 days' AND (checked_at IS NULL OR checked_at<NOW()-INTERVAL '15 minutes') ORDER BY checked_at NULLS FIRST LIMIT 1",
@@ -142,9 +159,7 @@ export async function processNotifications(
         "https://api.sendgrid.com/v3/messages?" + params,
         {
           headers: { Authorization: "Bearer " + process.env.SENDGRID_API_KEY },
-          // Email Activity searches can exceed ten seconds. Two sends plus one
-          // lookup keep the network budget below this route's 60-second limit.
-          signal: AbortSignal.timeout(20000),
+          signal: AbortSignal.timeout(45000),
         },
       );
       if (!response.ok) throw Error();
@@ -170,8 +185,8 @@ export async function processNotifications(
     }
   }
   await pool.query(
-    "INSERT INTO directory_operation_runs(name,ok,details) VALUES('notifications',true,$1) ON CONFLICT(name) DO UPDATE SET checked_at=NOW(),ok=true,details=EXCLUDED.details",
-    [JSON.stringify({ processed: rows.length })],
+    "INSERT INTO directory_operation_runs(name,ok,details) VALUES('notification-delivery',true,$1) ON CONFLICT(name) DO UPDATE SET checked_at=NOW(),ok=true,details=EXCLUDED.details",
+    [JSON.stringify({ checked: accepted.length })],
   );
-  return { enabled: true, processed: rows.length };
+  return { enabled: true, checked: accepted.length };
 }

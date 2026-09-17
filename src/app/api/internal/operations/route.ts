@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   operationsAuthorized,
   processNotifications,
+  reconcileNotificationDelivery,
 } from "@/lib/notifications";
 import { getPool } from "@/lib/db";
 import { operationHealth, queueStaffDigest } from "@/lib/operations-health";
@@ -20,7 +21,10 @@ export async function POST(request: Request) {
           headers: { "Cache-Control": "no-store" },
         },
       );
-    return NextResponse.json(await processNotifications(db), {
+    const result = new URL(request.url).searchParams.get("delivery") === "1"
+      ? await reconcileNotificationDelivery(db)
+      : await processNotifications(db);
+    return NextResponse.json(result, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch {

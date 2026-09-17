@@ -8,7 +8,8 @@ export async function operationHealth(db: Pool) {
  (SELECT COUNT(*)::int FROM directory_notifications WHERE state IN ('uncertain','failed','held','not_delivered') OR (state IN ('pending','retry') AND created_at<NOW()-INTERVAL '15 minutes') OR (state='accepted' AND accepted_at<NOW()-INTERVAL '1 day')) AS notification_attention,
  (SELECT COUNT(*)::int FROM directory_inquiry_followup WHERE next_followup_at<NOW() AND state NOT IN ('booked','declined')) AS followups_due,
  (SELECT checked_at FROM directory_operation_runs WHERE name='backup' AND ok=true) AS last_backup,
- (SELECT checked_at FROM directory_operation_runs WHERE name='notifications' AND ok=true) AS last_notification_worker`)
+ (SELECT checked_at FROM directory_operation_runs WHERE name='notifications' AND ok=true) AS last_notification_worker,
+ (SELECT checked_at FROM directory_operation_runs WHERE name='notification-delivery' AND ok=true) AS last_delivery_worker`)
   ).rows[0];
   let inquiry: any = { available: false };
   try {
@@ -64,6 +65,11 @@ export async function operationHealth(db: Pool) {
     issues.push(
       "Notification worker check-in is missing or older than 15 minutes",
     );
+  if (
+    !counts.last_delivery_worker ||
+    Date.now() - new Date(counts.last_delivery_worker).getTime() > 15 * 60000
+  )
+    issues.push("Notification delivery check-in is missing or older than 15 minutes");
   return { counts, inquiry, issues };
 }
 export async function queueStaffDigest(db: Pool) {

@@ -10,17 +10,17 @@ test('slow delivery evidence confirms the matching recipient without resending a
       if (sql.includes('SELECT id,provider_id')) return { rows: [{ id: 'notice', provider_id: 'provider-123', recipient: 'support@vicrez.com' }] };
       writes.push({ sql, values }); return { rows: [] };
     } };
-    const { processNotifications } = load('lib/notifications.ts', {}, {
+    const { reconcileNotificationDelivery } = load('lib/notifications.ts', {}, {
       process: { env: { DIRECTORY_NOTIFICATIONS_ENABLED: '1', SENDGRID_API_KEY: 'fixture' } },
       AbortSignal: { timeout: ms => ({ budget: ms }) },
     });
     let lookups = 0;
-    await processNotifications(db, async (url, options) => {
+    await reconcileNotificationDelivery(db, async (url, options) => {
       assert.equal(options.method, undefined, 'Accepted mail must not be sent again');
       assert.ok(url.startsWith('https://api.sendgrid.com/v3/messages?'));
       lookups++;
       // Replay the observed provider lookup latency with a virtual timeout.
-      if (options.signal.budget < 10520) throw Error('Provider lookup timed out');
+      if (options.signal.budget < 41060) throw Error('Provider lookup timed out');
       return new Response(JSON.stringify({ messages: [{ msg_id: 'provider-123.filter', to_email: recipient, status: 'delivered' }] }));
     });
     assert.equal(lookups, 1);
@@ -28,4 +28,17 @@ test('slow delivery evidence confirms the matching recipient without resending a
     assert.ok(confirmed, 'A slow successful lookup must preserve its delivery evidence');
     assert.equal(confirmed.values[1], recipient === 'support@vicrez.com' ? 'delivered' : 'unknown');
   }
+});
+
+test('sending does not wait for Email Activity and paused delivery checks make no calls', async () => {
+  let lookups = 0;
+  const db = { query: async sql => {
+    if(sql.includes('SELECT id,provider_id')) lookups++;
+    return { rows: [] };
+  } };
+  const active = load('lib/notifications.ts', {}, { process: { env: { DIRECTORY_NOTIFICATIONS_ENABLED: '1', SENDGRID_API_KEY: 'fixture' } } });
+  await active.processNotifications(db, async () => { throw Error('Unexpected provider call'); });
+  assert.equal(lookups, 0);
+  const paused = load('lib/notifications.ts', {}, { process: { env: {} } });
+  assert.equal((await paused.reconcileNotificationDelivery({ query: async () => { throw Error('Unexpected database call'); } })).checked, 0);
 });
