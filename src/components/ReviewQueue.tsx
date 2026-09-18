@@ -11,29 +11,40 @@ export default function ReviewQueue({
     [busy, setBusy] = useState(""),
     [filter, setFilter] = useState("open");
   const [drafts, setDrafts] = useState<Record<string, any>>({});
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const [savedMessage, setSavedMessage] = useState("");
   const endpoint =
     kind === "applications" ? "/api/applications" : "/api/admin/claims";
   async function load() {
-    try {
-      const r = await fetch(endpoint);
+      const r = await fetch(endpoint, { cache: "no-store" });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Unable to load review queue.");
       setRows(d[kind]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Queue unavailable.");
-    }
+      setError("");
   }
   useEffect(() => {
-    load();
+    void load().catch((e) => setError(e instanceof Error ? e.message : "Queue unavailable."));
   }, [kind]);
-  const change = (id: string, key: string, value: any) =>
-    setDrafts((d) => ({ ...d, [id]: { ...d[id], [key]: value } }));
+  const change = (id: string, key: string, value: any) => {
+    setDrafts((d) => ({ ...d, [id]: { ...d[id], [key]: value,
+      ...(["street_address", "city", "state", "zip_code"].includes(key) ? { confirm_location: false } : {}),
+    } }));
+    setRowErrors((errors) => ({ ...errors, [id]: "" }));
+    setSavedMessage("");
+  };
   async function save(row: any, action?: string) {
     setError("");
+    setRowErrors((errors) => ({ ...errors, [row.id]: "" }));
+    setSavedMessage("");
     setBusy(row.id);
     try {
-      const draft = drafts[row.id] || {},
-        r = await fetch(
+      const draft = drafts[row.id] || {};
+      const addressChanged = ["street_address", "city", "state", "zip_code"].some(
+        (key) => draft[key] !== undefined && draft[key] !== row[key],
+      );
+      if (kind === "applications" && action !== "address" && addressChanged)
+        throw new Error("Save the corrected address first, then look it up and confirm the new location.");
+      const r = await fetch(
           kind === "applications" ? endpoint + "/" + row.id : endpoint,
           {
             method: "PATCH",
@@ -57,13 +68,35 @@ export default function ReviewQueue({
         );
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Unable to save.");
-      await load();
+      if (action === "locate") {
+        setRows((rows) => rows.map((r) => r.id === row.id ? { ...r, location_evidence: d.location } : r));
+        setDrafts((drafts) => ({ ...drafts, [row.id]: { ...drafts[row.id], confirm_location: false } }));
+        setSavedMessage(`${row.business_name}: address lookup saved. Check the displayed match and complete the approval confirmations.`);
+      } else {
+        setDrafts((drafts) => {
+          const next = { ...drafts }; delete next[row.id]; return next;
+        });
+        if (action === "address") {
+          setRows((rows) => rows.map((r) => r.id === row.id ? { ...r,
+            ...Object.fromEntries(["street_address", "city", "state", "zip_code"].map((key) => [key, draft[key] ?? row[key]])),
+            location_evidence: null,
+          } : r));
+          setSavedMessage(`${row.business_name}: corrected address saved. Look up and confirm the new address before approval.`);
+        } else {
+          const status = draft.status || row.status;
+          setRows((rows) => rows.map((r) => r.id === row.id ? { ...r, status } : r));
+          setSavedMessage(`${row.business_name}: ${status.replaceAll("_", " ")} saved successfully.${status === "approved" ? " The listing is published; select All requests to see this approved application." : ""}`);
+        }
+      }
+      try { await load(); }
+      catch { setError("Your change was saved, but the queue could not refresh. Reload to retrieve the latest list."); }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to save.");
+      setRowErrors((errors) => ({ ...errors, [row.id]: e instanceof Error ? e.message : "Unable to save." }));
     } finally {
       setBusy("");
     }
   }
+  const visibleRows = rows.filter((r) => filter === "all" || ["pending", "needs_information", "verified"].includes(r.status));
   return (
     <div className="max-w-5xl space-y-6">
       <h1 className="text-2xl font-bold capitalize">{kind} review queue</h1>
@@ -85,18 +118,17 @@ export default function ReviewQueue({
           <option value="all">All requests (up to 200)</option>
         </select>
       </label>
+      {savedMessage && (
+        <p role="status" className="sticky top-4 z-10 text-green-900 bg-green-50 border border-green-300 rounded-lg p-3 shadow-sm">
+          {savedMessage}
+        </p>
+      )}
       {error && (
         <p role="alert" className="text-red-700 bg-red-50 p-3">
           {error}
         </p>
       )}
-      {rows
-        .filter(
-          (r) =>
-            filter === "all" ||
-            ["pending", "needs_information", "verified"].includes(r.status),
-        )
-        .map((row) => {
+      {visibleRows.map((row) => {
           const d = drafts[row.id] || {};
           const field = (key: string, label: string, value = "") => (
             <label className="block text-sm">
@@ -196,7 +228,7 @@ export default function ReviewQueue({
                   </p>
                 </div>
               )}
-              {field("reviewer", "Reviewer name", row.reviewer)}
+              <p className="text-sm">Reviewer: recorded automatically from your signed-in account.</p>
               {field(
                 "note",
                 "Internal review note (at least 10 characters)",
@@ -222,7 +254,7 @@ export default function ReviewQueue({
                       {field("zip_code", "ZIP", row.zip_code)}
                       <button
                         className="btn-secondary"
-                        disabled={busy === row.id}
+                        disabled={!!busy}
                         onClick={() => save(row, "address")}
                       >
                         Save corrected address
@@ -240,9 +272,10 @@ export default function ReviewQueue({
                           : " · needs clarification")
                       : "Not confirmed — approval blocked"}
                   </p>
+                  {rowErrors[row.id] && <p className="text-red-800 bg-red-50 border border-red-200 rounded p-3">{rowErrors[row.id]}</p>}
                   <button
                     className="btn-secondary"
-                    disabled={busy === row.id}
+                    disabled={!!busy}
                     onClick={() => save(row, "locate")}
                   >
                     Look up full business address
@@ -340,9 +373,33 @@ export default function ReviewQueue({
                   ))}
                 </select>
               </label>
+              <p className="text-sm">
+                Saved status: <strong>{row.status.replaceAll("_", " ")}</strong>.
+                {d.status && d.status !== row.status
+                  ? ` Unsaved decision: ${d.status.replaceAll("_", " ")}. Click Save review to apply it.`
+                  : " Changes are saved only when you click Save review."}
+              </p>
+              {kind === "applications" && (d.status || row.status) === "approved" && row.status !== "approved" && (
+                <div className="text-sm bg-blue-50 border border-blue-200 rounded p-3">
+                  <p className="font-semibold">Before approval:</p>
+                  <ul className="list-disc pl-5">
+                    {String(d.note ?? row.review_note ?? "").trim().length < 10 && <li>Add an internal review note of at least 10 characters.</li>}
+                    {!row.location_evidence?.eligible && <li>Look up the full business address and obtain a matching location.</li>}
+                    {d.confirm_location !== true && <li>Check the address confirmation box after reviewing the match.</li>}
+                    {d.confirm_identity !== true && <li>Confirm the business and applicant’s authority.</li>}
+                    {d.confirm_duplicates !== true && <li>Confirm the duplicate review.</li>}
+                  </ul>
+                  {row.details?.inquiry_consent !== true && <p>This applicant did not opt in to installation inquiries. You can approve the listing; inquiry delivery will stay off.</p>}
+                </div>
+              )}
+              {rowErrors[row.id] && (
+                <p role="alert" className="text-red-800 bg-red-50 border border-red-200 rounded p-3">
+                  Not saved: {rowErrors[row.id]}
+                </p>
+              )}
               <button
                 className="btn-primary"
-                disabled={busy === row.id}
+                disabled={!!busy}
                 onClick={() => save(row)}
               >
                 {busy === row.id ? "Saving…" : "Save review"}
@@ -354,7 +411,7 @@ export default function ReviewQueue({
             </article>
           );
         })}
-      {!rows.length && <p>No requests in the queue.</p>}
+      {!visibleRows.length && <p>{filter === "open" ? "No open requests in the queue." : "No requests in the queue."}</p>}
     </div>
   );
 }

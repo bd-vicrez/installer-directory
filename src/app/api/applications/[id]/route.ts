@@ -22,6 +22,39 @@ export async function PATCH(
       2,
       100,
     );
+    // Looking up an address is preparation, not a review decision. It must work
+    // before the reviewer writes the final note or selects approval.
+    if (body.action === "locate") {
+      const db = getPool();
+      const app = (await db.query("SELECT * FROM applications WHERE id=$1", [id])).rows[0];
+      if (!app) throw new InputError("Application not found.", 404);
+      if (!["pending", "needs_information"].includes(app.status))
+        throw new InputError("Only pending applications can have their address looked up.", 409);
+      const location = await addressCandidate(app);
+      const client = await db.connect();
+      try {
+        await client.query("BEGIN");
+        const updated = await client.query(
+          `UPDATE applications SET location_evidence=$1,location_confirmed_at=NULL
+           WHERE id=$2 AND status IN ('pending','needs_information')
+           AND street_address IS NOT DISTINCT FROM $3 AND city IS NOT DISTINCT FROM $4
+           AND state IS NOT DISTINCT FROM $5 AND zip_code IS NOT DISTINCT FROM $6 RETURNING id`,
+          [JSON.stringify(location), id, app.street_address, app.city, app.state, app.zip_code],
+        );
+        if (!updated.rows.length)
+          throw new InputError("The application changed during lookup. Reload and look up the current address.", 409);
+        await client.query(
+          "INSERT INTO directory_review_audit(kind,record_id,actor,action,note,before_data,after_data) VALUES('application',$1,$2,'address-lookup',$3,$4,$5)",
+          [id, body.reviewer, "Looked up the submitted business address; approval still requires reviewer confirmation.", JSON.stringify({location_evidence:app.location_evidence}), JSON.stringify({location_evidence:location})],
+        );
+        await client.query("COMMIT");
+      } catch(e) {
+        await client.query("ROLLBACK"); throw e;
+      } finally { client.release(); }
+      return NextResponse.json({success:true,location}, {headers:{"Cache-Control":"no-store"}});
+    }
+    if (typeof body.note !== "string" || body.note.trim().length < 10)
+      throw new InputError("Add an internal review note of at least 10 characters before saving.");
     body.note = textField(body.note, "review note", 10, 1500);
     if (body.action === "address") {
       const street = textField(body.street_address, "street address", 3, 200),
@@ -76,18 +109,6 @@ export async function PATCH(
       } finally {
         client.release();
       }
-    }
-    if (body.action === "locate") {
-      const app = (
-        await getPool().query("SELECT * FROM applications WHERE id=$1", [id])
-      ).rows[0];
-      if (!app) throw new InputError("Application not found.", 404);
-      const location = await addressCandidate(app);
-      await getPool().query(
-        "UPDATE applications SET location_evidence=$1,location_confirmed_at=NULL WHERE id=$2 AND status IN ('pending','needs_information')",
-        [JSON.stringify(location), id],
-      );
-      return NextResponse.json({ location });
     }
     const result = await reviewApplication(getPool(), id, body);
     refreshContactPages(result.slug || "");
