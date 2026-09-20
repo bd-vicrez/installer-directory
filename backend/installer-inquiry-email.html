@@ -16,6 +16,12 @@
       {% if event.request_type == "network" %}<p style="margin:8px 0 0"><strong>Customer ZIP:</strong> {{ event.customer_zip|escape }} · approximately {{ event.distance_miles|escape }} miles away (geographic distance)</p>{% endif %}
     </div>
     {% if event.notes %}<h2 style="font-size:18px;margin:20px 0 8px">Project notes</h2><p style="white-space:pre-wrap">{{ event.notes|escape }}</p>{% elif event.lead.notes %}<p style="white-space:pre-wrap">{{ event.lead.notes|escape }}</p>{% endif %}
+    {% if event.shop_response_url %}
+      <h2 style="font-size:18px;margin:20px 0 8px">Can your shop help?</h2>
+      <p>Let Vicrez know: Interested, Need more details, or Cannot take this job.</p>
+      <p><a href="{{ event.shop_response_url|escape }}" style="display:inline-block;background:#b91c1c;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none">Respond to this inquiry</a></p>
+      <p style="font-size:13px;color:#4b5563">This private link is for your authorized shop team and expires after 30 days. Opening it does not record a response; choose your answer and save. Your response does not confirm an appointment or send a customer message.</p>
+    {% endif %}
     {% if event.customer_email %}
       <h2 style="font-size:18px;margin:20px 0 8px">Contact the customer</h2>
       <p>The customer asked Vicrez to share these details for this installation inquiry.</p>

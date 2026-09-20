@@ -165,4 +165,81 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(admin.json()['requests']),1)
 
 
+    async def response_fixture(self):
+        await self.routed()
+        with patch.object(rfq,'fetch_candidates',AsyncMock(return_value=[self.shop])),patch.object(rfq,'send_installer_event',AsyncMock(return_value=202)):
+            await rfq.run_one_job()
+        with rfq.connect() as conn:
+            job=dict(conn.execute("SELECT * FROM directory_outbox WHERE kind='installer'").fetchone())
+        return job,rfq.shop_response_link(job).split('#')[1]
+
+    async def test_response_link_scope_expiration_revocation_and_contact_change(self):
+        job,token=await self.response_fixture()
+        with patch.object(rfq,'fetch_candidates',AsyncMock(return_value=[self.shop])):
+            self.assertEqual((await rfq.response_job(token))['id'],job['id'])
+            for bad in [token[:-10]+'invalid',rfq.receipt_token(job['submission_id'],self.data['request_id']),'a'*600]:
+                with self.assertRaises(HTTPException):await rfq.response_job(bad)
+            with patch.object(rfq.time,'time',return_value=time.time()+31*86400):
+                with self.assertRaises(HTTPException):await rfq.response_job(token)
+        with patch.object(rfq,'fetch_candidates',AsyncMock(return_value=[{**self.shop,'email':'changed@example.test'}])):
+            with self.assertRaises(HTTPException) as caught:await rfq.response_job(token)
+            self.assertEqual(caught.exception.status_code,403)
+        with rfq.connect() as conn:conn.execute('UPDATE directory_response_access SET revoked=1')
+        with self.assertRaises(HTTPException):await rfq.response_job(token)
+
+    async def test_response_retry_is_idempotent_and_updates_require_current_revision(self):
+        job,token=await self.response_fixture()
+        body={'state':'interested','note':'We can discuss the installation.','request_id':str(uuid.uuid4()),'version':0}
+        first=rfq.save_shop_response(job,body);again=rfq.save_shop_response(job,body)
+        self.assertEqual(first['revision'],1);self.assertTrue(again['duplicate']);self.assertEqual(self.count('directory_shop_response_audit'),1)
+        with self.assertRaises(HTTPException):rfq.save_shop_response(job,{**body,'note':'Edited retry'})
+        with self.assertRaises(HTTPException):rfq.save_shop_response(job,{**body,'request_id':str(uuid.uuid4())})
+        updated=rfq.save_shop_response(job,{**body,'request_id':str(uuid.uuid4()),'version':1,'state':'declined'})
+        self.assertEqual(updated['revision'],2);self.assertEqual(self.count('directory_shop_responses'),1)
+        self.assertEqual(self.count('directory_outbox'),2)
+
+    async def test_response_audit_failure_rolls_back_and_concurrent_save_has_one_winner(self):
+        job,token=await self.response_fixture()
+        body={'state':'interested','note':'','request_id':str(uuid.uuid4()),'version':0}
+        with rfq.connect() as conn:conn.execute("CREATE TRIGGER reject_response_audit BEFORE INSERT ON directory_shop_response_audit BEGIN SELECT RAISE(ABORT,'fixture'); END")
+        with self.assertRaises(sqlite3.IntegrityError):rfq.save_shop_response(job,body)
+        self.assertEqual(self.count('directory_shop_responses'),0)
+        with rfq.connect() as conn:conn.execute('DROP TRIGGER reject_response_audit')
+        def save(_):
+            try:return rfq.save_shop_response(job,{**body,'request_id':str(uuid.uuid4())})['success']
+            except HTTPException as e:return e.status_code
+        with ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(save,range(2)))
+        self.assertCountEqual(results,[True,409]);self.assertEqual(self.count('directory_shop_response_audit'),1)
+
+    async def test_response_endpoint_never_saves_on_view_and_staff_sees_saved_shop_response(self):
+        job,token=await self.response_fixture();app=FastAPI();app.include_router(rfq.router)
+        headers={'Authorization':'Bearer '+rfq.secret()};path='/internal/directory-rfq/shop-response'
+        with patch.object(rfq,'fetch_candidates',AsyncMock(return_value=[self.shop])):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='https://example.test') as client:
+                self.assertEqual((await client.post(path,json={'action':'view','token':token})).status_code,401)
+                view=await client.post(path,headers=headers,json={'action':'view','token':token});self.assertEqual(view.status_code,200)
+                self.assertEqual(self.count('directory_shop_responses'),0);self.assertEqual(view.json()['shop'],self.shop['business_name'])
+                data={'action':'save','token':token,'state':'needs_details','note':'Please provide part number.','version':0,'request_id':str(uuid.uuid4())}
+                saved=await client.post(path,headers=headers,json=data);self.assertEqual(saved.status_code,200)
+                staff=(await client.get('/internal/directory-rfq/requests',headers=headers)).json()
+                self.assertEqual(staff['shop_response_counts'],{'needs_details':1});self.assertEqual(staff['requests'][0]['deliveries'][0]['response_state'],'needs_details')
+                self.assertNotIn(token,json.dumps(staff));self.assertEqual(staff['unanswered_over_48h'],0)
+
+    async def test_unanswered_alert_requires_response_link_and_elapsed_time(self):
+        job,token=await self.response_fixture();app=FastAPI();app.include_router(rfq.router)
+        with rfq.connect() as conn:conn.execute("UPDATE directory_outbox SET accepted_at=datetime('now','-3 days') WHERE id=?",(job['id'],))
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='https://example.test') as client:
+            headers={'Authorization':'Bearer '+rfq.secret()}
+            self.assertEqual((await client.get('/internal/directory-rfq/requests',headers=headers)).json()['unanswered_over_48h'],1)
+            with rfq.connect() as conn:conn.execute('DELETE FROM directory_response_access')
+            self.assertEqual((await client.get('/internal/directory-rfq/requests',headers=headers)).json()['unanswered_over_48h'],0)
+        self.assertIsNone(rfq.shop_response_link(job));rfq.init_directory_db();self.assertEqual(self.count('directory_response_access'),0)
+
+    async def test_response_requires_details_note_and_never_accepts_unknown_outcomes(self):
+        job,token=await self.response_fixture()
+        for data in [{'state':'needs_details','note':''},{'state':'booked'},{'state':'interested','note':'x'*1001},{'state':'interested','version':True}]:
+            with self.assertRaises(HTTPException):rfq.save_shop_response(job,{'state':'interested','note':'','request_id':str(uuid.uuid4()),'version':0,**data})
+        self.assertEqual(self.count('directory_shop_responses'),0)
+
+
 if __name__=='__main__':unittest.main()

@@ -7,6 +7,11 @@ import AccessibleDialog from "./AccessibleDialog";
 
 const NAV_ITEMS = [
   {
+    label: "Shop activation pilot",
+    href: "/admin/pilot",
+    icon: "M4 4h16v16H4z",
+  },
+  {
     label: "Staff sign-in security",
     href: "/admin/security",
     icon: "M4 4h16v16H4z",

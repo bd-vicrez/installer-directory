@@ -21,6 +21,12 @@ type Inquiry = {
     state: string;
     attempts: number;
     last_error: string | null;
+    response_state?: string;
+    response_note?: string;
+    response_updated_at?: string;
+    first_responded_at?: string;
+    response_link_expires_at?: number;
+    unanswered_over_48h?: number;
   }[];
 };
 type Dashboard = {
@@ -28,6 +34,8 @@ type Dashboard = {
   routing_counts: Record<string, number>;
   delivery_counts: Record<string, number>;
   worker_recent: boolean;
+  shop_response_counts?: Record<string, number>;
+  unanswered_over_48h?: number;
 };
 export default function InquiriesPage() {
   const [data, setData] = useState<Dashboard | null>(null),
@@ -59,10 +67,10 @@ export default function InquiriesPage() {
           {loading ? "Loading…" : "Refresh status"}
         </button>
       </div>
-      <p className="text-gray-600">
-        New directory requests from the Phase A release. A provider-accepted
-        notification is not proof of inbox delivery or a shop response.
-        Historical requests remain in the existing RFQ records.
+      <p className="text-gray-300">
+        Saved directory installation requests. A provider-accepted notification
+        is not proof of inbox delivery or a shop response. Historical requests
+        remain in the existing RFQ records.
       </p>
       <Link className="text-vicrez-red underline" href="/admin/contacts">
         Review shop contact permissions
@@ -108,6 +116,19 @@ export default function InquiriesPage() {
                   (data.delivery_counts.cancelled || 0)}
               </strong>
             </div>
+          </div>
+          <div className="card p-4 space-y-2">
+            <p>
+              <strong>Shop responses:</strong>{" "}
+              {Object.entries(data.shop_response_counts || {})
+                .map(([k, v]) => `${k.replaceAll("_", " ")}: ${v}`)
+                .join(" · ") || "No recorded responses yet"}
+            </p>
+            <p>
+              <strong>{data.unanswered_over_48h || 0}</strong> response-enabled
+              notifications have no shop reply after 48 elapsed hours. This is a
+              staff review threshold, not a promised shop response time.
+            </p>
           </div>
           {!data.requests.length && (
             <p className="card p-6">
@@ -159,6 +180,29 @@ export default function InquiriesPage() {
                   </strong>{" "}
                   · {delivery.attempts} attempt(s)
                   {delivery.last_error ? " · " + delivery.last_error : ""}
+                  <span className="block mt-1">
+                    Shop response:{" "}
+                    <strong>
+                      {delivery.response_state?.replaceAll("_", " ") ||
+                        (delivery.response_link_expires_at
+                          ? "Awaiting response"
+                          : "No response link in this historical notice")}
+                    </strong>
+                    {delivery.response_updated_at &&
+                      " · " +
+                        new Date(delivery.response_updated_at).toLocaleString()}
+                  </span>
+                  {delivery.response_note && (
+                    <span className="block whitespace-pre-wrap">
+                      Shop note: {delivery.response_note}
+                    </span>
+                  )}
+                  {!!delivery.unanswered_over_48h && (
+                    <span className="block text-amber-800 font-semibold">
+                      Staff follow-up needed: no shop response after 48 elapsed
+                      hours.
+                    </span>
+                  )}
                 </p>
               ))}
               {item.routing_state === "needs_review" && (

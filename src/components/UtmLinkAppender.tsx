@@ -9,6 +9,7 @@ const originals = new WeakMap<
 export default function UtmLinkAppender() {
   const pathname = usePathname();
   useEffect(() => {
+    if (pathname.startsWith("/shop-response")) return;
     const tag = (el: HTMLAnchorElement) => {
       const href = el.getAttribute("href") || "",
         old = originals.get(el),

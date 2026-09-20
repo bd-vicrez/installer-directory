@@ -78,8 +78,8 @@ export async function GET(request: NextRequest) {
   try {
     const status = request.nextUrl.searchParams.get("status");
     const { rows } = await getPool().query(
-      `SELECT a.*,EXTRACT(EPOCH FROM (NOW()-submitted_at))/86400 AS age_days,
-  (SELECT json_agg(json_build_object('id',i.id,'name',i.business_name,'slug',i.slug)) FROM installers i WHERE i.status='active' AND (regexp_replace(i.phone,'[^0-9]','','g')=regexp_replace(a.phone,'[^0-9]','','g') OR (lower(i.street_address)=lower(a.street_address) AND lower(i.city)=lower(a.city) AND i.state=a.state))) AS duplicate_candidates
+      `SELECT a.*,(SELECT slug FROM installers WHERE id=a.installer_id) AS listing_slug,EXTRACT(EPOCH FROM (NOW()-submitted_at))/86400 AS age_days,
+  (SELECT json_agg(json_build_object('id',i.id,'name',i.business_name,'slug',i.slug)) FROM installers i WHERE i.status='active' AND i.id IS DISTINCT FROM a.installer_id AND (regexp_replace(i.phone,'[^0-9]','','g')=regexp_replace(a.phone,'[^0-9]','','g') OR (lower(i.street_address)=lower(a.street_address) AND lower(i.city)=lower(a.city) AND i.state=a.state))) AS duplicate_candidates
   FROM applications a ${status ? "WHERE status=$1" : ""} ORDER BY submitted_at ASC LIMIT 200`,
       status ? [status] : [],
     );

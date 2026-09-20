@@ -74,6 +74,20 @@ def init_directory_db():
         CREATE INDEX IF NOT EXISTS directory_outbox_due ON directory_outbox(state,next_attempt,lease_until);
         CREATE INDEX IF NOT EXISTS directory_outbox_request ON directory_outbox(submission_id);
         CREATE TABLE IF NOT EXISTS directory_worker_state (id INTEGER PRIMARY KEY, heartbeat REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS directory_response_access (
+          job_id TEXT PRIMARY KEY REFERENCES directory_outbox(id), expires_at INTEGER NOT NULL,
+          revoked INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS directory_shop_responses (
+          job_id TEXT PRIMARY KEY REFERENCES directory_outbox(id), state TEXT NOT NULL,
+          note TEXT NOT NULL DEFAULT '', revision INTEGER NOT NULL, first_responded_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS directory_shop_response_audit (
+          request_id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES directory_outbox(id),
+          state TEXT NOT NULL, note TEXT NOT NULL, revision INTEGER NOT NULL,
+          created_at TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS directory_measurement_events (
           id TEXT PRIMARY KEY, request_ref TEXT NOT NULL, event TEXT NOT NULL,
           flow TEXT NOT NULL, service TEXT NOT NULL,
@@ -359,8 +373,12 @@ async def run_route_job(job):
         for target in targets:
             event_id = str(uuid.uuid5(uuid.NAMESPACE_URL,f"vicrez-directory:{job['submission_id']}:installer:{target['id']}"))
             payload = json.dumps({'submission':data,'installer':target})
-            conn.execute('''INSERT OR IGNORE INTO directory_outbox(id,submission_id,kind,target_id,payload)
+            inserted = conn.execute('''INSERT OR IGNORE INTO directory_outbox(id,submission_id,kind,target_id,payload)
               VALUES(?,?,'installer',?,?)''', (event_id,job['submission_id'],str(target['id']),payload))
+            if inserted.rowcount:
+                # Only newly routed deliveries receive response links; old notices are not replayed.
+                conn.execute('INSERT INTO directory_response_access(job_id,expires_at) VALUES(?,?)',
+                             (event_id,int(time.time())+30*86400))
         reason = None if targets else ('selected_shop_unavailable' if data['flow']=='selected' else 'no_eligible_service_match')
         conn.execute('UPDATE directory_requests SET routing_state=?,routing_reason=? WHERE submission_id=?',('matched' if targets else 'needs_review',reason,job['submission_id']))
         conn.execute("UPDATE directory_outbox SET state='completed',lease_until=0,last_error=NULL WHERE id=? AND lease_token=?",(job['id'],job['lease_token']))
@@ -385,6 +403,9 @@ def installer_event(job):
       'customer_email':data['email'], 'customer_phone':data['phone'],
       'lead':{'first_name':data['full_name'].split()[0], 'vehicle_ymm':f"{data['vehicle_year']} {data['vehicle_make']} {data['vehicle_model']}", 'kit_interest':[data['what_needed']], 'install_timeline':data['install_timeline'],'budget_range':data['budget_range'],'notes':data['notes']},
     }
+    link = shop_response_link(job)
+    if link:
+        properties['shop_response_url'] = link
     return {'data':{'type':'event','attributes':{
       'unique_id':job['id'], 'properties':properties,
       'metric':{'data':{'type':'metric','attributes':{'name':'Installer Quote Request Forwarded'}}},
@@ -463,13 +484,22 @@ async def admin_requests(request: Request):
           ORDER BY d.submission_id DESC LIMIT 50''').fetchall()
         requests = []
         for row in rows:
-            deliveries = conn.execute('''SELECT target_id,state,attempts,last_error,accepted_at FROM directory_outbox
-              WHERE submission_id=? AND kind='installer' ORDER BY id''',(row['submission_id'],)).fetchall()
+            deliveries = conn.execute('''SELECT o.target_id,o.state,o.attempts,o.last_error,o.accepted_at,
+              a.expires_at AS response_link_expires_at,r.state AS response_state,r.note AS response_note,
+              r.first_responded_at,r.updated_at AS response_updated_at,
+              CASE WHEN o.state='accepted' AND r.job_id IS NULL AND a.job_id IS NOT NULL
+                AND julianday('now')-julianday(o.accepted_at)>2 THEN 1 ELSE 0 END AS unanswered_over_48h
+              FROM directory_outbox o LEFT JOIN directory_response_access a ON a.job_id=o.id
+              LEFT JOIN directory_shop_responses r ON r.job_id=o.id
+              WHERE o.submission_id=? AND o.kind='installer' ORDER BY o.id''',(row['submission_id'],)).fetchall()
             requests.append({**dict(row),'deliveries':[dict(d) for d in deliveries]})
         counts = {r['routing_state']:r['n'] for r in conn.execute('SELECT routing_state,COUNT(*) AS n FROM directory_requests GROUP BY routing_state')}
         delivery_counts = {r['state']:r['n'] for r in conn.execute("SELECT state,COUNT(*) AS n FROM directory_outbox WHERE kind='installer' GROUP BY state")}
         heartbeat = conn.execute('SELECT heartbeat FROM directory_worker_state WHERE id=1').fetchone()
+        response_counts = {r['state']:r['n'] for r in conn.execute('SELECT state,COUNT(*) n FROM directory_shop_responses GROUP BY state')}
+        unanswered = conn.execute("SELECT COUNT(*) FROM directory_outbox o JOIN directory_response_access a ON a.job_id=o.id LEFT JOIN directory_shop_responses r ON r.job_id=o.id WHERE o.state='accepted' AND r.job_id IS NULL AND julianday('now')-julianday(o.accepted_at)>2").fetchone()[0]
     return JSONResponse({'requests':requests,'routing_counts':counts,'delivery_counts':delivery_counts,
+      'shop_response_counts':response_counts,'unanswered_over_48h':unanswered,
       'worker_recent':bool(heartbeat and time.time()-heartbeat['heartbeat']<120),'version':'phase-a'},headers={'Cache-Control':'private, no-store'})
 
 
@@ -495,3 +525,90 @@ async def directory_measurement(request: Request):
         delivery={row['state']:row['n'] for row in conn.execute("SELECT state,COUNT(*) n FROM directory_outbox WHERE kind='installer' GROUP BY state")}
     return JSONResponse({'source':'durable-directory-records','saved_requests':saved,'recorded_save_events':counts.get('quote_saved',0),
       'reconciled':saved==counts.get('quote_saved',0),'events':counts,'routing':routing,'notifications':delivery},headers={'Cache-Control':'private, no-store'})
+
+
+def shop_response_link(job):
+    with connect() as conn:
+        access = conn.execute('SELECT * FROM directory_response_access WHERE job_id=? AND revoked=0', (job['id'],)).fetchone()
+    if not access:
+        return None
+    recipient = json.loads(job['payload'])['installer']['email'].strip().lower()
+    message = f"shop-response:v1:{job['id']}:{access['expires_at']}"
+    signature = hmac.new(secret().encode(),(message+':'+recipient).encode(),hashlib.sha256).hexdigest()
+    token = base64.urlsafe_b64encode((message+':'+signature).encode()).decode().rstrip('=')
+    return 'https://installers.vicrez.com/shop-response#'+token
+
+
+async def response_job(token):
+    try:
+        if not isinstance(token,str) or len(token)>512:
+            raise ValueError()
+        scope,version,jid,expires,signature = base64.urlsafe_b64decode(token+'='*(-len(token)%4)).decode().split(':')
+        if scope!='shop-response' or version!='v1' or not UUID_RE.fullmatch(jid) or int(expires)<time.time():
+            raise ValueError()
+        with connect() as conn:
+            row = conn.execute("SELECT o.*,a.expires_at,a.revoked FROM directory_outbox o JOIN directory_response_access a ON a.job_id=o.id WHERE o.id=? AND o.kind='installer'",(jid,)).fetchone()
+        if not row or row['revoked'] or row['expires_at']!=int(expires) or row['state']!='accepted':
+            raise ValueError()
+        job=dict(row);payload=json.loads(job['payload']);original=payload['installer']
+        message=f"shop-response:v1:{jid}:{expires}:"+original['email'].strip().lower()
+        expected=hmac.new(secret().encode(),message.encode(),hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(signature,expected):
+            raise ValueError()
+    except (ValueError,UnicodeError,KeyError,TypeError):
+        raise HTTPException(401,'This private response link is invalid or expired. Contact support@vicrez.com with the inquiry reference.')
+    current=await fetch_candidates(installer_id=str(original['id']))
+    if not any(str(i['id'])==str(original['id']) and i['email'].strip().lower()==original['email'].strip().lower() for i in current):
+        raise HTTPException(403,'This inquiry contact is no longer enabled. Contact support@vicrez.com.')
+    return job
+
+
+def save_shop_response(job,body):
+    state,note,nonce,version=body.get('state'),body.get('note',''),body.get('request_id'),body.get('version')
+    if state not in ('interested','needs_details','declined') or not isinstance(note,str) or len(note)>1000 or re.search(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]',note):
+        raise HTTPException(400,'Choose a response and keep the note under 1,000 characters.')
+    note=note.strip()
+    if state=='needs_details' and len(note)<5:
+        raise HTTPException(400,'Describe the additional details you need.')
+    if not isinstance(nonce,str) or not UUID_RE.fullmatch(nonce) or type(version) is not int or version<0:
+        raise HTTPException(400,'Invalid response reference. Reload this private link.')
+    now=datetime.now(timezone.utc).isoformat()
+    with connect() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        access=conn.execute('SELECT * FROM directory_response_access WHERE job_id=?',(job['id'],)).fetchone()
+        if not access or access['revoked'] or access['expires_at']<time.time():
+            raise HTTPException(401,'This response link has expired or been revoked.')
+        old=conn.execute('SELECT * FROM directory_shop_response_audit WHERE request_id=?',(nonce,)).fetchone()
+        if old:
+            if old['job_id']!=job['id'] or old['state']!=state or old['note']!=note:
+                raise HTTPException(409,'This save reference was already used for different details. Reload before editing.')
+            return {'success':True,'duplicate':True,'revision':old['revision']}
+        prior=conn.execute('SELECT * FROM directory_shop_responses WHERE job_id=?',(job['id'],)).fetchone()
+        if (prior['revision'] if prior else 0)!=version:
+            raise HTTPException(409,'A response was already updated. Reload before changing it.')
+        conn.execute('INSERT INTO directory_shop_responses(job_id,state,note,revision,first_responded_at,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(job_id) DO UPDATE SET state=excluded.state,note=excluded.note,revision=excluded.revision,updated_at=excluded.updated_at',
+                     (job['id'],state,note,version+1,now,now))
+        conn.execute('INSERT INTO directory_shop_response_audit(request_id,job_id,state,note,revision,created_at) VALUES(?,?,?,?,?,?)',(nonce,job['id'],state,note,version+1,now))
+        measure(conn,job['submission_id'],'shop_response_'+state,nonce)
+    return {'success':True,'duplicate':False,'revision':version+1}
+
+
+@router.post('/internal/directory-rfq/shop-response')
+async def shop_response(request: Request):
+    require_service(request)
+    body=await read_body(request,4096)
+    if body.get('action') not in ('view','save'):
+        raise HTTPException(400,'Choose a valid action.')
+    job=await response_job(body.get('token'))
+    if body['action']=='save':
+        result=save_shop_response(job,body)
+    else:
+        payload=json.loads(job['payload']);data=payload['submission']
+        with connect() as conn:
+            row=conn.execute('SELECT state,note,revision,updated_at FROM directory_shop_responses WHERE job_id=?',(job['id'],)).fetchone()
+        result={'reference':f"VZ-{job['submission_id']}",'shop':payload['installer']['business_name'],
+          'vehicle':f"{data['vehicle_year']} {data['vehicle_make']} {data['vehicle_model']}",
+          'work':data['what_needed'],'service':SERVICES[data['service']]['label'],'notes':data['notes'],
+          'customer_name':data['full_name'],'customer_email':data['email'],'customer_phone':data['phone'],
+          'response':dict(row) if row else None,'version':row['revision'] if row else 0,'expires_at':job['expires_at']}
+    return JSONResponse(result,headers={'Cache-Control':'private, no-store','Referrer-Policy':'no-referrer'})

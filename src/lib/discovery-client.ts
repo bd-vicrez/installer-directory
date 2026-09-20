@@ -18,6 +18,7 @@ export function discoveryEvent(
   if (
     process.env.NEXT_PUBLIC_DISABLE_QUOTE_ANALYTICS === "1" ||
     navigator.doNotTrack === "1" ||
+    window.location.pathname.startsWith("/shop-response") ||
     window.location.pathname.startsWith("/admin") ||
     window.location.pathname.startsWith("/request-status")
   )

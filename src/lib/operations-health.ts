@@ -22,6 +22,7 @@ export async function operationHealth(db: Pool) {
         routing_attention:
           (d.routing_counts?.needs_review || 0) +
           (d.routing_counts?.failed || 0),
+        unanswered_over_48h: d.unanswered_over_48h || 0,
         delivery_attention:
           (d.delivery_counts?.failed || 0) +
           (d.delivery_counts?.cancelled || 0),
@@ -47,6 +48,11 @@ export async function operationHealth(db: Pool) {
       issues.push("Inquiry delivery worker has not checked in recently");
     if (inquiry.routing_attention)
       issues.push(inquiry.routing_attention + " inquiries need routing review");
+    if (inquiry.unanswered_over_48h)
+      issues.push(
+        inquiry.unanswered_over_48h +
+          " inquiry notifications have no shop response after 48 elapsed hours; review follow-up",
+      );
     if (inquiry.delivery_attention)
       issues.push(
         inquiry.delivery_attention + " inquiry notifications need review",
@@ -69,7 +75,9 @@ export async function operationHealth(db: Pool) {
     !counts.last_delivery_worker ||
     Date.now() - new Date(counts.last_delivery_worker).getTime() > 15 * 60000
   )
-    issues.push("Notification delivery check-in is missing or older than 15 minutes");
+    issues.push(
+      "Notification delivery check-in is missing or older than 15 minutes",
+    );
   return { counts, inquiry, issues };
 }
 export async function queueStaffDigest(db: Pool) {
