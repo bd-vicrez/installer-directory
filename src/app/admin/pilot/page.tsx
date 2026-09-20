@@ -31,6 +31,12 @@ export default function PilotPage() {
     setData(d);
   }
   useEffect(() => {
+    if (window.location.hash)
+      document
+        .getElementById(decodeURIComponent(window.location.hash.slice(1)))
+        ?.scrollIntoView({ block: "start" });
+  }, [data]);
+  useEffect(() => {
     void load().catch((e) => setError(e.message));
   }, []);
   async function save(row: any) {
@@ -109,6 +115,7 @@ export default function PilotPage() {
               evidence = { ...row.evidence, ...d.evidence };
             return (
               <article
+                id={"shop-" + row.installer_id}
                 key={row.installer_id}
                 className="bg-white text-gray-900 rounded-xl border p-5 space-y-3"
               >
@@ -122,6 +129,13 @@ export default function PilotPage() {
                     ? "Confirmed participant"
                     : "Not counted as participating"}
                 </p>
+                {row.outreach_state && (
+                  <p className="text-sm">
+                    Pilot invitation: <strong>{row.outreach_state}</strong> ·
+                    queued {new Date(row.outreach_at).toLocaleString()}.
+                    Delivery does not confirm participation.
+                  </p>
+                )}
                 <p className="text-sm">
                   Current inquiry contact:{" "}
                   {row.routing_email || "Not configured"} ·{" "}

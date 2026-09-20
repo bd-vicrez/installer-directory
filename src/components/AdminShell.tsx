@@ -6,6 +6,11 @@ import Link from "next/link";
 import AccessibleDialog from "./AccessibleDialog";
 
 const NAV_ITEMS = [
+  {
+    label: "Staff action queue",
+    href: "/admin/actions",
+    icon: "M4 4h16v16H4z",
+  },
   { label: "Owner access", href: "/admin/owners", icon: "M4 4h16v16H4z" },
   {
     label: "Traffic & inquiry outcomes",

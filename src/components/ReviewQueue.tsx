@@ -18,7 +18,13 @@ export default function ReviewQueue({
   const endpoint =
     kind === "applications" ? "/api/applications" : "/api/admin/claims";
   async function load() {
-    const r = await fetch(endpoint, { cache: "no-store" });
+    const selected = window.location.hash.startsWith("#request-")
+      ? decodeURIComponent(window.location.hash.slice(9))
+      : "";
+    const r = await fetch(
+      endpoint + (selected ? "?id=" + encodeURIComponent(selected) : ""),
+      { cache: "no-store" },
+    );
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Unable to load review queue.");
     setRows(d[kind]);
@@ -29,6 +35,12 @@ export default function ReviewQueue({
       setError(e instanceof Error ? e.message : "Queue unavailable."),
     );
   }, [kind]);
+  useEffect(() => {
+    if (window.location.hash)
+      document
+        .getElementById(decodeURIComponent(window.location.hash.slice(1)))
+        ?.scrollIntoView({ block: "start" });
+  }, [rows]);
   const change = (id: string, key: string, value: any) => {
     setDrafts((d) => ({
       ...d,
@@ -236,6 +248,7 @@ export default function ReviewQueue({
         );
         return (
           <article
+            id={"request-" + row.id}
             key={row.id}
             className="bg-white text-gray-900 border rounded-xl p-5 space-y-4"
           >

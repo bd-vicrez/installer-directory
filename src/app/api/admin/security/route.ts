@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, adminIdentity, generateToken } from "@/lib/admin-auth";
 import { getPool } from "@/lib/db";
-import { sameOrigin, withinRateLimit } from "@/lib/directory-rfq";
+import { withinRateLimit } from "@/lib/directory-rfq";
 import { readSmallJson, textField, InputError } from "@/lib/onboarding";
 import {
   newTotpSecret,
@@ -12,6 +12,7 @@ import {
   newRecoveryCodes,
   recoveryHash,
 } from "@/lib/staff-security";
+import { ownerOrigin } from "@/lib/owner-access";
 const headers = { "Cache-Control": "no-store" };
 export async function GET(request: NextRequest) {
   const denied = await requireAdmin(request);
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
         identity: adminIdentity(request),
         users: (
           await getPool().query(
-            "SELECT id,username,display_name,active,created_at FROM directory_staff_users ORDER BY created_at",
+            "SELECT id,username,display_name,active,created_at,last_login_at,totp_login_verified_at,recovery_verified_at,jsonb_array_length(recovery_hashes) AS recovery_codes_remaining FROM directory_staff_users ORDER BY created_at",
           )
         ).rows,
         named_only: (
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
   if (denied) return denied;
   let client;
   try {
-    if (!sameOrigin(request)) throw new InputError("Invalid origin", 403);
+    ownerOrigin(request);
     const identity = adminIdentity(request)!;
     if (!(await withinRateLimit(identity.username, "staff-security", 10, 900)))
       throw new InputError("Please wait before trying again", 429);
@@ -98,6 +99,9 @@ export async function POST(request: NextRequest) {
     if (b.action === "confirm") {
       client = await db.connect();
       await client.query("BEGIN");
+      await client.query(
+        "SELECT id FROM directory_security_settings WHERE id=1 FOR UPDATE",
+      );
       const enrollment = (
         await client.query(
           "SELECT * FROM directory_staff_enrollments WHERE id=$1 AND created_by=$2 AND expires_at>NOW() FOR UPDATE",
@@ -157,6 +161,27 @@ export async function POST(request: NextRequest) {
       client = await db.connect();
       await client.query("BEGIN");
       await client.query(
+        "SELECT id FROM directory_security_settings WHERE id=1 FOR UPDATE",
+      );
+      const staff = (
+        await client.query(
+          "SELECT id,totp_login_verified_at,recovery_verified_at,jsonb_array_length(recovery_hashes) AS remaining FROM directory_staff_users WHERE active FOR SHARE",
+        )
+      ).rows;
+      if (
+        !staff.some((u) => u.id === identity.id) ||
+        staff.some(
+          (u) =>
+            !u.totp_login_verified_at ||
+            !u.recovery_verified_at ||
+            u.remaining < 1,
+        )
+      )
+        throw new InputError(
+          "Every active staff member must successfully sign in with an authenticator and a recovery code, and retain an unused recovery code, before the shared login can be disabled.",
+          409,
+        );
+      await client.query(
         "UPDATE directory_security_settings SET named_only=true WHERE id=1",
       );
       await client.query(
@@ -178,6 +203,9 @@ export async function POST(request: NextRequest) {
         );
       client = await db.connect();
       await client.query("BEGIN");
+      await client.query(
+        "SELECT id FROM directory_security_settings WHERE id=1 FOR UPDATE",
+      );
       const result = await client.query(
         "UPDATE directory_staff_users SET active=false,token_version=token_version+1 WHERE id=$1 AND active=true RETURNING username",
         [b.id],

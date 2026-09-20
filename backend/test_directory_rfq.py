@@ -60,6 +60,27 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
         rfq.init_directory_db()
         self.assertEqual(self.count('directory_measurement_events'),3)
 
+    async def test_action_items_are_private_minimal_and_exact_lookup_reaches_older_inquiry(self):
+        saved=await self.routed()
+        for _ in range(52):
+            rfq.save_submission({**self.data,'request_id':str(uuid.uuid4())})
+        app=FastAPI();app.include_router(rfq.router)
+        headers={'Authorization':'Bearer '+rfq.secret()}
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='https://example.test') as client:
+            self.assertEqual((await client.get('/internal/directory-rfq/action-items')).status_code,401)
+            response=await client.get('/internal/directory-rfq/action-items',headers=headers)
+            rows=response.json()['items'];self.assertEqual(len(rows),53)
+            self.assertEqual(len({r['submission_id'] for r in rows}),53)
+            self.assertNotIn(self.data['email'],response.text);self.assertNotIn(self.data['full_name'],response.text)
+            for row in rows:self.assertNotIn('payload',row)
+            self.assertIn('no-store',response.headers['cache-control'])
+            recent=(await client.get('/internal/directory-rfq/requests',headers=headers)).json()['requests']
+            self.assertFalse(any(r['submission_id']==saved['submission_id'] for r in recent))
+            exact=(await client.get('/internal/directory-rfq/requests?id='+str(saved['submission_id']),headers=headers)).json()['requests']
+            self.assertEqual([r['submission_id'] for r in exact],[saved['submission_id']])
+            for value in ['0','-1','1 OR 1=1','999999999999999999999']:
+                self.assertEqual((await client.get('/internal/directory-rfq/requests',params={'id':value},headers=headers)).status_code,400)
+
     async def test_measurement_endpoint_is_private_aggregate_and_reconciles(self):
         rfq.save_submission(self.data)
         app=FastAPI();app.include_router(rfq.router)

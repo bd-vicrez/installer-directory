@@ -500,11 +500,15 @@ async def directory_worker_loop():
 @router.get('/internal/directory-rfq/requests')
 async def admin_requests(request: Request):
     require_service(request)
+    selected=request.query_params.get('id')
+    if selected is not None and (not re.fullmatch(r'[1-9][0-9]{0,14}',selected)):
+        raise HTTPException(400,'Choose a valid inquiry')
     with connect() as conn:
         rows = conn.execute('''SELECT d.submission_id,d.created_at,d.flow,d.service,d.routing_state,d.routing_reason,
           r.full_name,r.email,r.phone,r.vehicle_year,r.vehicle_make,r.vehicle_model,r.notes,r.zip_code
           FROM directory_requests d JOIN rfq_submissions r ON r.id=d.submission_id
-          ORDER BY d.submission_id DESC LIMIT 50''').fetchall()
+          WHERE (? IS NULL OR d.submission_id=?)
+          ORDER BY d.submission_id DESC LIMIT 50''',(selected,selected)).fetchall()
         requests = []
         for row in rows:
             deliveries = conn.execute('''SELECT o.target_id,o.state,o.attempts,o.last_error,o.accepted_at,
@@ -525,6 +529,24 @@ async def admin_requests(request: Request):
     return JSONResponse({'requests':requests,'routing_counts':counts,'delivery_counts':delivery_counts,
       'shop_response_counts':response_counts,'unanswered_over_48h':unanswered,
       'worker_recent':bool(heartbeat and time.time()-heartbeat['heartbeat']<120),'version':'phase-a'},headers={'Cache-Control':'private, no-store'})
+
+
+@router.get('/internal/directory-rfq/action-items')
+async def admin_action_items(request: Request):
+    require_service(request)
+    with connect() as conn:
+        rows=conn.execute("""SELECT d.submission_id,d.created_at,d.service,d.routing_state,
+          COALESCE(SUM(CASE WHEN o.state IN ('failed','cancelled') THEN 1 ELSE 0 END),0) failed_deliveries,
+          COALESCE(SUM(CASE WHEN o.state IN ('pending','retry','sending') THEN 1 ELSE 0 END),0) pending_deliveries,
+          COALESCE(SUM(CASE WHEN o.state='accepted' AND a.job_id IS NOT NULL AND r.job_id IS NULL
+            AND julianday('now')-julianday(o.accepted_at)>2 THEN 1 ELSE 0 END),0) unanswered_over_48h,
+          MAX(r.updated_at) last_response_at
+          FROM directory_requests d LEFT JOIN directory_outbox o ON o.submission_id=d.submission_id AND o.kind='installer'
+          LEFT JOIN directory_response_access a ON a.job_id=o.id LEFT JOIN directory_shop_responses r ON r.job_id=o.id
+          GROUP BY d.submission_id ORDER BY d.submission_id DESC LIMIT 5001""").fetchall()
+        heartbeat=conn.execute('SELECT heartbeat FROM directory_worker_state WHERE id=1').fetchone()
+    return JSONResponse({'items':[dict(r) for r in rows[:5000]],'limited':len(rows)>5000,
+      'worker_recent':bool(heartbeat and time.time()-heartbeat['heartbeat']<120)},headers={'Cache-Control':'private, no-store'})
 
 
 @router.get('/internal/directory-rfq/attribution')

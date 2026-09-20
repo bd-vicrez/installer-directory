@@ -6,12 +6,19 @@ import { readSmallJson, textField, InputError } from "@/lib/onboarding";
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin(request);
   if (auth) return auth;
+  const selected = request.nextUrl.searchParams.get("id");
+  if (selected !== null && !/^[1-9][0-9]{0,14}$/.test(selected))
+    return NextResponse.json(
+      { error: "Choose a valid inquiry" },
+      { status: 400 },
+    );
   try {
     return NextResponse.json(
       {
         records: (
           await getPool().query(
-            "SELECT * FROM directory_inquiry_followup ORDER BY updated_at DESC LIMIT 200",
+            "SELECT * FROM directory_inquiry_followup WHERE ($1::bigint IS NULL OR submission_id=$1) ORDER BY updated_at DESC LIMIT 200",
+            [selected],
           )
         ).rows,
       },
@@ -48,7 +55,7 @@ export async function POST(request: NextRequest) {
     const due = b.next_followup_at ? new Date(b.next_followup_at) : null;
     if (due && !Number.isFinite(due.getTime()))
       throw new InputError("Choose a valid follow-up date");
-    const r = await rfqFetch("/internal/directory-rfq/requests");
+    const r = await rfqFetch("/internal/directory-rfq/requests?id=" + id);
     if (!r.ok)
       throw new InputError(
         "Confirm the saved inquiry before recording an outcome",

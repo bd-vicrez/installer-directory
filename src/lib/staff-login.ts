@@ -37,13 +37,14 @@ export async function staffLogin(
       return null;
     }
     await client.query(
-      "UPDATE directory_staff_users SET last_totp_counter=$2,recovery_hashes=$3 WHERE id=$1",
+      "UPDATE directory_staff_users SET last_totp_counter=$2,recovery_hashes=$3,last_login_at=NOW(),totp_login_verified_at=CASE WHEN $4 THEN NOW() ELSE totp_login_verified_at END,recovery_verified_at=CASE WHEN NOT $4 THEN NOW() ELSE recovery_verified_at END WHERE id=$1",
       [
         user.id,
         counter === null ? user.last_totp_counter : counter,
         JSON.stringify(
           user.recovery_hashes.filter((v: string) => v !== recovery),
         ),
+        counter !== null,
       ],
     );
     await client.query("COMMIT");

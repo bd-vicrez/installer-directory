@@ -11,8 +11,15 @@ export async function GET(request: NextRequest) {
   const auth = await requireAdmin(request);
   if (auth) return auth;
   try {
-    const rows = (await getPool().query(select + " ORDER BY i.business_name"))
-      .rows;
+    const rows = (
+      await getPool().query(
+        select.replace(
+          "SELECT p.*,",
+          "SELECT p.*,n.state AS outreach_state,o.queued_at AS outreach_at,",
+        ) +
+          " LEFT JOIN directory_pilot_outreach o ON o.installer_id=p.installer_id AND o.campaign='installer-pilot-2026-09' LEFT JOIN directory_notifications n ON n.id=o.notification_id ORDER BY i.business_name",
+      )
+    ).rows;
     let responseCounts = null;
     try {
       const r = await rfqFetch("/internal/directory-rfq/requests");

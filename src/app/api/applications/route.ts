@@ -76,12 +76,18 @@ export async function GET(request: NextRequest) {
   const auth = await requireAdmin(request);
   if (auth) return auth;
   try {
-    const status = request.nextUrl.searchParams.get("status");
+    const status = request.nextUrl.searchParams.get("status"),
+      id = request.nextUrl.searchParams.get("id");
+    if (id !== null && !/^[A-Za-z0-9_-]{1,80}$/.test(id))
+      return NextResponse.json(
+        { error: "Choose a valid application" },
+        { status: 400 },
+      );
     const { rows } = await getPool().query(
       `SELECT a.*,(SELECT slug FROM installers WHERE id=a.installer_id) AS listing_slug,EXTRACT(EPOCH FROM (NOW()-submitted_at))/86400 AS age_days,
   (SELECT json_agg(json_build_object('id',i.id,'name',i.business_name,'slug',i.slug)) FROM installers i WHERE i.status='active' AND i.id IS DISTINCT FROM a.installer_id AND (regexp_replace(i.phone,'[^0-9]','','g')=regexp_replace(a.phone,'[^0-9]','','g') OR (lower(i.street_address)=lower(a.street_address) AND lower(i.city)=lower(a.city) AND i.state=a.state))) AS duplicate_candidates
-  FROM applications a ${status ? "WHERE status=$1" : ""} ORDER BY submitted_at ASC LIMIT 200`,
-      status ? [status] : [],
+  FROM applications a WHERE ($1::text IS NULL OR status=$1) AND ($2::text IS NULL OR a.id::text=$2) ORDER BY submitted_at ASC LIMIT 200`,
+      [status, id],
     );
     return NextResponse.json(
       { applications: rows },

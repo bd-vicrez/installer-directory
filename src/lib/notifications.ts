@@ -1,6 +1,6 @@
 import { ownerLoginToken } from "./owner-access";
 import { statusToken } from "./onboarding";
-import { timingSafeEqual } from "node:crypto";
+import { timingSafeEqual, createHash } from "node:crypto";
 import type { Pool } from "pg";
 
 export function operationsAuthorized(request: Request) {
@@ -17,6 +17,8 @@ export function operationsAuthorized(request: Request) {
     timingSafeEqual(suppliedBytes, expectedBytes)
   );
 }
+export const PILOT_SUBJECT =
+  "Invitation: confirm your shop for the Vicrez installer pilot";
 export function notificationMessage(row: Record<string, any>) {
   const labels: Record<string, string> = {
     owner_login: "Owner sign-in",
@@ -50,12 +52,12 @@ export function notificationMessage(row: Record<string, any>) {
     pending: "Your request is pending review.",
     test: "This is the designated Vicrez installer notification delivery test. No customer application, shop claim or installation inquiry was created.",
     staff_alert:
-      "The installer operations queue needs attention. Review the counts below and open https://installers.vicrez.com/admin/operations for details. Sign in to view private requests.",
+      "The installer operations queue needs attention. Review the counts below and open https://installers.vicrez.com/admin/actions for prioritized tasks and https://installers.vicrez.com/admin/operations for delivery evidence. Sign in to view private requests.",
   };
   const link =
     row.kind === "owner"
       ? "https://installers.vicrez.com/owner#" + ownerLoginToken(row.record_id)
-      : ["test", "staff"].includes(row.kind)
+      : ["test", "staff", "pilot"].includes(row.kind)
         ? ""
         : "https://installers.vicrez.com/request-status#" +
           statusToken(row.kind, row.record_id, row.created_at);
@@ -69,8 +71,16 @@ export function notificationMessage(row: Record<string, any>) {
     ],
     from: { email: "support@vicrez.com", name: "Vicrez Installer Network" },
     reply_to: { email: "support@vicrez.com" },
-    subject: `${row.kind === "test" ? "[TEST] " : ""}Vicrez installer ${label.toLowerCase()} · ${row.reference}`,
-    content: [{ type: "text/plain", value: text }],
+    subject:
+      row.kind === "pilot"
+        ? PILOT_SUBJECT
+        : `${row.kind === "test" ? "[TEST] " : ""}Vicrez installer ${label.toLowerCase()} · ${row.reference}`,
+    content: [
+      {
+        type: "text/plain",
+        value: row.kind === "pilot" ? row.public_message : text,
+      },
+    ],
     tracking_settings: {
       click_tracking: { enable: false, enable_text: false },
       open_tracking: { enable: false },
@@ -97,6 +107,35 @@ export async function processNotifications(
     FROM candidates c WHERE n.id=c.id RETURNING n.*`)
   ).rows;
   for (const row of rows) {
+    if (row.kind === "pilot") {
+      const current = (
+        await pool.query(
+          `SELECT o.message_hash,o.subject,o.recipient,i.status,i.routing_email,i.email,p.decision FROM directory_pilot_outreach o JOIN installers i ON i.id=o.installer_id JOIN directory_shop_pilot p ON p.installer_id=i.id WHERE o.notification_id=$1`,
+          [row.id],
+        )
+      ).rows[0];
+      const recipient =
+        current &&
+        (current.routing_email || current.email || "").trim().toLowerCase();
+      if (
+        !current ||
+        current.status !== "active" ||
+        ["paused", "declined", "active"].includes(current.decision) ||
+        recipient !== row.recipient ||
+        current.recipient !== row.recipient ||
+        current.subject !== PILOT_SUBJECT ||
+        current.message_hash !==
+          createHash("sha256")
+            .update(row.public_message || "")
+            .digest("hex")
+      ) {
+        await pool.query(
+          "UPDATE directory_notifications SET state='held',lease_until=NULL,last_error='Pilot invitation no longer matches its reviewed recipient, content or candidate status',updated_at=NOW() WHERE id=$1 AND state='sending'",
+          [row.id],
+        );
+        continue;
+      }
+    }
     if (row.kind === "owner") {
       const active = (
         await pool.query(

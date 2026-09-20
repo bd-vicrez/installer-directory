@@ -46,9 +46,18 @@ export default function InquiriesPage() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/admin/inquiries", {
-        cache: "no-store",
-      });
+      const response = await fetch(
+        "/api/admin/inquiries" +
+          (new URLSearchParams(window.location.search).get("request")
+            ? "?id=" +
+              encodeURIComponent(
+                new URLSearchParams(window.location.search).get("request")!,
+              )
+            : ""),
+        {
+          cache: "no-store",
+        },
+      );
       if (!response.ok) throw new Error();
       setData(await response.json());
     } catch {

@@ -67,6 +67,16 @@ export default function SecurityPage() {
       setBusy(false);
     }
   }
+  const ready =
+    !!data?.users.filter((u: any) => u.active).length &&
+    data.users
+      .filter((u: any) => u.active)
+      .every(
+        (u: any) =>
+          u.totp_login_verified_at &&
+          u.recovery_verified_at &&
+          u.recovery_codes_remaining > 0,
+      );
   return (
     <div className="max-w-3xl space-y-6 text-gray-100 [&_.card]:text-gray-900">
       <h1 className="text-2xl font-bold">Staff sign-in security</h1>
@@ -92,6 +102,15 @@ export default function SecurityPage() {
                 {u.display_name} · {u.username} ·{" "}
                 {u.active ? "active" : "disabled"}
               </p>
+              {u.active && (
+                <p className="text-sm">
+                  Authenticator sign-in:{" "}
+                  {u.totp_login_verified_at ? "verified" : "not tested"} ·
+                  Recovery sign-in:{" "}
+                  {u.recovery_verified_at ? "verified" : "not tested"} · Unused
+                  recovery codes: {u.recovery_codes_remaining}
+                </p>
+              )}
               {data.identity.id &&
                 data.identity.id !== u.id &&
                 u.active &&
@@ -243,6 +262,18 @@ export default function SecurityPage() {
             needs access and save recovery codes. Legacy scripts must use the
             dedicated operations integration.
           </p>
+          <p>
+            Each person must sign out, sign in with one saved recovery code,
+            then sign out and sign in with a fresh authenticator code. Recovery
+            codes work once. Keep the remaining codes in a private password
+            manager.
+          </p>
+          {!ready && (
+            <p className="text-amber-800">
+              Shared-login retirement is locked until both sign-in checks pass
+              for every active staff account.
+            </p>
+          )}
           <label className="flex gap-2">
             <input
               type="checkbox"
@@ -252,7 +283,7 @@ export default function SecurityPage() {
             Staff are enrolled and recovery codes are saved.
           </label>
           <button
-            disabled={!confirmed || busy || codes.length > 0}
+            disabled={!ready || !confirmed || busy || codes.length > 0}
             className="btn-secondary"
             onClick={() => void action("named_only")}
           >

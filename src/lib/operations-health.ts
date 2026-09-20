@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { loadActionQueue } from "./action-queue";
 import { rfqFetch } from "./directory-rfq";
 export async function operationHealth(db: Pool) {
   const counts = (
@@ -83,6 +84,17 @@ export async function operationHealth(db: Pool) {
 export async function queueStaffDigest(db: Pool) {
   const health = await operationHealth(db),
     day = new Date().toISOString().slice(0, 10);
+  const queue = await loadActionQueue(db);
+  const overdue = queue.items.filter((i) => i.overdue).length,
+    unassigned = queue.items.filter(
+      (i) => !i.assigned_to || !i.assignee_active,
+    ).length;
+  if (overdue) health.issues.push(overdue + " overdue action-queue tasks");
+  if (unassigned)
+    health.issues.push(
+      unassigned + " action-queue tasks need an active staff assignment",
+    );
+  health.issues.push(...queue.warnings);
   const recipients = (process.env.DIRECTORY_STAFF_ALERT_EMAILS || "")
     .split(",")
     .map((x) => x.trim().toLowerCase())

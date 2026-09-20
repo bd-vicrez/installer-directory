@@ -8,10 +8,17 @@ import { refreshContactPages } from "@/lib/contact-refresh";
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin(request);
   if (auth) return auth;
+  const id = request.nextUrl.searchParams.get("id");
+  if (id !== null && !/^[0-9a-f-]{36}$/i.test(id))
+    return NextResponse.json(
+      { error: "Choose a valid request" },
+      { status: 400 },
+    );
   try {
     const rows = (
       await getPool().query(
-        `SELECT c.*,(SELECT COALESCE(jsonb_agg(jsonb_build_object('id',p.id,'caption',p.caption)),'[]'::jsonb) FROM directory_shop_photos p WHERE p.installer_id=c.installer_id AND (c.details->'photo_ids') ? p.id::text) AS proposed_photos,i.business_name,i.slug,EXTRACT(EPOCH FROM NOW()-c.submitted_at)/86400 AS age_days FROM directory_claims c JOIN installers i ON i.id=c.installer_id ORDER BY c.submitted_at LIMIT 200`,
+        `SELECT c.*,(SELECT COALESCE(jsonb_agg(jsonb_build_object('id',p.id,'caption',p.caption)),'[]'::jsonb) FROM directory_shop_photos p WHERE p.installer_id=c.installer_id AND (c.details->'photo_ids') ? p.id::text) AS proposed_photos,i.business_name,i.slug,EXTRACT(EPOCH FROM NOW()-c.submitted_at)/86400 AS age_days FROM directory_claims c JOIN installers i ON i.id=c.installer_id WHERE ($1::text IS NULL OR c.id::text=$1) ORDER BY c.submitted_at LIMIT 200`,
+        [id],
       )
     ).rows;
     return NextResponse.json(

@@ -7,9 +7,11 @@ export async function GET(request: NextRequest) {
   const kind = request.nextUrl.searchParams.get("kind"),
     record = request.nextUrl.searchParams.get("record");
   if (
-    !["application", "claim", "location", "installer"].includes(kind || "") ||
+    !["application", "claim", "location", "installer", "action-task"].includes(
+      kind || "",
+    ) ||
     !record ||
-    record.length > 100
+    record.length > 150
   )
     return NextResponse.json(
       { error: "Choose a review record." },

@@ -12,7 +12,7 @@ export default function InquiryFollowup({ id }: { id: number }) {
     [opened, setOpened] = useState(false);
   useEffect(() => {
     if (!opened) return;
-    fetch("/api/admin/inquiry-followup")
+    fetch("/api/admin/inquiry-followup?id=" + id)
       .then((r) => {
         if (!r.ok) throw Error();
         return r.json();
