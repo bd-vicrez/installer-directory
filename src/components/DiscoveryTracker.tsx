@@ -6,11 +6,13 @@ export default function DiscoveryTracker() {
   const path = usePathname();
   useEffect(() => {
     if (
+      path.startsWith("/owner") ||
       path.startsWith("/shop-response") ||
       path.startsWith("/admin") ||
       path.startsWith("/request-status")
     )
       return;
+    discoveryEvent("session_start");
     if (path.startsWith("/installer/")) {
       const listing = document.querySelector<HTMLElement>(
         "main[data-installer-id]",

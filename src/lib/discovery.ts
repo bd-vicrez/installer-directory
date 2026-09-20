@@ -1,6 +1,8 @@
+import { ACQUISITION_SOURCES, ACQUISITION_CHANNELS } from "./acquisition";
 import { UUID } from "./directory-rfq";
 import { normalizeService } from "./service-taxonomy";
 export const DISCOVERY_EVENTS = [
+  "session_start",
   "search",
   "search_empty",
   "filter",
@@ -51,21 +53,14 @@ export function discoveryInput(b: Record<string, unknown>) {
   if (target !== null && !["b2b", "storefront"].includes(target as string))
     throw Error("Invalid destination");
   const source = b.campaign_source === undefined ? null : b.campaign_source;
-  if (
-    source !== null &&
-    ![
-      "google",
-      "bing",
-      "youtube",
-      "instagram",
-      "facebook",
-      "email",
-      "direct",
-      "other",
-    ].includes(source as string)
-  )
+  if (source !== null && !ACQUISITION_SOURCES.includes(source as string))
     throw Error("Invalid source");
+  const channel =
+    b.acquisition_channel === undefined ? null : b.acquisition_channel;
+  if (channel !== null && !ACQUISITION_CHANNELS.includes(channel as string))
+    throw Error("Invalid channel");
   return {
+    acquisition_channel: channel,
     id: b.id,
     event: b.event,
     session_id: b.session_id,

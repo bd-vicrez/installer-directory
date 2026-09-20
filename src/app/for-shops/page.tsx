@@ -14,8 +14,14 @@ export default function Page() {
           Choose the right path for your tire shop, body shop, wrap studio or
           installation business.
         </p>
-        <div className="grid md:grid-cols-3 gap-5">
+        <div className="grid md:grid-cols-2 gap-5">
           {[
+            [
+              "Manage your shop",
+              "Already have reviewed owner access? Propose profile updates, submit project photos, or pause new inquiries while your shop is busy.",
+              "/owner",
+              "Owner sign-in",
+            ],
             [
               "List your shop",
               "Apply for a directory listing. You can separately opt in to receive relevant inquiries after contact review.",

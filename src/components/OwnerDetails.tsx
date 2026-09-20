@@ -1,9 +1,11 @@
 export default function OwnerDetails({
   details,
   confirmed,
+  photos = [],
 }: {
   details: Record<string, any>;
   confirmed: string | null;
+  photos?: { id: string; caption: string; width: number; height: number }[];
 }) {
   if (!confirmed) return null;
   const policy: Record<string, string> = {
@@ -15,14 +17,21 @@ export default function OwnerDetails({
   const fields = [
     ["Customer-supplied parts", policy[details.parts_policy]],
     ["Services and limits", details.service_details],
+    [
+      "Vehicle specialties",
+      details.vehicle_specialties || details.vehicle_brands,
+    ],
+    ["Tire and wheel limits", details.tire_limits],
+    ["Body and paint capabilities", details.body_capabilities],
+    ["Wrap and PPF materials", details.wrap_materials],
     ["Equipment", details.equipment],
     ["Hours / appointment policy", details.hours_note],
   ].filter(([, v]) => typeof v === "string" && v.trim());
-  if (!fields.length) return null;
+  if (!fields.length && !photos.length) return null;
   return (
     <section className="border rounded-xl p-5 space-y-4 my-6">
       <h2 className="text-xl font-semibold">Details provided by the shop</h2>
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-gray-500">
         Ownership and publication reviewed{" "}
         {new Date(confirmed).toLocaleDateString("en-US", { timeZone: "UTC" })}.
         Capabilities are self-declared. Confirm your project and current
@@ -36,6 +45,28 @@ export default function OwnerDetails({
           </div>
         ))}
       </dl>
+      {!!photos.length && (
+        <div>
+          <h3 className="font-semibold text-lg mb-3">Shop project gallery</h3>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {photos.map((photo) => (
+              <figure key={photo.id}>
+                <img
+                  src={"/api/shop-photos/" + photo.id}
+                  alt={photo.caption}
+                  width={photo.width}
+                  height={photo.height}
+                  loading="lazy"
+                  className="w-full h-56 object-contain rounded-lg bg-gray-50"
+                />
+                <figcaption className="text-sm mt-2">
+                  {photo.caption}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     if (location) filters.push("distance <= " + bind(options.radius));
     if (options.tier) filters.push("tier = " + bind(options.tier));
     if (options.inquiry) filters.push("quote_available=true");
-    const available = `COALESCE(status='active' AND quote_routing_enabled=true AND LENGTH(routing_email)<=255 AND BTRIM(routing_email) ~ '^[^[:space:]@<>]+@[^[:space:]@<>]+\\.[^[:space:]@<>]+$' AND COALESCE(google_status,'') NOT IN ('CLOSED_PERMANENTLY','CLOSED_TEMPORARILY'),false)`;
+    const available = `COALESCE(status='active' AND quote_routing_enabled=true AND owner_inquiry_paused=false AND LENGTH(routing_email)<=255 AND BTRIM(routing_email) ~ '^[^[:space:]@<>]+@[^[:space:]@<>]+\\.[^[:space:]@<>]+$' AND COALESCE(google_status,'') NOT IN ('CLOSED_PERMANENTLY','CLOSED_TEMPORARILY'),false)`;
     const cte = `WITH candidates AS (SELECT ${PUBLIC_INSTALLER_FIELDS.join(",")}, ${tier} AS tier, ${distance} AS distance, ${available} AS quote_available FROM installers WHERE ${conditions.join(" AND ")}), matches AS (SELECT * FROM candidates ${filters.length ? "WHERE " + filters.join(" AND ") : ""})`;
     const db = getPool();
     const counts = await db.query(

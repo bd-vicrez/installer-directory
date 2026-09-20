@@ -30,6 +30,13 @@ const nextConfig = {
         headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
       },
       {
+        source: "/owner/:path*",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        ],
+      },
+      {
         source: "/:privatePage(request-status|shop-response)",
         headers: [
           { key: "Referrer-Policy", value: "no-referrer" },

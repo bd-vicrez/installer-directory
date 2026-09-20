@@ -77,6 +77,25 @@ export function ownerDetails(body: any) {
       0,
       1000,
     ),
+    vehicle_specialties: textField(
+      body.vehicle_specialties,
+      "vehicle specialties",
+      0,
+      500,
+    ),
+    tire_limits: textField(body.tire_limits, "tire and wheel limits", 0, 500),
+    body_capabilities: textField(
+      body.body_capabilities,
+      "body and paint capabilities",
+      0,
+      500,
+    ),
+    wrap_materials: textField(
+      body.wrap_materials,
+      "wrap and PPF materials",
+      0,
+      500,
+    ),
     equipment: textField(body.equipment, "equipment", 0, 500),
     hours_note: textField(body.hours_note, "hours", 0, 500),
   };

@@ -73,6 +73,10 @@ def init_directory_db():
         );
         CREATE INDEX IF NOT EXISTS directory_outbox_due ON directory_outbox(state,next_attempt,lease_until);
         CREATE INDEX IF NOT EXISTS directory_outbox_request ON directory_outbox(submission_id);
+        CREATE TABLE IF NOT EXISTS directory_acquisition (
+          submission_id INTEGER PRIMARY KEY REFERENCES directory_requests(submission_id),
+          source TEXT NOT NULL, channel TEXT NOT NULL, session_id TEXT
+        );
         CREATE TABLE IF NOT EXISTS directory_worker_state (id INTEGER PRIMARY KEY, heartbeat REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS directory_response_access (
           job_id TEXT PRIMARY KEY REFERENCES directory_outbox(id), expires_at INTEGER NOT NULL,
@@ -174,7 +178,20 @@ def validate_submission(data):
     if data['flow'] == 'network' and not valid_zip:
         raise HTTPException(400, 'Enter a valid US ZIP code')
     result['zip_code'] = zip_code[:5] if valid_zip else None
+    result['acquisition'] = normalize_acquisition(data.get('acquisition'))
     return result
+
+
+def normalize_acquisition(value):
+    value = value if isinstance(value, dict) else {}
+    sources = ('google','bing','youtube','instagram','facebook','email','vicrez','b2b','referral','direct','other','unknown','opted-out')
+    channels = ('organic','paid','social','email','referral','direct','unknown','opted-out')
+    source = value.get('source') if value.get('source') in sources else 'unknown'
+    channel = value.get('channel') if value.get('channel') in channels else 'unknown'
+    session = value.get('session_id')
+    if source == 'opted-out' or channel == 'opted-out':
+        return {'source':'opted-out','channel':'opted-out','session_id':None}
+    return {'source':source,'channel':channel,'session_id':session.lower() if isinstance(session,str) and UUID_RE.fullmatch(session) else None}
 
 
 def receipt_token(submission_id, request_id):
@@ -198,6 +215,9 @@ def verify_receipt(token):
 
 
 def save_submission(data):
+    acquisition = normalize_acquisition(data.get('acquisition'))
+    # Attribution never changes the idempotency identity or leaves in notification payloads.
+    data = {k:v for k,v in data.items() if k != 'acquisition'}
     encoded = json.dumps(data, sort_keys=True, separators=(',', ':'))
     digest = hashlib.sha256(encoded.encode()).hexdigest()
     with connect() as conn:
@@ -222,6 +242,7 @@ def save_submission(data):
               VALUES(?,?,?,?,?,?,?,?)''', (sid,data['request_id'],digest,encoded,data['flow'],data['service'],data['consent_version'],datetime.now(timezone.utc).isoformat()))
             conn.execute('INSERT INTO directory_outbox(id,submission_id,kind,target_id,payload) VALUES(?,?,?,?,?)',
                          (str(uuid.uuid5(uuid.NAMESPACE_URL, f'vicrez-directory:{sid}:route')),sid,'route','',encoded))
+            conn.execute('INSERT INTO directory_acquisition(submission_id,source,channel,session_id) VALUES(?,?,?,?)', (sid,acquisition['source'],acquisition['channel'],acquisition['session_id']))
             measure(conn,sid,'quote_saved',f'{sid}:saved')
     return {'ok': True, 'submission_id': sid, 'duplicate': duplicate, 'receipt_token': receipt_token(sid, data['request_id'])}
 
@@ -273,8 +294,10 @@ async def directory_status(request: Request):
     return JSONResponse(status_for(sid), headers={'Cache-Control':'private, no-store'})
 
 
-async def fetch_candidates(*, installer_id=None, service=None):
+async def fetch_candidates(*, installer_id=None, service=None, purpose=None):
     params = {'id':installer_id} if installer_id else {'service':service}
+    if purpose == 'response' and installer_id:
+        params['purpose'] = 'response'
     async with httpx.AsyncClient(timeout=12) as client:
         response = await client.get(ROUTING_URL, params=params, headers={'Authorization':'Bearer '+FEED_TOKEN_PATH.read_text().strip()})
         response.raise_for_status()
@@ -492,7 +515,8 @@ async def admin_requests(request: Request):
               FROM directory_outbox o LEFT JOIN directory_response_access a ON a.job_id=o.id
               LEFT JOIN directory_shop_responses r ON r.job_id=o.id
               WHERE o.submission_id=? AND o.kind='installer' ORDER BY o.id''',(row['submission_id'],)).fetchall()
-            requests.append({**dict(row),'deliveries':[dict(d) for d in deliveries]})
+            acquisition=conn.execute('SELECT source,channel FROM directory_acquisition WHERE submission_id=?',(row['submission_id'],)).fetchone()
+            requests.append({**dict(row),'acquisition':dict(acquisition) if acquisition else {'source':'unknown','channel':'unknown'},'deliveries':[dict(d) for d in deliveries]})
         counts = {r['routing_state']:r['n'] for r in conn.execute('SELECT routing_state,COUNT(*) AS n FROM directory_requests GROUP BY routing_state')}
         delivery_counts = {r['state']:r['n'] for r in conn.execute("SELECT state,COUNT(*) AS n FROM directory_outbox WHERE kind='installer' GROUP BY state")}
         heartbeat = conn.execute('SELECT heartbeat FROM directory_worker_state WHERE id=1').fetchone()
@@ -501,6 +525,26 @@ async def admin_requests(request: Request):
     return JSONResponse({'requests':requests,'routing_counts':counts,'delivery_counts':delivery_counts,
       'shop_response_counts':response_counts,'unanswered_over_48h':unanswered,
       'worker_recent':bool(heartbeat and time.time()-heartbeat['heartbeat']<120),'version':'phase-a'},headers={'Cache-Control':'private, no-store'})
+
+
+@router.get('/internal/directory-rfq/attribution')
+async def attribution_report(request: Request):
+    require_service(request)
+    try:
+        since = datetime.fromisoformat(request.query_params.get('since','').replace('Z','+00:00'))
+        until = datetime.fromisoformat(request.query_params.get('until','').replace('Z','+00:00'))
+        if not since.tzinfo or not until.tzinfo or not 0 < (until-since).total_seconds() <= 31*86400:
+            raise ValueError()
+    except (ValueError, TypeError):
+        raise HTTPException(400,'Choose a period of up to 31 days')
+    with connect() as conn:
+        rows=conn.execute("""SELECT d.submission_id,COALESCE(a.source,'unknown') AS source,
+          COALESCE(a.channel,'unknown') AS channel,
+          EXISTS(SELECT 1 FROM directory_outbox o JOIN directory_shop_responses r ON r.job_id=o.id WHERE o.submission_id=d.submission_id) AS responded
+          FROM directory_requests d LEFT JOIN directory_acquisition a ON a.submission_id=d.submission_id
+          WHERE julianday(d.created_at)>=julianday(?) AND julianday(d.created_at)<julianday(?)
+          ORDER BY d.submission_id DESC LIMIT 10001""",(since.isoformat(),until.isoformat())).fetchall()
+    return JSONResponse({'requests':[dict(r) for r in rows[:10000]],'limited':len(rows)>10000},headers={'Cache-Control':'private, no-store'})
 
 
 @router.get('/webhook/rfq/directory/health')
@@ -557,7 +601,7 @@ async def response_job(token):
             raise ValueError()
     except (ValueError,UnicodeError,KeyError,TypeError):
         raise HTTPException(401,'This private response link is invalid or expired. Contact support@vicrez.com with the inquiry reference.')
-    current=await fetch_candidates(installer_id=str(original['id']))
+    current=await fetch_candidates(installer_id=str(original['id']),purpose='response')
     if not any(str(i['id'])==str(original['id']) and i['email'].strip().lower()==original['email'].strip().lower() for i in current):
         raise HTTPException(403,'This inquiry contact is no longer enabled. Contact support@vicrez.com.')
     return job

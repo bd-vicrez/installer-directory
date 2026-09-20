@@ -1,3 +1,4 @@
+import { ownerLoginToken } from "./owner-access";
 import { statusToken } from "./onboarding";
 import { timingSafeEqual } from "node:crypto";
 import type { Pool } from "pg";
@@ -18,6 +19,7 @@ export function operationsAuthorized(request: Request) {
 }
 export function notificationMessage(row: Record<string, any>) {
   const labels: Record<string, string> = {
+    owner_login: "Owner sign-in",
     received: "Request received",
     pending: "Review pending",
     needs_information: "Additional information needed",
@@ -32,6 +34,8 @@ export function notificationMessage(row: Record<string, any>) {
   const type =
     row.kind === "application" ? "shop application" : "listing review request";
   const explanation: Record<string, string> = {
+    owner_login:
+      "Use the private link below to manage your shop. It expires 30 minutes after being requested and works once. If you did not request this, ignore this message. Do not forward the link.",
     received: `We saved your ${type}. The Vicrez installer team will review it. Submission does not grant ownership access or guarantee a listing.`,
     needs_information:
       "The reviewer needs additional information before continuing. Open your private status link for the current request. Reply to this email with the reference below if you need help.",
@@ -48,10 +52,13 @@ export function notificationMessage(row: Record<string, any>) {
     staff_alert:
       "The installer operations queue needs attention. Review the counts below and open https://installers.vicrez.com/admin/operations for details. Sign in to view private requests.",
   };
-  const link = ["test", "staff"].includes(row.kind)
-    ? ""
-    : "https://installers.vicrez.com/request-status#" +
-      statusToken(row.kind, row.record_id, row.created_at);
+  const link =
+    row.kind === "owner"
+      ? "https://installers.vicrez.com/owner#" + ownerLoginToken(row.record_id)
+      : ["test", "staff"].includes(row.kind)
+        ? ""
+        : "https://installers.vicrez.com/request-status#" +
+          statusToken(row.kind, row.record_id, row.created_at);
   const text = `${label}\n\n${explanation[row.outcome] || explanation.pending}\n\nReference: ${row.reference}${row.public_message ? "\n\nReviewer update: " + row.public_message : ""}${link ? "\n\nPrivate status link: " + link + "\nKeep this link private." : ""}\n\nVicrez Installer Network\nhttps://installers.vicrez.com/\nReply to support@vicrez.com for assistance.`;
   return {
     personalizations: [
@@ -90,6 +97,21 @@ export async function processNotifications(
     FROM candidates c WHERE n.id=c.id RETURNING n.*`)
   ).rows;
   for (const row of rows) {
+    if (row.kind === "owner") {
+      const active = (
+        await pool.query(
+          `SELECT l.id FROM directory_owner_logins l JOIN directory_owner_grants g ON g.id=l.grant_id WHERE l.id=$1 AND l.expires_at>NOW() AND l.consumed_at IS NULL AND g.active AND g.version=l.version`,
+          [row.record_id],
+        )
+      ).rows[0];
+      if (!active) {
+        await pool.query(
+          "UPDATE directory_notifications SET state='expired',lease_until=NULL,last_error='Owner sign-in link expired or access withdrawn',updated_at=NOW() WHERE id=$1 AND state='sending'",
+          [row.id],
+        );
+        continue;
+      }
+    }
     let state = "uncertain",
       error = "Provider acceptance could not be confirmed",
       providerId = null;

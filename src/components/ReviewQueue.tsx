@@ -261,7 +261,7 @@ export default function ReviewQueue({
               >
                 <p>
                   <strong>Services:</strong>{" "}
-                    {serviceLabels(row.install_capabilities).join(", ") ||
+                  {serviceLabels(row.install_capabilities).join(", ") ||
                     "Not supplied"}
                 </p>
                 <p>
@@ -518,6 +518,11 @@ export default function ReviewQueue({
                     }
                   >
                     <option value="">Choose evidence source</option>
+                    {row.owner_grant_id && (
+                      <option value="owner-portal">
+                        Authenticated owner portal (active reviewed access)
+                      </option>
+                    )}
                     <option value="business-domain-email">
                       Business domain email challenge, manually verified
                     </option>
@@ -642,6 +647,28 @@ export default function ReviewQueue({
                 {busy === row.id ? "Saving…" : "Save review decision"}
               </button>
             </div>
+            {row.details?.photo_ids?.length > 0 && (
+              <section className="border rounded p-3">
+                <h3 className="font-semibold">
+                  Proposed project photos — private until publication
+                </h3>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {(row.proposed_photos || []).map((photo: any) => (
+                    <figure key={photo.id}>
+                      <img
+                        src={"/api/shop-photos/" + photo.id}
+                        alt={photo.caption}
+                        className="w-full h-56 object-contain"
+                        loading="lazy"
+                      />
+                      <figcaption className="text-sm">
+                        {photo.caption}
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
+              </section>
+            )}
             <ReviewHistory
               kind={kind === "applications" ? "application" : "claim"}
               id={row.id}

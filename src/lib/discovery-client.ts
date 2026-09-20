@@ -1,5 +1,5 @@
 "use client";
-import { quoteSession } from "./quote-telemetry";
+import { sessionAcquisition } from "./acquisition-client";
 export function pageKind(path: string) {
   if (path === "/") return "home";
   if (path.startsWith("/installer/")) return "profile";
@@ -18,33 +18,22 @@ export function discoveryEvent(
   if (
     process.env.NEXT_PUBLIC_DISABLE_QUOTE_ANALYTICS === "1" ||
     navigator.doNotTrack === "1" ||
+    window.location.pathname.startsWith("/owner") ||
     window.location.pathname.startsWith("/shop-response") ||
     window.location.pathname.startsWith("/admin") ||
     window.location.pathname.startsWith("/request-status")
   )
     return;
-  const raw =
-    new URLSearchParams(window.location.search)
-      .get("utm_source")
-      ?.toLowerCase() || "direct";
-  const source = [
-    "google",
-    "bing",
-    "youtube",
-    "instagram",
-    "facebook",
-    "email",
-    "direct",
-  ].includes(raw)
-    ? raw
-    : "other";
+  const attribution = sessionAcquisition();
   const payload = {
-    id: crypto.randomUUID(),
-    session_id: quoteSession(),
+    ...data,
+    id:
+      event === "session_start" ? attribution.session_id : crypto.randomUUID(),
+    session_id: attribution.session_id,
     event,
     page: pageKind(window.location.pathname),
-    campaign_source: source,
-    ...data,
+    campaign_source: attribution.source,
+    acquisition_channel: attribution.channel,
   };
   void fetch("/api/discovery-events", {
     method: "POST",

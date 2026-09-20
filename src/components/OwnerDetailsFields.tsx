@@ -7,9 +7,9 @@ export default function OwnerDetailsFields({
   onChange: (key: string, value: string) => void;
 }) {
   return (
-    <fieldset className="space-y-3 border rounded-xl p-4">
+    <fieldset className="min-w-0 space-y-3 border rounded-xl p-4">
       <legend className="font-semibold px-1">Shop details (optional)</legend>
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-gray-500">
         Tell us what your shop currently offers. These details stay private
         until ownership and publication are reviewed.
       </p>
@@ -31,6 +31,26 @@ export default function OwnerDetailsFields({
       {(
         [
           ["service_details", "Service details and limits", 1000],
+          [
+            "vehicle_specialties",
+            "Vehicle specialties (makes, models or vehicle types)",
+            500,
+          ],
+          [
+            "tire_limits",
+            "Tire / wheel sizes, run-flat and equipment limits",
+            500,
+          ],
+          [
+            "body_capabilities",
+            "Body fitting, paint and repair capabilities",
+            500,
+          ],
+          [
+            "wrap_materials",
+            "Vinyl wrap / PPF materials and project limits",
+            500,
+          ],
           ["equipment", "Equipment and capabilities", 500],
           ["hours_note", "Business hours / appointment policy", 500],
         ] as const

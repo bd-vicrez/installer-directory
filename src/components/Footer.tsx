@@ -82,6 +82,14 @@ export default function Footer() {
                   For Shops: List or Update
                 </a>
               </li>
+              <li>
+                <a
+                  href="/owner"
+                  className="text-gray-500 hover:text-gray-900 transition-colors"
+                >
+                  Manage Your Shop
+                </a>
+              </li>
             </ul>
           </div>
 

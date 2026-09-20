@@ -1,3 +1,4 @@
+import { acquisitionInput } from "@/lib/acquisition";
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { canReceiveQuote } from "@/lib/installer-contact";
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
     let shopZip: string | undefined;
     if (body.installer_id) {
       const { rows } = await getPool().query(
-        `SELECT status,routing_email,quote_routing_enabled,google_status,zip_code FROM installers WHERE id::text=$1 LIMIT 1`,
+        `SELECT status,routing_email,quote_routing_enabled,owner_inquiry_paused,google_status,zip_code FROM installers WHERE id::text=$1 LIMIT 1`,
         [body.installer_id],
       );
       if (!rows[0] || !canReceiveQuote(rows[0]))
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
     }
     // Destination addresses are resolved privately; never forward caller fields.
     const payload = {
+      acquisition: acquisitionInput(body.acquisition),
       request_id: body.request_id,
       full_name: body.customer_name,
       email: body.customer_email,
@@ -126,7 +128,10 @@ export async function POST(request: NextRequest) {
       id: `directory-quote-${saved.submission_id}`,
       flow: payload.flow,
       service: body.service,
-      session_id: body.session_id,
+      session_id:
+        payload.acquisition.source === "opted-out"
+          ? undefined
+          : body.session_id,
     });
     return NextResponse.json(receipt, { headers });
   } catch {

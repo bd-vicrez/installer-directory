@@ -3,6 +3,7 @@ import { getPool } from "@/lib/db";
 import { requireAdmin, adminIdentity } from "@/lib/admin-auth";
 import { sameOrigin } from "@/lib/directory-rfq";
 import { InputError, readSmallJson, textField } from "@/lib/onboarding";
+import { photoIds, validatePhotos } from "@/lib/shop-photos";
 import { refreshContactPages } from "@/lib/contact-refresh";
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin(request);
@@ -10,7 +11,7 @@ export async function GET(request: NextRequest) {
   try {
     const rows = (
       await getPool().query(
-        `SELECT c.*,i.business_name,i.slug,EXTRACT(EPOCH FROM NOW()-c.submitted_at)/86400 AS age_days FROM directory_claims c JOIN installers i ON i.id=c.installer_id ORDER BY c.submitted_at LIMIT 200`,
+        `SELECT c.*,(SELECT COALESCE(jsonb_agg(jsonb_build_object('id',p.id,'caption',p.caption)),'[]'::jsonb) FROM directory_shop_photos p WHERE p.installer_id=c.installer_id AND (c.details->'photo_ids') ? p.id::text) AS proposed_photos,i.business_name,i.slug,EXTRACT(EPOCH FROM NOW()-c.submitted_at)/86400 AS age_days FROM directory_claims c JOIN installers i ON i.id=c.installer_id ORDER BY c.submitted_at LIMIT 200`,
       )
     ).rows;
     return NextResponse.json(
@@ -69,13 +70,24 @@ export async function PATCH(request: NextRequest) {
       )
     ).rows[0];
     if (!claim) throw new InputError("Claim not found.", 404);
+    const ownerVerified = claim.owner_grant_id
+      ? !!(
+          await client.query(
+            "SELECT id FROM directory_owner_grants WHERE id=$1 AND installer_id=$2 AND email=$3 AND active FOR SHARE",
+            [claim.owner_grant_id, claim.installer_id, claim.email],
+          )
+        ).rows[0]
+      : false;
     if (
       ["verified", "resolved"].includes(status) &&
-      (![
-        "business-domain-email",
-        "existing-business-phone",
-        "business-document-review",
-      ].includes(channel) ||
+      (!(
+        [
+          "business-domain-email",
+          "existing-business-phone",
+          "business-document-review",
+        ].includes(channel) ||
+        (channel === "owner-portal" && ownerVerified)
+      ) ||
         evidence.length < 20 ||
         b.confirm_identity !== true)
     )
@@ -95,6 +107,12 @@ export async function PATCH(request: NextRequest) {
       if (status !== "resolved" || b.confirm_publish !== true)
         throw new InputError(
           "Resolve ownership and confirm the exact submitted details for publication.",
+        );
+      if (claim.details.photo_ids !== undefined)
+        await validatePhotos(
+          client,
+          claim.installer_id,
+          photoIds(claim.details.photo_ids),
         );
       await client.query(
         "UPDATE installers SET owner_details=$1,owner_details_confirmed_at=NOW(),updated_at=NOW() WHERE id=$2",

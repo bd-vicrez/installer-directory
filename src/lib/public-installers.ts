@@ -56,7 +56,9 @@ export function toPublicInstaller(row: Record<string, any>): PublicInstaller {
       row.distance == null ? null : Math.round(Number(row.distance) * 10) / 10,
     rating: row.google_rating == null ? null : Number(row.google_rating),
     capabilities: serviceLabels(row.install_capabilities || ""),
-    quote_available: row.quote_available === true || canReceiveQuote(row),
+    quote_available:
+      row.owner_inquiry_paused !== true &&
+      (row.quote_available === true || canReceiveQuote(row)),
   } as PublicInstaller;
 }
 export const SERVICE_KEYWORDS = Object.fromEntries(

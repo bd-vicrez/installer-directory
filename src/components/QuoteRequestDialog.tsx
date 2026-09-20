@@ -1,4 +1,5 @@
 "use client";
+import { sessionAcquisition } from "@/lib/acquisition-client";
 import { useEffect, useRef, useState } from "react";
 import AccessibleDialog from "./AccessibleDialog";
 import { QUOTE_SERVICES } from "@/lib/quote-services";
@@ -178,6 +179,7 @@ export default function QuoteRequestDialog({
           ...content,
           request_id: requestId.current,
           session_id: quoteSession(),
+          acquisition: sessionAcquisition(),
         }),
       });
       const accepted = await response.json().catch(() => ({}));

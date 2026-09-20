@@ -242,4 +242,43 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.count('directory_shop_responses'),0)
 
 
+    async def test_acquisition_is_atomic_immutable_on_retry_and_absent_from_delivery_payload(self):
+        data={**self.data,'acquisition':{'source':'google','channel':'paid','session_id':str(uuid.uuid4())}}
+        first=rfq.save_submission(data)
+        retry=rfq.save_submission({**data,'acquisition':{'source':'direct','channel':'direct'}})
+        self.assertEqual(first['submission_id'],retry['submission_id'])
+        with rfq.connect() as conn:
+            acquisition=dict(conn.execute('SELECT * FROM directory_acquisition').fetchone())
+            self.assertEqual(acquisition['source'],'google')
+            self.assertNotIn('acquisition',conn.execute('SELECT payload FROM directory_requests').fetchone()[0])
+            self.assertNotIn(data['acquisition']['session_id'],conn.execute('SELECT payload FROM directory_outbox').fetchone()[0])
+        self.assertEqual(self.count('directory_acquisition'),1)
+
+    def test_legacy_payload_hash_retries_remain_compatible_with_new_attribution(self):
+        old={k:v for k,v in self.data.items() if k!='acquisition'}
+        saved=rfq.save_submission(old)
+        with rfq.connect() as conn:conn.execute('DELETE FROM directory_acquisition')
+        self.assertTrue(rfq.save_submission(self.data)['duplicate'])
+        rfq.init_directory_db();self.assertEqual(self.count('directory_acquisition'),0)
+
+    async def test_attribution_report_is_private_bounded_and_excludes_customer_data(self):
+        job,token=await self.response_fixture()
+        rfq.save_shop_response(job,{'state':'interested','note':'','request_id':str(uuid.uuid4()),'version':0})
+        app=FastAPI();app.include_router(rfq.router)
+        from datetime import datetime,timedelta,timezone
+        now=datetime.now(timezone.utc)
+        params={'since':(now-timedelta(days=30)).isoformat(),'until':(now+timedelta(seconds=1)).isoformat()}
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='https://example.test') as client:
+            self.assertEqual((await client.get('/internal/directory-rfq/attribution',params=params)).status_code,401)
+            r=await client.get('/internal/directory-rfq/attribution',params=params,headers={'Authorization':'Bearer '+rfq.secret()})
+            self.assertEqual(r.status_code,200);self.assertEqual(r.json()['requests'][0]['responded'],1)
+            self.assertEqual(r.json()['requests'][0]['source'],'unknown');self.assertNotIn(self.data['email'],r.text);self.assertNotIn('session_id',r.text)
+            self.assertEqual((await client.get('/internal/directory-rfq/attribution',headers={'Authorization':'Bearer '+rfq.secret()})).status_code,400)
+
+    async def test_existing_response_uses_response_scope_and_retains_recipient_check(self):
+        job,token=await self.response_fixture()
+        with patch.object(rfq,'fetch_candidates',AsyncMock(return_value=[self.shop])) as candidates:
+            await rfq.response_job(token)
+            candidates.assert_awaited_once_with(installer_id=self.shop['id'],purpose='response')
+
 if __name__=='__main__':unittest.main()

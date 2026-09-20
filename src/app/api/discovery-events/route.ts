@@ -26,8 +26,8 @@ export async function POST(request: Request) {
     )
       return new NextResponse(null, { status: 429 });
     await getPool().query(
-      `INSERT INTO directory_discovery_events(id,session_id,event,page,service,result_bucket,listing_id,target,campaign_source)
-   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(id) DO NOTHING`,
+      `INSERT INTO directory_discovery_events(id,session_id,event,page,service,result_bucket,listing_id,target,campaign_source,acquisition_channel)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(id) DO NOTHING`,
       [
         b.id,
         b.session_id,
@@ -38,6 +38,7 @@ export async function POST(request: Request) {
         b.listing_id,
         b.target,
         b.campaign_source,
+        b.acquisition_channel,
       ],
     );
     if (b.event === "comparison_open")

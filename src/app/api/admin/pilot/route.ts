@@ -6,7 +6,7 @@ import { InputError, readSmallJson, textField } from "@/lib/onboarding";
 import { pilotInput, pilotMissing } from "@/lib/pilot";
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "private, no-store" };
-const select = `SELECT p.*,i.business_name,i.slug,i.street_address,i.city,i.state,i.status,i.google_status,i.routing_email,i.quote_routing_enabled,i.install_capabilities FROM directory_shop_pilot p JOIN installers i ON i.id=p.installer_id`;
+const select = `SELECT p.*,i.business_name,i.slug,i.street_address,i.city,i.state,i.status,i.google_status,i.routing_email,i.quote_routing_enabled,i.owner_inquiry_paused,i.install_capabilities FROM directory_shop_pilot p JOIN installers i ON i.id=p.installer_id`;
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin(request);
   if (auth) return auth;

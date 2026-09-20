@@ -4,6 +4,7 @@ import InquiryFollowup from "@/components/InquiryFollowup";
 import Link from "next/link";
 type Inquiry = {
   submission_id: number;
+  acquisition?: { source: string; channel: string };
   created_at: string;
   flow: string;
   service: string;
@@ -149,6 +150,10 @@ export default function InquiriesPage() {
                 {item.vehicle_year} {item.vehicle_make} {item.vehicle_model} ·{" "}
                 {item.service} ·{" "}
                 {item.flow === "selected" ? "Selected shop" : "Network match"}
+              </p>
+              <p className="text-sm">
+                Source: {item.acquisition?.source || "unknown"} ·{" "}
+                {item.acquisition?.channel || "unknown"}
               </p>
               <p className="text-sm">
                 Routing: <strong>{item.routing_state}</strong>

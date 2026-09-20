@@ -6,6 +6,12 @@ import Link from "next/link";
 import AccessibleDialog from "./AccessibleDialog";
 
 const NAV_ITEMS = [
+  { label: "Owner access", href: "/admin/owners", icon: "M4 4h16v16H4z" },
+  {
+    label: "Traffic & inquiry outcomes",
+    href: "/admin/performance",
+    icon: "M4 4h16v16H4z",
+  },
   {
     label: "Shop activation pilot",
     href: "/admin/pilot",
@@ -168,7 +174,7 @@ export default function AdminLayout({
           </Link>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -228,7 +234,7 @@ export default function AdminLayout({
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="min-w-0 flex-1 flex flex-col min-h-screen">
         {/* Top header */}
         <header className="sticky top-0 z-30 bg-gray-900/80 backdrop-blur-md border-b border-gray-800">
           <div className="flex items-center justify-between px-4 lg:px-6 h-14">
@@ -282,7 +288,7 @@ export default function AdminLayout({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 lg:p-6">{children}</main>
+        <main className="min-w-0 flex-1 p-4 lg:p-6">{children}</main>
       </div>
     </div>
   );

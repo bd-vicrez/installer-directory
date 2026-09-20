@@ -7,7 +7,7 @@ import { refreshContactPages } from "@/lib/contact-refresh";
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "private, no-store" };
 const fields =
-  "id,slug,business_name,status,routing_email,quote_routing_enabled,quote_routing_basis,public_email,public_email_approved,public_email_approved_at,public_email_approval_note";
+  "id,slug,business_name,status,routing_email,quote_routing_enabled,owner_inquiry_paused,quote_routing_basis,public_email,public_email_approved,public_email_approved_at,public_email_approval_note";
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin(request);
   if (authError) return authError;

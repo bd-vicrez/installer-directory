@@ -1,3 +1,5 @@
+import { getPool } from "@/lib/db";
+import { publishedPhotos } from "@/lib/shop-photos";
 import OwnerDetails from "@/components/OwnerDetails";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -546,6 +548,12 @@ export default async function InstallerPage({
         <CtaBanner />
         <div className="max-w-7xl mx-auto px-4">
           <OwnerDetails
+            photos={await publishedPhotos(
+              getPool(),
+              String(installer.id),
+              installer.owner_details || {},
+              installer.owner_details_confirmed_at,
+            )}
             details={installer.owner_details || {}}
             confirmed={
               installer.owner_details_confirmed_at
