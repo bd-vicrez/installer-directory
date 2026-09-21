@@ -35,13 +35,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            [400, 401, 403, 409].includes(r.status) &&
+            [400, 401, 403, 409, 410].includes(r.status) &&
             typeof result.detail === "string"
               ? result.detail
               : "Response service is unavailable. Retry the same response.",
         },
         {
-          status: [400, 401, 403, 409].includes(r.status) ? r.status : 503,
+          status: [400, 401, 403, 409, 410].includes(r.status) ? r.status : 503,
           headers,
         },
       );

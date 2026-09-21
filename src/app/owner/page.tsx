@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import ListingReconfirmation from "@/components/ListingReconfirmation";
+import ShopProjectsEditor from "@/components/ShopProjectsEditor";
 import OwnerDetailsFields from "@/components/OwnerDetailsFields";
 export default function OwnerPortal() {
   const [data, setData] = useState<any>(null),
@@ -16,6 +18,7 @@ export default function OwnerPortal() {
     [caption, setCaption] = useState(""),
     [permission, setPermission] = useState(false),
     [file, setFile] = useState<File | null>(null);
+  const [confirmProjects, setConfirmProjects] = useState(false);
   const requestId = useRef("");
   async function api(url: string, body?: any, method = "POST") {
     const r = await fetch(url, {
@@ -234,6 +237,12 @@ export default function OwnerPortal() {
               Sign out
             </button>
           </section>
+          <ListingReconfirmation
+            snapshot={data.shop.snapshot}
+            hash={data.shop.snapshot_hash}
+            freshness={data.shop.freshness}
+            onSaved={() => load()}
+          />
           <form
             className="space-y-5"
             onSubmit={(e) => {
@@ -244,6 +253,7 @@ export default function OwnerPortal() {
                   action: "proposal",
                   ...values,
                   photo_ids: ids,
+                  confirm_projects: confirmProjects,
                   correction,
                   agreement,
                   request_id: requestId.current,
@@ -269,6 +279,16 @@ export default function OwnerPortal() {
               onChange={(key, value) =>
                 setValues((v: any) => ({ ...v, [key]: value }))
               }
+            />
+            <ShopProjectsEditor
+              projects={values.projects || []}
+              photos={data.photos.filter((p: any) => ids.includes(p.id))}
+              onChange={(projects) => {
+                setValues((v: any) => ({ ...v, projects }));
+                setConfirmProjects(false);
+              }}
+              confirmed={confirmProjects}
+              onConfirm={setConfirmProjects}
             />
             <section className="border rounded-xl p-4 space-y-3">
               <h3 className="text-lg font-semibold">Project photos</h3>

@@ -1,3 +1,4 @@
+import { listingFreshness } from "@/lib/listing-freshness";
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
@@ -18,6 +19,16 @@ export async function GET(request: NextRequest) {
         .query(`SELECT 'application' AS kind,a.id::text AS id,a.installer_id,a.email,a.business_name AS name,i.business_name,a.application_id AS reference FROM applications a JOIN installers i ON i.id=a.installer_id WHERE a.status='approved' AND a.reviewed_at IS NOT NULL AND i.status NOT IN ('removed','non_us_excluded')
       UNION ALL SELECT 'claim',c.id,c.installer_id,c.email,c.name,i.business_name,'CLM-'||upper(left(c.id,8)) FROM directory_claims c JOIN installers i ON i.id=c.installer_id WHERE c.status IN ('verified','resolved') AND c.verification_channel IN ('business-domain-email','existing-business-phone','business-document-review') AND length(c.verification_evidence)>=20 AND i.status NOT IN ('removed','non_us_excluded') LIMIT 300`)
     ).rows;
+    const listings = (
+      await getPool().query(
+        "SELECT * FROM installers WHERE id=ANY($1::text[])",
+        [grants.map((g) => g.installer_id)],
+      )
+    ).rows;
+    for (const g of grants)
+      g.freshness = listingFreshness(
+        listings.find((i) => i.id === g.installer_id),
+      );
     return NextResponse.json({ grants, evidence }, { headers: OWNER_HEADERS });
   } catch (e) {
     return ownerError(e);

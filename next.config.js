@@ -37,7 +37,7 @@ const nextConfig = {
         ],
       },
       {
-        source: "/:privatePage(request-status|shop-response)",
+        source: "/:privatePage(request-status|shop-response|inquiry-progress)",
         headers: [
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "X-Robots-Tag", value: "noindex, nofollow" },

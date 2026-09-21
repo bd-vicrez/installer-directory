@@ -350,6 +350,11 @@ export default function ReviewQueue({
                 Requested correction: {row.correction}
               </p>
             )}
+            {!!row.details?.projects?.length &&
+              check(
+                "confirm_projects_reviewed",
+                "I reviewed the completed project descriptions, vehicle details, dates and matching photo permissions for publication.",
+              )}
             <details>
               <summary className="cursor-pointer font-medium">
                 Submitted fields and services
@@ -363,7 +368,9 @@ export default function ReviewQueue({
                     <dt className="font-medium">{key.replaceAll("_", " ")}</dt>
                     <dd className="whitespace-pre-wrap break-words">
                       {Array.isArray(value)
-                        ? value.join(", ")
+                        ? value.some((v) => typeof v === "object")
+                          ? JSON.stringify(value, null, 2)
+                          : value.join(", ")
                         : value == null
                           ? "Not provided"
                           : String(value)}

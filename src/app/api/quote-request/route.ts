@@ -1,5 +1,7 @@
+import { projectBrief } from "@/lib/project-brief";
 import { acquisitionInput } from "@/lib/acquisition";
 import { NextRequest, NextResponse } from "next/server";
+import { InputError } from "@/lib/onboarding";
 import { getPool } from "@/lib/db";
 import { canReceiveQuote } from "@/lib/installer-contact";
 import { quoteReceipt, validateQuoteInput } from "@/lib/quote-validation";
@@ -80,6 +82,9 @@ export async function POST(request: NextRequest) {
     // Destination addresses are resolved privately; never forward caller fields.
     const payload = {
       acquisition: acquisitionInput(body.acquisition),
+      ...(body.project_brief
+        ? { project_brief: projectBrief(body.project_brief) }
+        : {}),
       request_id: body.request_id,
       full_name: body.customer_name,
       email: body.customer_email,
@@ -134,7 +139,12 @@ export async function POST(request: NextRequest) {
           : body.session_id,
     });
     return NextResponse.json(receipt, { headers });
-  } catch {
+  } catch (e) {
+    if (e instanceof InputError)
+      return NextResponse.json(
+        { error: e.message },
+        { status: e.status, headers },
+      );
     console.error("Quote receipt could not be confirmed");
     return NextResponse.json(
       {

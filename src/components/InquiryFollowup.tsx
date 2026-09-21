@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 export default function InquiryFollowup({ id }: { id: number }) {
   const [value, setValue] = useState({
       state: "new",
+      public_message: "",
       note: "",
       actor: "",
       next_followup_at: "",
@@ -84,7 +85,7 @@ export default function InquiryFollowup({ id }: { id: number }) {
           Your signed-in staff identity is recorded with this outcome.
         </p>
         <label>
-          Evidence / note
+          Private evidence / note for staff
           <textarea
             required
             minLength={10}
@@ -92,6 +93,17 @@ export default function InquiryFollowup({ id }: { id: number }) {
             className="input-field block w-full"
             value={value.note}
             onChange={(e) => setValue({ ...value, note: e.target.value })}
+          />
+        </label>
+        <label>
+          Customer update (optional; visible on their private progress page)
+          <textarea
+            className="input-field block w-full"
+            maxLength={1000}
+            value={value.public_message || ""}
+            onChange={(e) =>
+              setValue({ ...value, public_message: e.target.value })
+            }
           />
         </label>
         <label>

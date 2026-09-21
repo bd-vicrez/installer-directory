@@ -1,3 +1,4 @@
+import { rfqFetch } from "./directory-rfq";
 import { ownerLoginToken } from "./owner-access";
 import { statusToken } from "./onboarding";
 import { timingSafeEqual, createHash } from "node:crypto";
@@ -57,7 +58,7 @@ export function notificationMessage(row: Record<string, any>) {
   const link =
     row.kind === "owner"
       ? "https://installers.vicrez.com/owner#" + ownerLoginToken(row.record_id)
-      : ["test", "staff", "pilot"].includes(row.kind)
+      : ["test", "staff", "pilot", "inquiry-reminder"].includes(row.kind)
         ? ""
         : "https://installers.vicrez.com/request-status#" +
           statusToken(row.kind, row.record_id, row.created_at);
@@ -72,13 +73,26 @@ export function notificationMessage(row: Record<string, any>) {
     from: { email: "support@vicrez.com", name: "Vicrez Installer Network" },
     reply_to: { email: "support@vicrez.com" },
     subject:
-      row.kind === "pilot"
-        ? PILOT_SUBJECT
-        : `${row.kind === "test" ? "[TEST] " : ""}Vicrez installer ${label.toLowerCase()} · ${row.reference}`,
+      row.kind === "inquiry-reminder"
+        ? "Reminder: installation inquiry " + row.reference
+        : row.kind === "pilot"
+          ? PILOT_SUBJECT
+          : `${row.kind === "test" ? "[TEST] " : ""}Vicrez installer ${label.toLowerCase()} · ${row.reference}`,
     content: [
       {
         type: "text/plain",
-        value: row.kind === "pilot" ? row.public_message : text,
+        value:
+          row.kind === "inquiry-reminder"
+            ? `A customer is still awaiting a response to ${row.reference}. Please open the private link below to review the project and indicate whether you can help. This is the only reminder for this shop and inquiry.
+
+${row.reminder_url}
+
+Keep this shop link private. No appointment is confirmed.
+Vicrez Installer Network
+Reply to support@vicrez.com for assistance.`
+            : row.kind === "pilot"
+              ? row.public_message
+              : text,
       },
     ],
     tracking_settings: {
@@ -107,6 +121,48 @@ export async function processNotifications(
     FROM candidates c WHERE n.id=c.id RETURNING n.*`)
   ).rows;
   for (const row of rows) {
+    if (row.kind === "inquiry-reminder") {
+      let detail: any = null;
+      try {
+        const r = await rfqFetch("/internal/directory-rfq/reminder-check", {
+          job_id: row.record_id,
+        });
+        if (!r.ok) {
+          if ([400, 403, 404, 409, 410].includes(r.status))
+            detail = { ineligible: true };
+          else throw Error();
+        } else detail = await r.json();
+      } catch {
+        await pool.query(
+          "UPDATE directory_notifications SET state=$2,lease_until=NULL,next_attempt_at=NOW()+INTERVAL '5 minutes',last_error='Reminder eligibility temporarily unavailable',updated_at=NOW() WHERE id=$1 AND state='sending'",
+          [row.id, row.attempts < 5 ? "retry" : "failed"],
+        );
+        continue;
+      }
+      const outcome = detail.submission_id
+        ? (
+            await pool.query(
+              "SELECT state FROM directory_inquiry_followup WHERE submission_id=$1",
+              [detail.submission_id],
+            )
+          ).rows[0]
+        : null;
+      if (
+        detail.ineligible ||
+        detail.recipient !== row.recipient ||
+        !detail.url?.startsWith(
+          "https://installers.vicrez.com/shop-response#",
+        ) ||
+        (outcome && ["booked", "declined"].includes(outcome.state))
+      ) {
+        await pool.query(
+          "UPDATE directory_notifications SET state='expired',lease_until=NULL,last_error='Reminder cancelled: response, eligibility or request outcome changed',updated_at=NOW() WHERE id=$1 AND state='sending'",
+          [row.id],
+        );
+        continue;
+      }
+      row.reminder_url = detail.url;
+    }
     if (row.kind === "pilot") {
       const current = (
         await pool.query(

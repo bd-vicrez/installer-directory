@@ -1,3 +1,4 @@
+import { listingFreshness } from "@/lib/listing-freshness";
 import { getPool } from "@/lib/db";
 import { publishedPhotos } from "@/lib/shop-photos";
 import OwnerDetails from "@/components/OwnerDetails";
@@ -96,7 +97,18 @@ export default async function InstallerPage({
   const rating = installer.google_rating;
   const reviewCount = installer.google_review_count;
   const hours = formatHours(installer.google_hours);
-  const jsonLd = generateInstallerJsonLd(installer);
+  const jsonLd: any = generateInstallerJsonLd(installer);
+  const freshness = listingFreshness(installer);
+  const reviewedPhotos = await publishedPhotos(
+    getPool(),
+    String(installer.id),
+    installer.owner_details || {},
+    installer.owner_details_confirmed_at,
+  );
+  if (reviewedPhotos.length)
+    jsonLd.image = reviewedPhotos.map(
+      (p) => "https://installers.vicrez.com/api/shop-photos/" + p.id,
+    );
 
   const quoteNote = getProfileQuoteNote(installer);
   const profileGuide = getProfileGuide(installer);
@@ -547,13 +559,13 @@ export default async function InstallerPage({
 
         <CtaBanner />
         <div className="max-w-7xl mx-auto px-4">
+          <p className="text-sm text-gray-600 my-4">
+            {freshness.last_confirmed_at
+              ? `Owner last confirmed listing details ${new Date(freshness.last_confirmed_at).toLocaleDateString("en-US", { timeZone: "UTC" })}. ${freshness.current ? "Reconfirmation is current." : "Details are due for reconfirmation; check current services and hours with the shop."}`
+              : "Contact the shop to confirm current services, hours and availability; owner reconfirmation has not been recorded."}
+          </p>
           <OwnerDetails
-            photos={await publishedPhotos(
-              getPool(),
-              String(installer.id),
-              installer.owner_details || {},
-              installer.owner_details_confirmed_at,
-            )}
+            photos={reviewedPhotos}
             details={installer.owner_details || {}}
             confirmed={
               installer.owner_details_confirmed_at

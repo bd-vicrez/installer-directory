@@ -184,6 +184,7 @@ export default function Actions() {
                   "pilot",
                   "notification",
                   "operation",
+                  "freshness",
                 ].map((k) => (
                   <option key={k}>{k}</option>
                 ))}
@@ -243,7 +244,9 @@ export default function Actions() {
                         ? "application review"
                         : item.kind === "pilot"
                           ? "pilot review"
-                          : "operations evidence"}
+                          : item.kind === "freshness"
+                            ? "owner confirmation review"
+                            : "operations evidence"}
                 </a>
                 <form
                   className="grid gap-3 sm:grid-cols-2"

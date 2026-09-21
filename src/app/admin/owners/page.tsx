@@ -15,6 +15,12 @@ export default function Owners() {
     setData(d);
   }
   useEffect(() => {
+    if (window.location.hash)
+      document
+        .getElementById(decodeURIComponent(window.location.hash.slice(1)))
+        ?.scrollIntoView({ block: "start" });
+  }, [data]);
+  useEffect(() => {
     void load().catch((e) => setError(e.message));
   }, []);
   async function save(body: any) {
@@ -137,6 +143,7 @@ export default function Owners() {
       {data.grants.map((g: any) => (
         <article
           className="bg-white text-gray-900 border rounded-xl p-4 space-y-2"
+          id={"shop-" + g.installer_id}
           key={g.id}
         >
           <h3 className="font-semibold">{g.business_name}</h3>
@@ -147,6 +154,18 @@ export default function Owners() {
               : "No owner pause"}
           </p>
           <p>{g.note}</p>
+          {g.freshness && (
+            <p>
+              Owner confirmation:{" "}
+              {g.freshness.current ? "Current" : "Needs reconfirmation"} ·{" "}
+              {g.freshness.last_confirmed_at
+                ? new Date(g.freshness.last_confirmed_at).toLocaleDateString()
+                : "Not yet recorded"}
+              . Ask the owner to review saved services, hours and availability
+              at Manage Your Shop. A staff review does not substitute for the
+              owner’s confirmation.
+            </p>
+          )}
           {g.active && (
             <button
               className="btn-secondary"

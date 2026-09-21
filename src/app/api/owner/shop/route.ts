@@ -1,3 +1,8 @@
+import {
+  listingSnapshot,
+  listingHash,
+  listingFreshness,
+} from "@/lib/listing-freshness";
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
@@ -6,6 +11,7 @@ import {
   InputError,
   readSmallJson,
   ownerDetails,
+  projectExamples,
   payloadHash,
   textField,
 } from "@/lib/onboarding";
@@ -24,10 +30,9 @@ export async function GET(request: NextRequest) {
     const owner = await ownerIdentity(request),
       pool = getPool();
     const shop = (
-      await pool.query(
-        "SELECT id,business_name,slug,owner_details,owner_inquiry_paused,quote_routing_enabled,status,routing_email,google_status FROM installers WHERE id=$1",
-        [owner.installer_id],
-      )
+      await pool.query("SELECT * FROM installers WHERE id=$1", [
+        owner.installer_id,
+      ])
     ).rows[0];
     const photos = (
       await pool.query(
@@ -48,6 +53,9 @@ export async function GET(request: NextRequest) {
           business_name: shop.business_name,
           slug: shop.slug,
           owner_details: shop.owner_details,
+          snapshot: listingSnapshot(shop),
+          snapshot_hash: listingHash(shop),
+          freshness: listingFreshness(shop),
           paused: shop.owner_inquiry_paused,
           accepting: canReceiveQuote(shop),
         },
@@ -76,6 +84,29 @@ export async function POST(request: NextRequest) {
     ).rows[0];
     if (!shop || ["removed", "non_us_excluded"].includes(shop.status))
       throw new InputError("Listing unavailable.", 404);
+    if (b.action === "reconfirm") {
+      if (b.confirm !== true || b.snapshot_hash !== listingHash(shop))
+        throw new InputError(
+          "Review the latest saved details before confirming. Refresh this page.",
+          409,
+        );
+      await client.query(
+        "UPDATE installers SET owner_reconfirmed_at=NOW(),owner_reconfirmation_hash=$2 WHERE id=$1",
+        [owner.installer_id, listingHash(shop)],
+      );
+      await client.query(
+        "INSERT INTO directory_review_audit(kind,record_id,actor,action,note,before_data,after_data) VALUES('owner-freshness',$1,$2,'reconfirmed','Owner confirmed business details, services, hours and inquiry availability',$3,$4)",
+        [
+          owner.installer_id,
+          "owner:" + owner.id,
+          JSON.stringify({ confirmed_at: shop.owner_reconfirmed_at }),
+          JSON.stringify(listingSnapshot(shop)),
+        ],
+      );
+      await client.query("COMMIT");
+      refreshContactPages(shop.slug);
+      return NextResponse.json({ success: true }, { headers: OWNER_HEADERS });
+    }
     if (b.action === "availability") {
       if (typeof b.paused !== "boolean")
         throw new InputError("Choose your inquiry availability.");
@@ -118,11 +149,24 @@ export async function POST(request: NextRequest) {
       );
     const ids = photoIds(b.photo_ids || []);
     await validatePhotos(client, owner.installer_id, ids);
-    const details = {
+    const details: any = {
       ...shop.owner_details,
       ...ownerDetails(b),
+      ...(b.projects !== undefined
+        ? { projects: projectExamples(b.projects) }
+        : {}),
       photo_ids: ids,
     };
+    const projects = details.projects || [];
+    if (
+      projects.length &&
+      (b.confirm_projects !== true ||
+        projects.some((p: any) => !ids.includes(p.photo_id)))
+    )
+      throw new InputError(
+        "Confirm the completed projects and include each selected project photo.",
+      );
+    if (projects.length) details.projects_confirmed = true;
     const correction = textField(b.correction, "change summary", 10, 2000),
       hash = payloadHash({ details, correction, owner: owner.id });
     const old = (

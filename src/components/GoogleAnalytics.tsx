@@ -12,6 +12,7 @@ export default function GoogleAnalytics() {
   const id = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   if (
     pathname.startsWith("/owner") ||
+    pathname.startsWith("/inquiry-progress") ||
     pathname.startsWith("/shop-response") ||
     pathname.startsWith("/request-status") ||
     pathname.startsWith("/admin") ||
@@ -30,7 +31,7 @@ export default function GoogleAnalytics() {
         {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', '${id}', { send_page_view: !location.pathname.startsWith('/owner') && !location.pathname.startsWith('/shop-response') && !location.pathname.startsWith('/request-status') && !location.pathname.startsWith('/admin'), page_location: location.origin+location.pathname+location.search });`}
+gtag('config', '${id}', { send_page_view: !location.pathname.startsWith('/owner') && !location.pathname.startsWith('/inquiry-progress') && !location.pathname.startsWith('/shop-response') && !location.pathname.startsWith('/request-status') && !location.pathname.startsWith('/admin'), page_location: location.origin+location.pathname+location.search });`}
       </Script>
     </>
   );

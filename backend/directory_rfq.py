@@ -18,6 +18,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from urllib.parse import urlsplit, urlunsplit
 from pathlib import Path
 
 import httpx
@@ -98,6 +99,30 @@ def init_directory_db():
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
         ''')
+        conn.executescript("""
+        CREATE TABLE IF NOT EXISTS directory_customer_actions (
+          submission_id INTEGER PRIMARY KEY REFERENCES directory_requests(submission_id),
+          state TEXT NOT NULL DEFAULT 'open', note TEXT NOT NULL DEFAULT '', version INTEGER NOT NULL DEFAULT 0,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS directory_customer_audit (
+          request_id TEXT PRIMARY KEY,submission_id INTEGER NOT NULL,action TEXT NOT NULL,payload_hash TEXT NOT NULL,
+          version INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS directory_project_briefs (
+          submission_id INTEGER PRIMARY KEY REFERENCES directory_requests(submission_id),content TEXT NOT NULL,
+          version INTEGER NOT NULL DEFAULT 1,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS directory_private_photos (
+          id TEXT PRIMARY KEY,submission_id INTEGER NOT NULL REFERENCES directory_requests(submission_id),
+          caption TEXT NOT NULL,image BLOB NOT NULL,width INTEGER NOT NULL,height INTEGER NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,deleted_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS directory_private_photos_request ON directory_private_photos(submission_id);
+        """)
+        for table in ['directory_shop_responses','directory_shop_response_audit']:
+            if 'customer_message' not in {r['name'] for r in conn.execute('PRAGMA table_info('+table+')')}:
+                conn.execute("ALTER TABLE "+table+" ADD COLUMN customer_message TEXT NOT NULL DEFAULT ''")
         # Reconcile saved-event measurement after rollout without replaying delivery jobs.
         for row in conn.execute('SELECT submission_id FROM directory_requests').fetchall():
             measure(conn,row['submission_id'],'quote_saved',f"{row['submission_id']}:saved")
@@ -178,6 +203,9 @@ def validate_submission(data):
     if data['flow'] == 'network' and not valid_zip:
         raise HTTPException(400, 'Enter a valid US ZIP code')
     result['zip_code'] = zip_code[:5] if valid_zip else None
+    if data.get('project_brief') is not None:
+        brief=validate_project_brief(data['project_brief'])
+        if any(brief.values()):result['project_brief']=brief
     result['acquisition'] = normalize_acquisition(data.get('acquisition'))
     return result
 
@@ -270,6 +298,7 @@ def status_for(submission_id):
         if not row:
             raise HTTPException(404, 'Receipt not found')
         jobs = conn.execute("SELECT state FROM directory_outbox WHERE submission_id=? AND kind='installer'", (submission_id,)).fetchall()
+    if request_closed(submission_id):return {'reference':f'VZ-{submission_id}','status':'closed','message':'This request is closed for further follow-up through Vicrez. Contact the shop directly about any agreed appointment.'}
     states = [j['state'] for j in jobs]
     if row['routing_state'] == 'needs_review':
         state, message = 'routing_needed', 'Your request is saved, but an eligible recipient has not been confirmed. Vicrez can review it using your reference. No appointment is confirmed.'
@@ -387,6 +416,8 @@ def retry_job(job,error,permanent=False):
 
 
 async def run_route_job(job):
+    if request_closed(job['submission_id']):
+        finish_job(job,'cancelled','customer_closed_request');return
     data = json.loads(job['payload'])
     targets = await routing_targets(data)
     with connect() as conn:
@@ -448,6 +479,8 @@ async def send_installer_event(event):
 
 
 async def run_notification_job(job):
+    if request_closed(job['submission_id']):
+        finish_job(job,'cancelled','customer_closed_request');return
     payload = json.loads(job['payload'])
     data, original = payload['submission'], payload['installer']
     current = await fetch_candidates(installer_id=str(original['id']))
@@ -455,6 +488,8 @@ async def run_notification_job(job):
     if not eligible or (data['flow']=='network' and data['service'] not in eligible.get('services',[])):
         finish_job(job,'cancelled','recipient_eligibility_changed')
         return
+    if request_closed(job['submission_id']):
+        finish_job(job,'cancelled','customer_closed_request');return
     status = await send_installer_event(installer_event(job))
     if status in (200,201,202):
         finish_job(job,'accepted')
@@ -511,7 +546,7 @@ async def admin_requests(request: Request):
           ORDER BY d.submission_id DESC LIMIT 50''',(selected,selected)).fetchall()
         requests = []
         for row in rows:
-            deliveries = conn.execute('''SELECT o.target_id,o.state,o.attempts,o.last_error,o.accepted_at,
+            deliveries = conn.execute('''SELECT o.id AS job_id,o.target_id,o.state,o.attempts,o.last_error,o.accepted_at,
               a.expires_at AS response_link_expires_at,r.state AS response_state,r.note AS response_note,
               r.first_responded_at,r.updated_at AS response_updated_at,
               CASE WHEN o.state='accepted' AND r.job_id IS NULL AND a.job_id IS NOT NULL
@@ -520,7 +555,7 @@ async def admin_requests(request: Request):
               LEFT JOIN directory_shop_responses r ON r.job_id=o.id
               WHERE o.submission_id=? AND o.kind='installer' ORDER BY o.id''',(row['submission_id'],)).fetchall()
             acquisition=conn.execute('SELECT source,channel FROM directory_acquisition WHERE submission_id=?',(row['submission_id'],)).fetchone()
-            requests.append({**dict(row),'acquisition':dict(acquisition) if acquisition else {'source':'unknown','channel':'unknown'},'deliveries':[dict(d) for d in deliveries]})
+            requests.append({**dict(row),'acquisition':dict(acquisition) if acquisition else {'source':'unknown','channel':'unknown'},'customer_action':customer_action(conn,row['submission_id']),'project_brief':project_brief(conn,row['submission_id']),'deliveries':[dict(d) for d in deliveries]})
         counts = {r['routing_state']:r['n'] for r in conn.execute('SELECT routing_state,COUNT(*) AS n FROM directory_requests GROUP BY routing_state')}
         delivery_counts = {r['state']:r['n'] for r in conn.execute("SELECT state,COUNT(*) AS n FROM directory_outbox WHERE kind='installer' GROUP BY state")}
         heartbeat = conn.execute('SELECT heartbeat FROM directory_worker_state WHERE id=1').fetchone()
@@ -540,8 +575,9 @@ async def admin_action_items(request: Request):
           COALESCE(SUM(CASE WHEN o.state IN ('pending','retry','sending') THEN 1 ELSE 0 END),0) pending_deliveries,
           COALESCE(SUM(CASE WHEN o.state='accepted' AND a.job_id IS NOT NULL AND r.job_id IS NULL
             AND julianday('now')-julianday(o.accepted_at)>2 THEN 1 ELSE 0 END),0) unanswered_over_48h,
-          MAX(r.updated_at) last_response_at
-          FROM directory_requests d LEFT JOIN directory_outbox o ON o.submission_id=d.submission_id AND o.kind='installer'
+          MAX(r.updated_at) last_response_at,ca.state customer_state,ca.updated_at customer_action_at,
+          CASE WHEN julianday('now')-julianday(d.created_at)>3 AND COUNT(r.job_id)=0 THEN 1 ELSE 0 END escalation_due
+          FROM directory_requests d LEFT JOIN directory_customer_actions ca ON ca.submission_id=d.submission_id LEFT JOIN directory_outbox o ON o.submission_id=d.submission_id AND o.kind='installer'
           LEFT JOIN directory_response_access a ON a.job_id=o.id LEFT JOIN directory_shop_responses r ON r.job_id=o.id
           GROUP BY d.submission_id ORDER BY d.submission_id DESC LIMIT 5001""").fetchall()
         heartbeat=conn.execute('SELECT heartbeat FROM directory_worker_state WHERE id=1').fetchone()
@@ -623,6 +659,7 @@ async def response_job(token):
             raise ValueError()
     except (ValueError,UnicodeError,KeyError,TypeError):
         raise HTTPException(401,'This private response link is invalid or expired. Contact support@vicrez.com with the inquiry reference.')
+    if request_closed(job['submission_id']):raise HTTPException(410,'The customer closed this request. Further site follow-up is stopped.')
     current=await fetch_candidates(installer_id=str(original['id']),purpose='response')
     if not any(str(i['id'])==str(original['id']) and i['email'].strip().lower()==original['email'].strip().lower() for i in current):
         raise HTTPException(403,'This inquiry contact is no longer enabled. Contact support@vicrez.com.')
@@ -634,7 +671,8 @@ def save_shop_response(job,body):
     if state not in ('interested','needs_details','declined') or not isinstance(note,str) or len(note)>1000 or re.search(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]',note):
         raise HTTPException(400,'Choose a response and keep the note under 1,000 characters.')
     note=note.strip()
-    if state=='needs_details' and len(note)<5:
+    customer_message=short_text(body.get('customer_message',''),1000,'customer message')
+    if state=='needs_details' and max(len(note),len(customer_message))<5:
         raise HTTPException(400,'Describe the additional details you need.')
     if not isinstance(nonce,str) or not UUID_RE.fullmatch(nonce) or type(version) is not int or version<0:
         raise HTTPException(400,'Invalid response reference. Reload this private link.')
@@ -644,9 +682,10 @@ def save_shop_response(job,body):
         access=conn.execute('SELECT * FROM directory_response_access WHERE job_id=?',(job['id'],)).fetchone()
         if not access or access['revoked'] or access['expires_at']<time.time():
             raise HTTPException(401,'This response link has expired or been revoked.')
+        if customer_action(conn,job['submission_id'])['state'] in ('closed','withdrawn'):raise HTTPException(410,'The customer closed this request')
         old=conn.execute('SELECT * FROM directory_shop_response_audit WHERE request_id=?',(nonce,)).fetchone()
         if old:
-            if old['job_id']!=job['id'] or old['state']!=state or old['note']!=note:
+            if old['job_id']!=job['id'] or old['state']!=state or old['note']!=note or old['customer_message']!=customer_message:
                 raise HTTPException(409,'This save reference was already used for different details. Reload before editing.')
             return {'success':True,'duplicate':True,'revision':old['revision']}
         prior=conn.execute('SELECT * FROM directory_shop_responses WHERE job_id=?',(job['id'],)).fetchone()
@@ -655,6 +694,8 @@ def save_shop_response(job,body):
         conn.execute('INSERT INTO directory_shop_responses(job_id,state,note,revision,first_responded_at,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(job_id) DO UPDATE SET state=excluded.state,note=excluded.note,revision=excluded.revision,updated_at=excluded.updated_at',
                      (job['id'],state,note,version+1,now,now))
         conn.execute('INSERT INTO directory_shop_response_audit(request_id,job_id,state,note,revision,created_at) VALUES(?,?,?,?,?,?)',(nonce,job['id'],state,note,version+1,now))
+        conn.execute('UPDATE directory_shop_responses SET customer_message=? WHERE job_id=?',(customer_message,job['id']))
+        conn.execute('UPDATE directory_shop_response_audit SET customer_message=? WHERE request_id=?',(customer_message,nonce))
         measure(conn,job['submission_id'],'shop_response_'+state,nonce)
     return {'success':True,'duplicate':False,'revision':version+1}
 
@@ -671,10 +712,151 @@ async def shop_response(request: Request):
     else:
         payload=json.loads(job['payload']);data=payload['submission']
         with connect() as conn:
-            row=conn.execute('SELECT state,note,revision,updated_at FROM directory_shop_responses WHERE job_id=?',(job['id'],)).fetchone()
+            row=conn.execute('SELECT state,note,customer_message,revision,updated_at FROM directory_shop_responses WHERE job_id=?',(job['id'],)).fetchone()
         result={'reference':f"VZ-{job['submission_id']}",'shop':payload['installer']['business_name'],
           'vehicle':f"{data['vehicle_year']} {data['vehicle_make']} {data['vehicle_model']}",
           'work':data['what_needed'],'service':SERVICES[data['service']]['label'],'notes':data['notes'],
           'customer_name':data['full_name'],'customer_email':data['email'],'customer_phone':data['phone'],
           'response':dict(row) if row else None,'version':row['revision'] if row else 0,'expires_at':job['expires_at']}
     return JSONResponse(result,headers={'Cache-Control':'private, no-store','Referrer-Policy':'no-referrer'})
+
+
+# Customer progress and project material are available only through a scoped
+# receipt or the already-authorized shop response link. Notes to staff stay private.
+def short_text(value,maximum,label):
+    if not isinstance(value,str) or len(value)>maximum or re.search(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]',value):
+        raise HTTPException(400,'Check '+label)
+    return value.strip()
+
+
+def validate_project_brief(value):
+    if not isinstance(value,dict):raise HTTPException(400,'Check project details')
+    limits={'product_url':500,'sku':80,'wheel_size':80,'tire_size':80,'fitment_notes':300,'parts_owned':200,'installation_requirements':600}
+    result={k:short_text(value.get(k,''),v,k.replace('_',' ')) for k,v in limits.items()}
+    if result['product_url']:
+        try:
+            u=urlsplit(result['product_url']);port=u.port
+        except ValueError:raise HTTPException(400,'Use a secure Vicrez product link')
+        if u.scheme!='https' or u.hostname not in ('vicrez.com','www.vicrez.com') or u.username or u.password or port not in (None,443):raise HTTPException(400,'Use a secure Vicrez product link')
+        result['product_url']=urlunsplit((u.scheme,u.netloc,u.path,'',''))
+    return result
+
+
+def customer_action(conn,sid):
+    row=conn.execute('SELECT state,note,version,updated_at FROM directory_customer_actions WHERE submission_id=?',(sid,)).fetchone()
+    return dict(row) if row else {'state':'open','note':'','version':0,'updated_at':None}
+
+
+def request_closed(sid):
+    with connect() as conn:return customer_action(conn,sid)['state'] in ('closed','withdrawn')
+
+
+def project_brief(conn,sid):
+    row=conn.execute('SELECT content,version,updated_at FROM directory_project_briefs WHERE submission_id=?',(sid,)).fetchone()
+    if row:return {'fields':json.loads(row['content']),'version':row['version'],'updated_at':row['updated_at']}
+    row=conn.execute('SELECT payload FROM directory_requests WHERE submission_id=?',(sid,)).fetchone()
+    return {'fields':json.loads(row['payload']).get('project_brief',{}),'version':0,'updated_at':None}
+
+
+def verify_customer(body):
+    sid,rid=verify_receipt(body.get('token'))
+    with connect() as conn:
+        row=conn.execute('SELECT * FROM directory_requests WHERE submission_id=? AND request_id=?',(sid,rid)).fetchone()
+    if not row:raise HTTPException(404,'Request not found')
+    return dict(row)
+
+
+def customer_progress(row):
+    sid=row['submission_id'];payload=json.loads(row['payload'])
+    with connect() as conn:
+        replies=conn.execute("SELECT o.payload,r.state,r.customer_message,r.updated_at FROM directory_outbox o LEFT JOIN directory_shop_responses r ON r.job_id=o.id WHERE o.submission_id=? AND o.kind='installer' ORDER BY o.created_at,o.id",(sid,)).fetchall()
+        action=customer_action(conn,sid);brief=project_brief(conn,sid)
+    shops=[{'name':json.loads(r['payload'])['installer']['business_name'],'state':r['state'] or 'awaiting_response','message':r['customer_message'] or '', 'updated_at':r['updated_at']} for r in replies]
+    return {**status_for(sid),'submission_id':sid,'created_at':row['created_at'],'vehicle':f"{payload['vehicle_year']} {payload['vehicle_make']} {payload['vehicle_model']}",'work':payload['what_needed'],'service':row['service'],'customer_action':action,'shops':shops,'project_brief':brief}
+
+
+@router.post('/internal/directory-rfq/customer-progress')
+async def customer_progress_endpoint(request:Request):
+    require_service(request);body=await read_body(request,8192);row=verify_customer(body);sid=row['submission_id'];action=body.get('action')
+    if action=='view':return JSONResponse(customer_progress(row),headers={'Cache-Control':'private, no-store'})
+    if action not in ('alternative_requested','closed','withdrawn','project'):raise HTTPException(400,'Choose an action')
+    nonce=body.get('request_id');version=body.get('version')
+    if not isinstance(nonce,str) or not UUID_RE.fullmatch(nonce) or type(version) is not int or version<0:raise HTTPException(400,'Reload the current request')
+    note=short_text(body.get('note',''),500,'request note')
+    if action!='project' and (body.get('confirm') is not True or len(note)<5):raise HTTPException(400,'Confirm the action and provide a short reason')
+    fields=validate_project_brief(body.get('fields')) if action=='project' else None
+    digest=hashlib.sha256(json.dumps({'action':action,'note':note,'fields':fields},sort_keys=True).encode()).hexdigest()
+    with connect() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        prior=conn.execute('SELECT * FROM directory_customer_audit WHERE request_id=?',(nonce,)).fetchone()
+        if prior:
+            if prior['submission_id']!=sid or prior['payload_hash']!=digest:raise HTTPException(409,'Save reference already used for different details')
+            return JSONResponse({'success':True,'duplicate':True,'version':prior['version']})
+        current=customer_action(conn,sid)
+        if current['state'] in ('closed','withdrawn'):raise HTTPException(409,'This request is closed. Start a new request for more work.')
+        if action=='project':
+            if project_brief(conn,sid)['version']!=version:raise HTTPException(409,'Project details changed. Refresh before saving.')
+            conn.execute('INSERT INTO directory_project_briefs(submission_id,content,version) VALUES(?,?,?) ON CONFLICT(submission_id) DO UPDATE SET content=excluded.content,version=excluded.version,updated_at=CURRENT_TIMESTAMP',(sid,json.dumps(fields),version+1))
+        else:
+            if current['version']!=version:raise HTTPException(409,'Request changed. Refresh before saving.')
+            if action=='alternative_requested' and current['state']=='alternative_requested':raise HTTPException(409,'Another-shop request is already with the Vicrez team')
+            conn.execute('INSERT INTO directory_customer_actions(submission_id,state,note,version) VALUES(?,?,?,?) ON CONFLICT(submission_id) DO UPDATE SET state=excluded.state,note=excluded.note,version=excluded.version,updated_at=CURRENT_TIMESTAMP',(sid,action,note,version+1))
+            if action in ('closed','withdrawn'):
+                conn.execute("UPDATE directory_outbox SET state='cancelled',last_error='customer_closed_request',lease_until=0 WHERE submission_id=? AND state IN ('pending','sending')",(sid,))
+        conn.execute('INSERT INTO directory_customer_audit(request_id,submission_id,action,payload_hash,version) VALUES(?,?,?,?,?)',(nonce,sid,action,digest,version+1))
+    return JSONResponse({'success':True,'version':version+1},headers={'Cache-Control':'private, no-store'})
+
+
+@router.post('/internal/directory-rfq/project-photos')
+async def private_project_photos(request:Request):
+    require_service(request);body=await read_body(request,2100000);scope=body.get('scope');action=body.get('action')
+    if scope=='customer':sid=verify_customer(body)['submission_id']
+    elif scope=='shop':sid=(await response_job(body.get('token')))['submission_id']
+    elif scope=='staff':
+        sid=body.get('submission_id')
+        if type(sid) is not int or sid<1:raise HTTPException(400,'Choose an inquiry')
+    else:raise HTTPException(401,'A private request link is required')
+    if action not in ('list','read','upload','delete'):raise HTTPException(400,'Choose a photo action')
+    if action in ('upload','delete') and scope!='customer':raise HTTPException(403,'Only the customer can change project photos')
+    with connect() as conn:
+        if action in ('upload','delete'):conn.execute('BEGIN IMMEDIATE')
+        if not conn.execute('SELECT 1 FROM directory_requests WHERE submission_id=?',(sid,)).fetchone():raise HTTPException(404,'Inquiry unavailable')
+        if action in ('upload','delete') and customer_action(conn,sid)['state'] in ('closed','withdrawn'):raise HTTPException(409,'This request is closed')
+        if action=='list':
+            photos=[dict(r) for r in conn.execute('SELECT id,caption,width,height,created_at FROM directory_private_photos WHERE submission_id=? AND deleted_at IS NULL ORDER BY created_at,id',(sid,))]
+            result={'photos':photos,'project_brief':project_brief(conn,sid)}
+        else:
+            pid=body.get('photo_id')
+            if not isinstance(pid,str) or not UUID_RE.fullmatch(pid):raise HTTPException(400,'Choose a valid photo')
+            if action=='read':
+                photo=conn.execute('SELECT * FROM directory_private_photos WHERE id=? AND submission_id=? AND deleted_at IS NULL',(pid,sid)).fetchone()
+                if not photo:raise HTTPException(404,'Photo unavailable')
+                result={'image':base64.b64encode(photo['image']).decode(),'caption':photo['caption']}
+            elif action=='delete':
+                conn.execute('UPDATE directory_private_photos SET deleted_at=CURRENT_TIMESTAMP WHERE id=? AND submission_id=?',(pid,sid));result={'success':True}
+            else:
+                if body.get('permission') is not True:raise HTTPException(400,'Confirm permission to share this photo privately')
+                caption=short_text(body.get('caption',''),200,'photo caption')
+                try:image=base64.b64decode(body.get('image',''),validate=True)
+                except (ValueError,TypeError):raise HTTPException(400,'Invalid image')
+                if not 1<=len(image)<=1500000 or image[:4]!=b'RIFF' or image[8:12]!=b'WEBP' or any(type(body.get(k)) is not int or not 100<=body[k]<=1400 for k in ('width','height')):raise HTTPException(400,'Invalid prepared image')
+                prior=conn.execute('SELECT * FROM directory_private_photos WHERE id=?',(pid,)).fetchone()
+                if prior:
+                    if prior['submission_id']!=sid or prior['caption']!=caption or prior['image']!=image or prior['deleted_at']:raise HTTPException(409,'Photo reference already used')
+                    return JSONResponse({'success':True,'id':pid,'duplicate':True})
+                total=conn.execute('SELECT COUNT(*) total,SUM(CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END) active FROM directory_private_photos WHERE submission_id=?',(sid,)).fetchone()
+                if total['total']>=6 or (total['active'] or 0)>=3:raise HTTPException(409,'Limit: three current photos and six uploads per request')
+                conn.execute('INSERT INTO directory_private_photos(id,submission_id,caption,image,width,height) VALUES(?,?,?,?,?,?)',(pid,sid,caption,image,body['width'],body['height']));result={'success':True,'id':pid}
+    return JSONResponse(result,headers={'Cache-Control':'private, no-store'})
+
+
+@router.post('/internal/directory-rfq/reminder-check')
+async def reminder_check(request:Request):
+    require_service(request);body=await read_body(request,1024);job_id=body.get('job_id')
+    if not isinstance(job_id,str) or not UUID_RE.fullmatch(job_id):raise HTTPException(400,'Choose an inquiry notification')
+    with connect() as conn:
+        row=conn.execute("SELECT o.*,a.expires_at,a.revoked,r.job_id responded FROM directory_outbox o JOIN directory_response_access a ON a.job_id=o.id LEFT JOIN directory_shop_responses r ON r.job_id=o.id WHERE o.id=? AND o.kind='installer' AND o.state='accepted' AND julianday('now')-julianday(o.accepted_at)>=2",(job_id,)).fetchone()
+        if not row or row['responded'] or row['revoked'] or row['expires_at']<time.time() or customer_action(conn,row['submission_id'])['state'] in ('closed','withdrawn'):raise HTTPException(409,'A reminder is not eligible: check response, request state and elapsed time')
+    job=dict(row);payload=json.loads(job['payload']);original=payload['installer'];current=await fetch_candidates(installer_id=str(original['id']))
+    if not any(str(i['id'])==str(original['id']) and i['email'].strip().lower()==original['email'].strip().lower() for i in current):raise HTTPException(409,'The shop no longer accepts inquiries at this address')
+    return JSONResponse({'submission_id':job['submission_id'],'recipient':original['email'].strip().lower(),'shop':original['business_name'],'reference':'VZ-'+str(job['submission_id']),'url':shop_response_link(job)},headers={'Cache-Control':'private, no-store'})

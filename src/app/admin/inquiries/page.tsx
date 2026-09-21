@@ -1,9 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
+import InquiryReminder from "@/components/InquiryReminder";
+import InquiryProject from "@/components/InquiryProject";
 import InquiryFollowup from "@/components/InquiryFollowup";
 import Link from "next/link";
 type Inquiry = {
   submission_id: number;
+  customer_action?: { state: string; note: string; updated_at: string };
   acquisition?: { source: string; channel: string };
   created_at: string;
   flow: string;
@@ -18,6 +21,8 @@ type Inquiry = {
   vehicle_model: string;
   notes: string;
   deliveries: {
+    job_id: string;
+    reminder_state?: string;
     target_id: string;
     state: string;
     attempts: number;
@@ -174,8 +179,19 @@ export default function InquiriesPage() {
               {item.notes && (
                 <p className="text-sm whitespace-pre-wrap">{item.notes}</p>
               )}
+              {item.customer_action &&
+                item.customer_action.state !== "open" && (
+                  <p className="border rounded p-3 bg-amber-50">
+                    Customer action:{" "}
+                    <strong>
+                      {item.customer_action.state.replaceAll("_", " ")}
+                    </strong>{" "}
+                    · {item.customer_action.note}
+                  </p>
+                )}
+              <InquiryProject scope="staff" id={item.submission_id} />
               {item.deliveries.map((delivery) => (
-                <p key={delivery.target_id} className="text-sm">
+                <div key={delivery.target_id} className="text-sm">
                   Shop{" "}
                   <Link
                     className="text-vicrez-red underline"
@@ -217,7 +233,17 @@ export default function InquiriesPage() {
                       hours.
                     </span>
                   )}
-                </p>
+                  {delivery.job_id &&
+                    !!delivery.unanswered_over_48h &&
+                    !["closed", "withdrawn"].includes(
+                      item.customer_action?.state || " ",
+                    ) && (
+                      <InquiryReminder
+                        job={delivery.job_id}
+                        state={delivery.reminder_state}
+                      />
+                    )}
+                </div>
               ))}
               {item.routing_state === "needs_review" && (
                 <p className="text-sm text-amber-800">

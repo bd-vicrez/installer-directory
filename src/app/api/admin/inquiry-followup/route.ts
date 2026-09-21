@@ -45,6 +45,12 @@ export async function POST(request: NextRequest) {
       !["new", "contacted", "quoted", "booked", "declined"].includes(b.state)
     )
       throw new InputError("Choose a valid inquiry and outcome");
+    const publicMessage = textField(
+      b.public_message,
+      "customer update",
+      0,
+      1000,
+    );
     const note = textField(b.note, "outcome evidence", 10, 1000),
       actor = textField(
         adminIdentity?.(request)?.username || b.actor,
@@ -87,6 +93,10 @@ export async function POST(request: NextRequest) {
       [id, b.state, note, actor, due],
     );
     await client.query(
+      "UPDATE directory_inquiry_followup SET public_message=$2 WHERE submission_id=$1",
+      [id, publicMessage],
+    );
+    await client.query(
       "INSERT INTO directory_review_audit(kind,record_id,actor,action,note,before_data,after_data) VALUES('inquiry',$1,$2,$3,$4,$5,$6)",
       [
         String(id),
@@ -94,7 +104,11 @@ export async function POST(request: NextRequest) {
         b.state,
         note,
         JSON.stringify(prior || null),
-        JSON.stringify({ state: b.state, next_followup_at: due }),
+        JSON.stringify({
+          state: b.state,
+          next_followup_at: due,
+          public_message: publicMessage,
+        }),
       ],
     );
     await client.query("COMMIT");

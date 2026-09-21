@@ -1,5 +1,6 @@
 """Isolated tests: temporary SQLite records and mocked provider/routing calls."""
 import asyncio
+import base64
 import importlib.util
 import json
 import sqlite3
@@ -59,6 +60,79 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
             if value:self.assertNotIn(value,json.dumps(rows))
         rfq.init_directory_db()
         self.assertEqual(self.count('directory_measurement_events'),3)
+
+    async def customer_fixture(self):
+        saved=await self.routed()
+        with rfq.connect() as conn:
+            conn.execute("UPDATE directory_outbox SET state='accepted',accepted_at=datetime('now','-3 days') WHERE kind='installer'")
+            job=dict(conn.execute("SELECT * FROM directory_outbox WHERE kind='installer'").fetchone())
+        app=FastAPI();app.include_router(rfq.router)
+        return saved,job,httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='https://example.test',headers={'Authorization':'Bearer '+rfq.secret()})
+
+    async def test_customer_progress_does_not_expose_staff_notes_or_private_shop_email(self):
+        saved,job,client=await self.customer_fixture()
+        rfq.save_shop_response(job,{'state':'needs_details','note':'PRIVATE STAFF REVIEW','customer_message':'Please provide tire size.','request_id':str(uuid.uuid4()),'version':0})
+        async with client:
+            response=await client.post('/internal/directory-rfq/customer-progress',json={'action':'view','token':saved['receipt_token']})
+            self.assertEqual(response.status_code,200);self.assertIn('Please provide tire size.',response.text)
+            self.assertNotIn('PRIVATE STAFF REVIEW',response.text);self.assertNotIn(self.shop['email'],response.text)
+            self.assertEqual((await client.post('/internal/directory-rfq/customer-progress',json={'action':'view','token':'bad'})).status_code,401)
+
+    async def test_customer_withdrawal_is_idempotent_stops_jobs_and_rejects_shop_writes(self):
+        saved,job,client=await self.customer_fixture()
+        body={'action':'withdrawn','token':saved['receipt_token'],'request_id':str(uuid.uuid4()),'version':0,'note':'I no longer need this installation.','confirm':True}
+        async with client:
+            self.assertEqual((await client.post('/internal/directory-rfq/customer-progress',json=body)).status_code,200)
+            self.assertTrue((await client.post('/internal/directory-rfq/customer-progress',json=body)).json()['duplicate'])
+            self.assertEqual((await client.post('/internal/directory-rfq/customer-progress',json={**body,'note':'different'})).status_code,409)
+            self.assertEqual((await client.post('/internal/directory-rfq/reminder-check',json={'job_id':job['id']})).status_code,409)
+            self.assertEqual((await client.post('/internal/directory-rfq/customer-progress',json={'action':'view','token':saved['receipt_token']})).json()['status'],'closed')
+        with patch.object(rfq,'send_installer_event',AsyncMock()) as send:await rfq.run_notification_job(job);send.assert_not_awaited()
+        with self.assertRaises(HTTPException) as error:rfq.save_shop_response(job,{'state':'interested','note':'','request_id':str(uuid.uuid4()),'version':0})
+        self.assertEqual(error.exception.status_code,410)
+
+    async def test_project_updates_and_alternative_requests_use_separate_versions_and_do_not_reroute(self):
+        saved,job,client=await self.customer_fixture();outbox=self.count('directory_outbox')
+        body={'action':'project','token':saved['receipt_token'],'request_id':str(uuid.uuid4()),'version':0,'fields':{'sku':'VZ-TEST','product_url':'https://www.vicrez.com/part?private=123#fragment'}}
+        async with client:
+            self.assertEqual((await client.post('/internal/directory-rfq/customer-progress',json=body)).status_code,200)
+            self.assertEqual((await client.post('/internal/directory-rfq/customer-progress',json={**body,'request_id':str(uuid.uuid4())})).status_code,409)
+            alternative={'action':'alternative_requested','token':saved['receipt_token'],'request_id':str(uuid.uuid4()),'version':0,'note':'Please help locate another shop.','confirm':True}
+            self.assertEqual((await client.post('/internal/directory-rfq/customer-progress',json=alternative)).status_code,200)
+            data=(await client.post('/internal/directory-rfq/customer-progress',json={'action':'view','token':saved['receipt_token']})).json()
+            self.assertEqual(data['project_brief']['fields']['product_url'],'https://www.vicrez.com/part');self.assertEqual(data['customer_action']['state'],'alternative_requested')
+        self.assertEqual(self.count('directory_outbox'),outbox)
+
+    async def test_private_photos_are_scoped_revocable_bounded_and_duplicate_safe(self):
+        saved,job,client=await self.customer_fixture();other=rfq.save_submission({**self.data,'request_id':str(uuid.uuid4())});photo_id=str(uuid.uuid4())
+        # The private service accepts only already-sanitized WebP from the Next image sanitizer.
+        image=base64.b64encode(b'RIFF0000WEBPtest-only-prepared-by-trusted-service').decode()
+        body={'scope':'customer','action':'upload','token':saved['receipt_token'],'photo_id':photo_id,'caption':'Rear bumper fitment','permission':True,'width':100,'height':100,'image':image}
+        async with client:
+            self.assertEqual((await client.post('/internal/directory-rfq/project-photos',json=body)).status_code,200)
+            self.assertTrue((await client.post('/internal/directory-rfq/project-photos',json=body)).json()['duplicate'])
+            self.assertEqual((await client.post('/internal/directory-rfq/project-photos',json={**body,'action':'read','token':other['receipt_token']})).status_code,404)
+            self.assertEqual((await client.post('/internal/directory-rfq/project-photos',json={**body,'action':'delete','scope':'staff','submission_id':job['submission_id']})).status_code,403)
+            with patch.object(rfq,'fetch_candidates',AsyncMock(return_value=[self.shop])):
+                response=await client.post('/internal/directory-rfq/project-photos',json={'scope':'shop','action':'read','token':rfq.shop_response_link(job).split('#')[1],'photo_id':photo_id})
+                self.assertEqual(response.status_code,200)
+            self.assertEqual((await client.post('/internal/directory-rfq/project-photos',json={**body,'action':'delete'})).status_code,200)
+            self.assertEqual((await client.post('/internal/directory-rfq/project-photos',json={**body,'action':'read'})).status_code,404)
+            for _ in range(3):self.assertEqual((await client.post('/internal/directory-rfq/project-photos',json={**body,'photo_id':str(uuid.uuid4())})).status_code,200)
+            self.assertEqual((await client.post('/internal/directory-rfq/project-photos',json={**body,'photo_id':str(uuid.uuid4())})).status_code,409)
+
+    async def test_reminder_requires_48_hours_current_recipient_and_no_response(self):
+        saved,job,client=await self.customer_fixture()
+        async with client:
+            with patch.object(rfq,'fetch_candidates',AsyncMock(return_value=[self.shop])):
+                self.assertEqual((await client.post('/internal/directory-rfq/reminder-check',json={'job_id':job['id']})).status_code,200)
+                with rfq.connect() as conn:conn.execute("UPDATE directory_outbox SET accepted_at=CURRENT_TIMESTAMP WHERE id=?",(job['id'],))
+                self.assertEqual((await client.post('/internal/directory-rfq/reminder-check',json={'job_id':job['id']})).status_code,409)
+                with rfq.connect() as conn:conn.execute("UPDATE directory_outbox SET accepted_at=datetime('now','-3 days') WHERE id=?",(job['id'],))
+            with patch.object(rfq,'fetch_candidates',AsyncMock(return_value=[{**self.shop,'email':'changed@example.test'}])):
+                self.assertEqual((await client.post('/internal/directory-rfq/reminder-check',json={'job_id':job['id']})).status_code,409)
+            rfq.save_shop_response(job,{'state':'interested','note':'','request_id':str(uuid.uuid4()),'version':0})
+            self.assertEqual((await client.post('/internal/directory-rfq/reminder-check',json={'job_id':job['id']})).status_code,409)
 
     async def test_action_items_are_private_minimal_and_exact_lookup_reaches_older_inquiry(self):
         saved=await self.routed()

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { getPool } from "@/lib/db";
 import { rfqFetch } from "@/lib/directory-rfq";
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
@@ -17,7 +18,22 @@ export async function GET(request: NextRequest) {
       "/internal/directory-rfq/requests" + (id ? "?id=" + id : ""),
     );
     if (!response.ok) throw new Error();
-    return NextResponse.json(await response.json(), { headers });
+    const data = await response.json();
+    const states = (
+      await getPool().query(
+        "SELECT record_id,state FROM directory_notifications WHERE kind='inquiry-reminder' AND record_id=ANY($1::text[])",
+        [
+          data.requests.flatMap((r: any) =>
+            r.deliveries.map((d: any) => d.job_id),
+          ),
+        ],
+      )
+    ).rows;
+    for (const row of data.requests)
+      for (const delivery of row.deliveries)
+        delivery.reminder_state =
+          states.find((s) => s.record_id === delivery.job_id)?.state || null;
+    return NextResponse.json(data, { headers });
   } catch {
     return NextResponse.json(
       { error: "Inquiry status is temporarily unavailable." },

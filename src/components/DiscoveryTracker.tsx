@@ -7,6 +7,7 @@ export default function DiscoveryTracker() {
   useEffect(() => {
     if (
       path.startsWith("/owner") ||
+      path.startsWith("/inquiry-progress") ||
       path.startsWith("/shop-response") ||
       path.startsWith("/admin") ||
       path.startsWith("/request-status")

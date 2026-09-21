@@ -3,6 +3,8 @@ export interface GoogleHours {
 }
 
 export interface Installer {
+  owner_reconfirmed_at?: string | null;
+  owner_reconfirmation_hash?: string | null;
   owner_details?: Record<string, any>;
   owner_details_confirmed_at?: string | null;
   id: string | number;

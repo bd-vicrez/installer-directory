@@ -1,4 +1,5 @@
 "use client";
+import InquiryProject from "@/components/InquiryProject";
 import { useEffect, useRef, useState } from "react";
 const labels: Record<string, string> = {
   interested: "Interested",
@@ -11,6 +12,7 @@ export default function ShopResponsePage() {
   const [data, setData] = useState<any>(null),
     [state, setState] = useState("interested"),
     [note, setNote] = useState("");
+  const [customerMessage, setCustomerMessage] = useState("");
   const [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
@@ -27,6 +29,7 @@ export default function ShopResponsePage() {
     setData(d);
     setState(d.response?.state || "interested");
     setNote(d.response?.note || "");
+    setCustomerMessage(d.response?.customer_message || "");
   }
   useEffect(() => {
     token.current = window.location.hash.slice(1);
@@ -49,6 +52,7 @@ export default function ShopResponsePage() {
         action: "save",
         state,
         note,
+        customer_message: customerMessage,
         version: data.version,
         request_id: crypto.randomUUID(),
       };
@@ -60,7 +64,7 @@ export default function ShopResponsePage() {
       });
       const d = await r.json();
       if (!r.ok) {
-        if ([400, 401, 403, 409].includes(r.status)) {
+        if ([400, 401, 403, 409, 410].includes(r.status)) {
           pending.current = null;
           setRetry(false);
         } else setRetry(true);
@@ -69,7 +73,7 @@ export default function ShopResponsePage() {
       pending.current = null;
       setRetry(false);
       setMessage(
-        "Your response is saved for the Vicrez team. This does not send a customer message or confirm an appointment. Contact the customer directly to continue.",
+        "Your response is saved. The customer can see the response status and any customer update on their private progress page. Your note for Vicrez stays private. No email was sent or appointment confirmed.",
       );
       try {
         await load();
@@ -147,6 +151,7 @@ export default function ShopResponsePage() {
                 " · " + new Date(data.response.updated_at).toLocaleString()}
             </p>
           </section>
+          <InquiryProject scope="shop" token={token.current} />
           <form
             onSubmit={save}
             className="border bg-white rounded-xl p-5 space-y-4"
@@ -169,19 +174,33 @@ export default function ShopResponsePage() {
                 </label>
               ))}
               <label className="block">
-                Note for the Vicrez team
-                {state === "needs_details"
-                  ? " — tell us what is missing"
-                  : " (optional)"}
+                Note for the Vicrez team (optional; private)
                 <textarea
                   className="input-field block w-full mt-1"
                   rows={4}
                   maxLength={1000}
-                  minLength={state === "needs_details" ? 5 : 0}
-                  required={state === "needs_details"}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                 />
+              </label>
+              <label className="block">
+                Update visible to the customer{" "}
+                {state === "needs_details"
+                  ? "— describe the missing information"
+                  : "(optional)"}
+                <textarea
+                  minLength={state === "needs_details" ? 5 : 0}
+                  required={state === "needs_details"}
+                  className="input-field block w-full mt-1"
+                  maxLength={1000}
+                  rows={3}
+                  value={customerMessage}
+                  onChange={(e) => setCustomerMessage(e.target.value)}
+                />
+                <span className="text-sm">
+                  Explain any missing details or next steps. This is shown on
+                  the private progress page; it does not send an email.
+                </span>
               </label>
             </fieldset>
             <button className="btn-primary w-full" disabled={busy}>

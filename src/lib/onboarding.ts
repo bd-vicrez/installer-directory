@@ -60,6 +60,47 @@ export function serviceFields(value: unknown): string[] {
     throw new InputError("Select recorded services.");
   return [...new Set(value)].sort();
 }
+export function projectExamples(value: any) {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > 3)
+    throw new InputError("Use up to three completed project examples.");
+  return value.map((p: any) => {
+    if (!p || typeof p !== "object")
+      throw new InputError("Check the project example.");
+    const month = textField(p.completed_month, "completed month", 7, 7);
+    if (
+      !/^(19|20)[0-9]{2}-(0[1-9]|1[0-2])$/.test(month) ||
+      month > new Date().toISOString().slice(0, 7)
+    )
+      throw new InputError(
+        "Choose the actual past or current completion month.",
+      );
+    const service = textField(p.service, "project service", 1, 80);
+    if (
+      ![
+        "body-kits",
+        "paint-bodywork",
+        "wheels-tires",
+        "vinyl-wrap",
+        "ppf",
+        "window-tint",
+        "performance",
+        "other",
+      ].includes(service)
+    )
+      throw new InputError("Choose a supported project service.");
+    const photo_id = textField(p.photo_id, "project photo", 36, 36);
+    if (!UUID.test(photo_id)) throw new InputError("Select a project photo.");
+    return {
+      vehicle: textField(p.vehicle, "project vehicle", 3, 120),
+      summary: textField(p.summary, "completed work", 30, 1000),
+      parts: textField(p.parts, "parts used", 0, 200),
+      service,
+      completed_month: month,
+      photo_id,
+    };
+  });
+}
 export function ownerDetails(body: any) {
   const parts = textField(body.parts_policy, "parts policy", 0, 40);
   if (

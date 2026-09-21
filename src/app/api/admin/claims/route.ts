@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { requireAdmin, adminIdentity } from "@/lib/admin-auth";
 import { sameOrigin } from "@/lib/directory-rfq";
-import { InputError, readSmallJson, textField } from "@/lib/onboarding";
+import {
+  InputError,
+  readSmallJson,
+  textField,
+  projectExamples,
+} from "@/lib/onboarding";
 import { photoIds, validatePhotos } from "@/lib/shop-photos";
 import { refreshContactPages } from "@/lib/contact-refresh";
 export async function GET(request: NextRequest) {
@@ -120,6 +125,19 @@ export async function PATCH(request: NextRequest) {
           client,
           claim.installer_id,
           photoIds(claim.details.photo_ids),
+        );
+      const projects = projectExamples(claim.details.projects) || [];
+      if (
+        projects.length &&
+        (b.confirm_projects_reviewed !== true ||
+          !claim.owner_grant_id ||
+          claim.details.projects_confirmed !== true ||
+          projects.some(
+            (p: any) => !(claim.details.photo_ids || []).includes(p.photo_id),
+          ))
+      )
+        throw new InputError(
+          "Review the real completed project details and associated photos before publication.",
         );
       await client.query(
         "UPDATE installers SET owner_details=$1,owner_details_confirmed_at=NOW(),updated_at=NOW() WHERE id=$2",

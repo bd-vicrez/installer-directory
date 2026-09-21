@@ -1,6 +1,7 @@
 "use client";
 import { sessionAcquisition } from "@/lib/acquisition-client";
 import { useEffect, useRef, useState } from "react";
+import ProjectBriefFields from "./ProjectBriefFields";
 import AccessibleDialog from "./AccessibleDialog";
 import { QUOTE_SERVICES } from "@/lib/quote-services";
 import { quoteEvent, quoteSession } from "@/lib/quote-telemetry";
@@ -66,6 +67,7 @@ export default function QuoteRequestDialog({
 }) {
   const flow = installer ? "selected" : "network";
   const [fields, setFields] = useState<Fields>(emptyFields);
+  const [brief, setBrief] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<Receipt | null>(null);
@@ -141,7 +143,10 @@ export default function QuoteRequestDialog({
     setReceipt(null);
     setError("");
     setChanged(false);
-    if (!keepDetails) setFields(emptyFields());
+    if (!keepDetails) {
+      setFields(emptyFields());
+      setBrief({});
+    }
     requestAnimationFrame(() =>
       document
         .getElementById(
@@ -153,7 +158,11 @@ export default function QuoteRequestDialog({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (submitting) return;
-    const content = { ...fields, installer_id: installer?.id };
+    const content = {
+      ...fields,
+      project_brief: brief,
+      installer_id: installer?.id,
+    };
     const fingerprint = JSON.stringify(content);
     if (attempted.current && attempted.current !== fingerprint) {
       setChanged(true);
@@ -267,6 +276,12 @@ export default function QuoteRequestDialog({
           <p className="text-lg font-semibold text-gray-900">
             Reference: {receipt.reference}
           </p>
+          <a
+            className="btn-primary inline-block"
+            href={"/inquiry-progress#" + receipt.token}
+          >
+            Track this inquiry and add private photos
+          </a>
           <p className="text-sm text-gray-600">
             Keep this reference when contacting Vicrez about your request. The
             shop must confirm services, pricing and availability.
@@ -489,6 +504,16 @@ export default function QuoteRequestDialog({
                   onChange={(e) => field("project_detail", e.target.value)}
                 />
               </div>
+              <details className="my-4">
+                <summary className="font-semibold cursor-pointer">
+                  Add product and installation details
+                </summary>
+                <ProjectBriefFields
+                  value={brief}
+                  onChange={setBrief}
+                  service={fields.service}
+                />
+              </details>
               <div>
                 <label
                   htmlFor={prefix + "-notes"}

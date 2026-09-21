@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import { rfqFetch, UUID } from "./directory-rfq";
 import { InputError, textField } from "./onboarding";
+import { listingFreshness } from "./listing-freshness";
 import { pilotMissing } from "./pilot";
 export const ACTION_KINDS = [
   "application",
@@ -9,6 +10,7 @@ export const ACTION_KINDS = [
   "pilot",
   "notification",
   "operation",
+  "freshness",
 ];
 export type ActionItem = {
   key: string;
@@ -97,6 +99,7 @@ export function deriveActions(data: any, now = Date.now()): ActionItem[] {
     (data.followups || []).map((r: any) => [String(r.submission_id), r]),
   );
   for (const r of data.inquiries || []) {
+    if (["closed", "withdrawn"].includes(r.customer_state)) continue;
     const f: any = followups.get(String(r.submission_id)),
       created = sqliteDate(r.created_at),
       latestReply = r.last_response_at ? sqliteDate(r.last_response_at) : null;
@@ -113,22 +116,31 @@ export function deriveActions(data: any, now = Date.now()): ActionItem[] {
       now - new Date(created).getTime() > 3600000;
     const unanswered = Number(r.unanswered_over_48h) > 0;
     const due = f?.next_followup_at ? iso(f.next_followup_at) : null;
-    if (terminal && !due && !unhandledReply) continue;
-    let reason = unhandledReply
-      ? "New shop response needs staff review"
-      : routing
-        ? "Routing or notification delivery needs review"
-        : unsent
-          ? "Notification still pending after one hour"
-          : unanswered
-            ? "Shop has not replied after 48 hours"
-            : due
-              ? "Scheduled customer/shop follow-up"
-              : !f || f.state === "new"
-                ? "Saved inquiry needs initial follow-up"
-                : f.state === "quoted"
-                  ? "Estimate sent; record the customer decision"
-                  : "Contact started; record the next outcome";
+    const alternative =
+      r.customer_state === "alternative_requested" &&
+      (!f ||
+        Date.parse(sqliteDate(r.customer_action_at)) >
+          Date.parse(f.updated_at));
+    if (terminal && !due && !unhandledReply && !alternative) continue;
+    let reason = alternative
+      ? "Customer requested help finding another shop"
+      : r.escalation_due && !terminal
+        ? "Escalation: no shop response after 72 elapsed hours"
+        : unhandledReply
+          ? "New shop response needs staff review"
+          : routing
+            ? "Routing or notification delivery needs review"
+            : unsent
+              ? "Notification still pending after one hour"
+              : unanswered
+                ? "Shop has not replied after 48 hours"
+                : due
+                  ? "Scheduled customer/shop follow-up"
+                  : !f || f.state === "new"
+                    ? "Saved inquiry needs initial follow-up"
+                    : f.state === "quoted"
+                      ? "Estimate sent; record the customer decision"
+                      : "Contact started; record the next outcome";
     const sourceDue =
       due ||
       (unhandledReply ? addHours(latestReply, 24) : addHours(created, 48));
@@ -144,7 +156,28 @@ export function deriveActions(data: any, now = Date.now()): ActionItem[] {
       reason,
       "/admin/inquiries?request=" + r.submission_id,
       sourceDue,
-      !terminal && (routing || unsent || unanswered),
+      !!alternative ||
+        (!terminal && (routing || unsent || unanswered || r.escalation_due)),
+    );
+  }
+  for (const r of data.freshness || []) {
+    const fresh = listingFreshness(r, now);
+    if (fresh.current) continue;
+    add(
+      "freshness",
+      {
+        id: r.id,
+        created_at: r.owner_granted_at || r.updated_at,
+        status: "confirmation_needed",
+      },
+      r.business_name,
+      "Owner must reconfirm current services, hours and availability",
+      "/admin/owners#shop-" + encodeURIComponent(r.id),
+      fresh.last_confirmed_at
+        ? fresh.details_unchanged
+          ? fresh.next_due_at
+          : iso(r.updated_at)
+        : addHours(r.owner_granted_at, 168),
     );
   }
   for (const r of data.pilot || []) {
@@ -251,6 +284,7 @@ export async function loadActionQueue(pool: Pool) {
     runs,
     assignments,
     staff,
+    freshness,
   ] = await Promise.all([
     pool.query(
       "SELECT id,application_id,business_name,status,submitted_at,reviewed_at FROM applications WHERE status IN ('pending','needs_information') ORDER BY submitted_at LIMIT 1001",
@@ -276,6 +310,9 @@ export async function loadActionQueue(pool: Pool) {
     pool.query(
       "SELECT id,username,display_name FROM directory_staff_users WHERE active ORDER BY display_name",
     ),
+    pool.query(
+      "SELECT i.*,(SELECT MIN(g.created_at) FROM directory_owner_grants g WHERE g.installer_id=i.id AND g.active) AS owner_granted_at FROM installers i WHERE i.status='active' AND EXISTS(SELECT 1 FROM directory_owner_grants g WHERE g.installer_id=i.id AND g.active) ORDER BY i.owner_reconfirmed_at NULLS FIRST LIMIT 1001",
+    ),
   ]);
   let inquiries: any[] = [];
   try {
@@ -298,6 +335,7 @@ export async function loadActionQueue(pool: Pool) {
     ["Ownership requests", claims.rows],
     ["Pilot candidates", pilot.rows],
     ["Notification issues", notifications.rows],
+    ["Listing freshness", freshness.rows],
   ] as const)
     if (rows.length > 1000)
       warnings.push(label + ": the oldest 1,000 records are shown.");
@@ -310,6 +348,7 @@ export async function loadActionQueue(pool: Pool) {
       notifications: notifications.rows.slice(0, 1000),
       runs: runs.rows,
       inquiries,
+      freshness: freshness.rows.slice(0, 1000),
     }),
     assignments.rows,
   );
