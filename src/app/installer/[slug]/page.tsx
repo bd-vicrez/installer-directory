@@ -1,10 +1,12 @@
+import ProfileBrief from "@/components/ProfileBrief";
+import { profileIndexing, reviewedProfile } from "@/lib/profile-indexing";
 import { listingFreshness } from "@/lib/listing-freshness";
 import { getPool } from "@/lib/db";
 import { publishedPhotos } from "@/lib/shop-photos";
 import OwnerDetails from "@/components/OwnerDetails";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { queryInstallerBySlug, queryVerifiedInstallerSlugs } from "@/lib/db";
+import { queryInstallerBySlug } from "@/lib/db";
 import { Installer } from "@/lib/types";
 import { getTier, parseCapabilities, formatPhone } from "@/lib/utils";
 import {
@@ -40,10 +42,7 @@ export async function generateMetadata({
   const installer: Installer | null = await queryInstallerBySlug(params.slug);
   if (!installer) return { title: "Installer Not Found" };
 
-  // Quality-only indexing (2026-09-01): unverified profiles are thin
-  // programmatic pages that dragged sitewide quality signals to zero
-  // indexing. They stay live for users but tell Google not to index.
-  const indexable = getTier(installer.source) === "verified";
+  const indexable = profileIndexing(installer).index;
 
   const title = `${installer.business_name} in ${installer.city}, ${installer.state} | Vicrez Installer Network`;
   const description = getProfileDescription(installer);
@@ -407,7 +406,9 @@ export default async function InstallerPage({
                 </div>
               )}
 
-              {quoteNote && (
+              <ProfileBrief installer={installer} />
+
+              {quoteNote && !reviewedProfile(installer) && (
                 <section
                   className="card p-6"
                   aria-labelledby="quote-preparation"

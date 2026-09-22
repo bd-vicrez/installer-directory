@@ -1,18 +1,10 @@
+import { PLANNING_GUIDES } from "@/lib/planning-guides";
+import { queryRecoveryServicePages } from "@/lib/db";
 export const dynamic = "force-dynamic";
-/**
- * Auto-generated XML sitemap — QUALITY-ONLY strategy (2026-09-01).
- *
- * Previous strategy ("index everything", ~19.6K URLs) produced near-zero
- * indexing: Google crawled the sitemap daily and declined ~100% of the thin
- * programmatic pages. New strategy: advertise only pages with unique value —
- * verified installers, cities with bespoke city_seo content, state hubs,
- * category hubs, guides, and the /start tire-shop startup hub (~1K URLs).
- * Unverified installer profiles stay live for users but are noindexed
- * (see /installer/[slug]/page.tsx) and are NOT listed here.
- */
+// Sitemap admission is shared with profile metadata; failures must not silently publish a partial sitemap.
 import { MetadataRoute } from "next";
 import {
-  queryVerifiedInstallerSlugs,
+  queryIndexableInstallerSlugs,
   queryCitySeoCities,
   queryAllStatesWithCounts,
 } from "@/lib/db";
@@ -55,6 +47,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // 2. Guides (hardcoded slugs - matches src/app/guides config)
   const GUIDE_SLUGS = [
+    ...Object.keys(PLANNING_GUIDES),
     "body-kit-installation-cost",
     "widebody-kit-installation-guide",
     "how-to-choose-body-kit-installer",
@@ -82,8 +75,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
+  for (const path of await queryRecoveryServicePages()) {
+    urls.push({
+      url: `${BASE}/installers/${path}`,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    });
+  }
+
   // 4. State pages (all 50)
-  try {
+  {
     const states = await queryAllStatesWithCounts();
     for (const s of states) {
       const abbr = (s.state || "").toUpperCase();
@@ -95,12 +96,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.75,
       });
     }
-  } catch {
-    // ignore
   }
 
   // 5. City pages — ONLY cities with unique city_seo content (~500)
-  try {
+  {
     const seoCities = await queryCitySeoCities();
     for (const c of seoCities) {
       if (!c.city || !c.state) continue;
@@ -111,14 +110,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.7,
       });
     }
-  } catch {
-    // ignore
   }
 
-  // 6. Installer detail pages — VERIFIED only (~380). Unverified profiles are
-  //    noindexed and intentionally absent from the sitemap.
-  try {
-    const slugs = await queryVerifiedInstallerSlugs();
+  // 6. Reviewed profiles plus the preserved pre-recovery cohort awaiting individual review.
+  {
+    const slugs = await queryIndexableInstallerSlugs();
     for (const slug of slugs) {
       urls.push({
         url: `${BASE}/installer/${slug}`,
@@ -127,8 +123,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.6,
       });
     }
-  } catch {
-    // ignore
   }
 
   // 7. Tire-shop startup hub — 56 pages (hub + 5 pillar guides + 50 state pages)
@@ -163,5 +157,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
-  return urls;
+  return [...new Map(urls.map((entry) => [entry.url, entry])).values()];
 }

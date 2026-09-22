@@ -1,3 +1,8 @@
+import { RECOVERY_LOCATIONS } from "./recovery-locations";
+import { reviewedProfile } from "./profile-indexing";
+import { filterInstallersByCategory } from "./categories";
+import { cache } from "react";
+import { INDEX_CANDIDATE_SLUGS, profileIndexing } from "./profile-indexing";
 import { Pool } from "pg";
 import { VERIFIED_KEYWORDS } from "./utils";
 import { REVIEWED_PROFILE_SLUGS } from "./profile-content";
@@ -77,14 +82,14 @@ export async function queryTopCities(limit = 50) {
   return rows;
 }
 
-export async function queryInstallerBySlug(slug: string) {
+export const queryInstallerBySlug = cache(async (slug: string) => {
   const db = getPool();
   const { rows } = await db.query(
     `SELECT * FROM installers WHERE slug = $1 AND status NOT IN ('removed','non_us_excluded') LIMIT 1`,
     [slug],
   );
   return rows[0] || null;
-}
+});
 
 export interface CitySeoContent {
   intro: string | null;
@@ -153,26 +158,17 @@ export async function queryInstallerStats() {
   return rows[0];
 }
 
-/**
- * Slugs of VERIFIED installers only (source matches VERIFIED_KEYWORDS).
- * Used by the sitemap + static prerender: only quality profiles are
- * advertised to search engines. Unverified profiles remain reachable
- * but are noindexed (see /installer/[slug]/page.tsx).
- */
-export async function queryVerifiedInstallerSlugs() {
-  const db = getPool();
-  const clause = VERIFIED_KEYWORDS.map((_, i) => `source ILIKE $${i + 1}`).join(
-    " OR ",
+/** Metadata and sitemap share one reviewed admission policy. */
+export async function queryIndexableInstallerSlugs() {
+  const { rows } = await getPool().query(
+    `SELECT id,slug,business_name,city,state,source,status,install_capabilities,specialize_in
+     FROM installers WHERE slug = ANY($1::text[]) AND status NOT IN ('removed','non_us_excluded')
+     ORDER BY slug`,
+    [INDEX_CANDIDATE_SLUGS],
   );
-  const params = VERIFIED_KEYWORDS.map((kw) => `%${kw}%`);
-  const { rows } = await db.query(
-    `SELECT slug FROM installers
-     WHERE status NOT IN ('removed','non_us_excluded') AND slug IS NOT NULL AND slug != ''
-       AND (${clause})
-     ORDER BY google_review_count DESC NULLS LAST`,
-    params,
-  );
-  return rows.map((r: any) => r.slug);
+  return rows
+    .filter((shop) => profileIndexing(shop).index)
+    .map((shop) => shop.slug);
 }
 
 /**
@@ -220,4 +216,20 @@ export async function queryReviewedProfiles() {
     [REVIEWED_PROFILE_SLUGS, "%[New Dealer Form]%"],
   );
   return rows;
+}
+
+/** Only the five evidence-backed service/location briefs, while their supporting records remain valid. */
+export async function queryRecoveryServicePages() {
+  const paths: string[] = [];
+  for (const [path, content] of Object.entries(RECOVERY_LOCATIONS)) {
+    const shop = await queryInstallerBySlug(content.shop);
+    const category = path.split("/")[1];
+    if (
+      shop &&
+      reviewedProfile(shop) &&
+      filterInstallersByCategory([shop], category).length
+    )
+      paths.push(path);
+  }
+  return paths;
 }

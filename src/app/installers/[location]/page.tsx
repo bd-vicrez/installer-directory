@@ -18,15 +18,10 @@ import {
   generateBreadcrumbJsonLd,
   generateItemListJsonLd,
 } from "@/lib/seo";
-import {
-  queryInstallersByCity,
-  queryInstallersByState,
-  queryAllCitiesWithCounts,
-  queryTopCities,
-  queryCitySeoContent,
-} from "@/lib/db";
+import { queryCitySeoContent } from "@/lib/db";
 import { Installer } from "@/lib/types";
-import { getTier } from "@/lib/utils";
+import { locationPage, locationCities } from "@/lib/location-query";
+import { pageNumber } from "@/lib/category-query";
 
 interface PageProps {
   params: Promise<{ location: string }>;
@@ -35,63 +30,17 @@ interface PageProps {
 
 const INSTALLERS_PER_PAGE = 24;
 
-function titleCase(str: string): string {
-  return str.replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-async function getLocationData(slug: string) {
-  // Try city-state first (e.g., "houston-tx")
-  const cityState = parseCityStateSlug(slug);
-  if (cityState) {
-    const installers = await queryInstallersByCity(
-      cityState.city,
-      cityState.stateAbbr,
-    );
-    if (installers.length > 0) {
-      const stateName = STATE_NAMES[cityState.stateAbbr] || cityState.stateAbbr;
-      return {
-        type: "city" as const,
-        city: titleCase(cityState.city),
-        stateAbbr: cityState.stateAbbr,
-        stateName,
-        installers,
-      };
-    }
-  }
-
-  // Try state (e.g., "texas" or "tx")
-  const stateAbbr = stateAbbrFromSlug(slug);
-  if (stateAbbr) {
-    const installers = await queryInstallersByState(stateAbbr);
-    if (installers.length > 0) {
-      const stateName = STATE_NAMES[stateAbbr] || stateAbbr;
-      return {
-        type: "state" as const,
-        city: null,
-        stateAbbr,
-        stateName,
-        installers,
-      };
-    }
-  }
-
-  return null;
-}
-
 export async function generateMetadata({
   params: pendingParams,
   searchParams: pendingSearchParams,
 }: PageProps): Promise<Metadata> {
   const params = await pendingParams;
   const searchParams = await pendingSearchParams;
-  const data = await getLocationData(params.location);
+  const currentPage = pageNumber(searchParams?.page);
+  const data = await locationPage(params.location, currentPage);
   if (!data) return { title: "Location Not Found" };
 
-  const count = data.installers.length;
-  const totalPages = Math.max(1, Math.ceil(count / INSTALLERS_PER_PAGE));
-  const pageRaw = parseInt(searchParams?.page || "1", 10);
-  const currentPage =
-    isNaN(pageRaw) || pageRaw < 1 ? 1 : Math.min(pageRaw, totalPages);
+  if (currentPage > data.pages) notFound();
   const pageSuffix = currentPage > 1 ? ` - Page ${currentPage}` : "";
   const canonicalPath = `/installers/${params.location}${currentPage > 1 ? `?page=${currentPage}` : ""}`;
 
@@ -99,10 +48,10 @@ export async function generateMetadata({
     const title = `Vicrez Installer Network in ${data.city}, ${data.stateAbbr}${pageSuffix} | Body Kits, Wheels, Tires, Vinyl & PPF`;
     return {
       title,
-      description: `Find trusted Vicrez installers in ${data.city}, ${data.stateAbbr} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation. Request quotes today.`,
+      description: `Browse listed installation shops in ${data.city}, ${data.stateAbbr} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation. Request quotes today.`,
       openGraph: {
         title,
-        description: `Find trusted Vicrez installers in ${data.city}, ${data.stateAbbr} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation.`,
+        description: `Browse listed installation shops in ${data.city}, ${data.stateAbbr} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation.`,
         type: "website",
         url: `https://installers.vicrez.com${canonicalPath}`,
       },
@@ -116,10 +65,10 @@ export async function generateMetadata({
   const stateTitle = `Vicrez Installer Network in ${data.stateName}${pageSuffix} | Body Kits, Wheels, Tires, Vinyl & PPF`;
   return {
     title: stateTitle,
-    description: `Find trusted Vicrez installers across ${data.stateName} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation. Request quotes today.`,
+    description: `Browse listed installation shops across ${data.stateName} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation. Request quotes today.`,
     openGraph: {
       title: stateTitle,
-      description: `Find trusted Vicrez installers across ${data.stateName} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation.`,
+      description: `Browse listed installation shops across ${data.stateName} for body kits, bumpers, wheels, tires, vinyl wrap, PPF, and aftermarket parts installation.`,
       type: "website",
       url: `https://installers.vicrez.com${canonicalPath}`,
     },
@@ -136,58 +85,32 @@ export default async function LocationPage({
 }: PageProps) {
   const params = await pendingParams;
   const searchParams = await pendingSearchParams;
-  const data = await getLocationData(params.location);
+  const currentPage = pageNumber(searchParams?.page);
+  const data = await locationPage(params.location, currentPage);
 
   if (!data) {
     notFound();
   }
 
-  const { installers, type, city, stateAbbr, stateName } = data;
-  const verifiedCount = installers.filter(
-    (i: Installer) => getTier(i.source) === "verified",
-  ).length;
-
-  // Pagination (state pages can hit 2,600+ installers - was causing 29MB ISR build failure)
-  const totalCount = installers.length;
-  const totalPages = Math.max(1, Math.ceil(totalCount / INSTALLERS_PER_PAGE));
-  const pageRaw = parseInt(searchParams?.page || "1", 10);
-  const currentPage =
-    isNaN(pageRaw) || pageRaw < 1 ? 1 : Math.min(pageRaw, totalPages);
-  const sortedInstallers = [...installers].sort(
-    (a: Installer, b: Installer) => {
-      const aTier = getTier(a.source) === "verified" ? 0 : 1;
-      const bTier = getTier(b.source) === "verified" ? 0 : 1;
-      return aTier - bTier;
-    },
-  );
+  if (currentPage > data.pages) notFound();
+  const {
+    type,
+    city,
+    stateAbbr,
+    stateName,
+    total: totalCount,
+    recorded: verifiedCount,
+    pages: totalPages,
+    rows: pagedInstallers,
+  } = data;
   const startIdx = (currentPage - 1) * INSTALLERS_PER_PAGE;
-  const pagedInstallers = sortedInstallers.slice(
-    startIdx,
-    startIdx + INSTALLERS_PER_PAGE,
-  );
   const locationLabel =
     type === "city" && city ? `${city}, ${stateAbbr}` : stateName;
-
-  // Get nearby cities for cross-linking (state pages show top cities, city pages show same-state cities)
-  let nearbyCities: { city: string; state: string; count: number }[] = [];
-  try {
-    const allCities = await queryAllCitiesWithCounts();
-    if (type === "city") {
-      nearbyCities = allCities
-        .filter(
-          (r: any) =>
-            r.state?.toUpperCase() === stateAbbr &&
-            r.city?.toLowerCase() !== city?.toLowerCase(),
-        )
-        .slice(0, 12);
-    } else {
-      nearbyCities = allCities
-        .filter((r: any) => r.state?.toUpperCase() === stateAbbr)
-        .slice(0, 20);
-    }
-  } catch {
-    // ignore
-  }
+  const nearbyCities = await locationCities(
+    stateAbbr,
+    city,
+    type === "city" ? 12 : 20,
+  );
 
   // Pull unique AI-generated SEO content for this city (top ~450 cities pre-generated in city_seo table)
   let citySeo: {
@@ -219,7 +142,6 @@ export default async function LocationPage({
   ];
 
   // Build JSON-LD (limit per-page to keep response small)
-  // Note: schemas use sortedInstallers/pagedInstallers from below; for first page we render top 20
   const schemaSource = pagedInstallers.slice(0, 20);
   const installerSchemas = schemaSource.map((i: Installer) =>
     generateInstallerJsonLd(i),
@@ -279,7 +201,7 @@ export default async function LocationPage({
             <p className="text-sm text-vicrez-muted mb-3">
               {totalCount} {totalCount === 1 ? "shop" : "shops"} in the Vicrez
               Installer Network
-              {verifiedCount > 0 ? ` · ${verifiedCount} verified` : ""}
+              {verifiedCount > 0 ? ` · ${verifiedCount} Vicrez-recorded` : ""}
             </p>
             {citySeo?.intro && (
               <p className="text-base text-gray-300 max-w-3xl leading-relaxed mb-4">
@@ -296,7 +218,7 @@ export default async function LocationPage({
               Vicrez Installer Network helps connect you with local shops near
               you.
               {verifiedCount > 0 &&
-                ` ${verifiedCount} shops are verified through the Vicrez dealer network.`}
+                ` ${verifiedCount} shops have business records held by Vicrez; this is not a workmanship certification.`}
             </p>
             <p className="text-gray-400 mt-3 max-w-3xl">
               Installers in {locationLabel} can assist with bumper installation,
@@ -684,83 +606,22 @@ export default async function LocationPage({
             </section>
           )}
 
-          {/* SEO content - FAQ */}
           <section className="mb-12">
             <h2 className="text-xl font-bold text-white mb-6">
               Frequently Asked Questions
             </h2>
             <div className="space-y-4">
-              <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-5">
-                <h3 className="font-semibold text-white mb-2">
-                  How much does it cost to install a body kit in {locationLabel}
-                  ?
-                </h3>
-                <p className="text-sm text-gray-400 leading-relaxed">
-                  Body kit installation costs in {locationLabel} vary depending
-                  on the kit type and complexity. A front lip or splitter
-                  install may run $200–$800, while a full bumper replacement
-                  typically costs $500–$1,500. Widebody kit conversions with
-                  paint matching can range from $3,000 to $8,000+. Factors
-                  include labor rates, paint matching, and prep work. We
-                  recommend requesting quotes from multiple installers to
-                  compare pricing.
-                </p>
-              </div>
-              <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-5">
-                <h3 className="font-semibold text-white mb-2">
-                  Do installers in {locationLabel} install Vicrez bumpers and
-                  aero parts?
-                </h3>
-                <p className="text-sm text-gray-400 leading-relaxed">
-                  Many installers in {locationLabel} can install Vicrez OE
-                  replacement bumpers, front lips, side skirts, rear diffusers,
-                  spoilers, and fender flares. Services may include test
-                  fitting, paint matching, and hardware installation. Depending
-                  on the shop, some may also handle grilles, hoods, fenders, and
-                  lighting upgrades. Contact the shop directly to confirm they
-                  can work with your specific Vicrez parts.
-                </p>
-              </div>
-              <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-5">
-                <h3 className="font-semibold text-white mb-2">
-                  Can I ship Vicrez parts directly to an installer?
-                </h3>
-                <p className="text-sm text-gray-400 leading-relaxed">
-                  Yes, many installers accept direct shipments from Vicrez. You
-                  can order your parts at vicrez.com and have them shipped
-                  straight to the installation shop. It&apos;s a good idea to
-                  coordinate with the installer before placing your order so
-                  they can prepare for the installation and confirm lead times.
-                </p>
-              </div>
-              <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-5">
-                <h3 className="font-semibold text-white mb-2">
-                  Do installers offer wheel and tire mounting?
-                </h3>
-                <p className="text-sm text-gray-400 leading-relaxed">
-                  Many installers in {locationLabel} offer wheel and tire
-                  services including mounting, balancing, TPMS sensor
-                  programming, and hub-centric ring installation. Mounting and
-                  balancing typically costs $25–$50 per wheel, while TPMS
-                  service adds $10–$25 per wheel. Some shops also handle
-                  alignment and offer package deals when combined with other
-                  installation services.
-                </p>
-              </div>
-              <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-5">
-                <h3 className="font-semibold text-white mb-2">
-                  Do installers in {locationLabel} install vinyl wrap and PPF?
-                </h3>
-                <p className="text-sm text-gray-400 leading-relaxed">
-                  Some installers in {locationLabel} offer vinyl wrap
-                  installation, window tint, and paint protection film (PPF)
-                  services. Vinyl wraps can range from partial accents to full
-                  vehicle color changes. PPF provides a clear protective layer
-                  against rock chips and road debris. Services and pricing vary
-                  by shop, so reach out to individual installers to discuss your
-                  project and get a custom quote.
-                </p>
-              </div>
+              {faqSchema.mainEntity.map((item) => (
+                <div
+                  className="bg-vicrez-card border border-vicrez-border rounded-lg p-5"
+                  key={item.name}
+                >
+                  <h3 className="font-semibold text-white mb-2">{item.name}</h3>
+                  <p className="text-sm text-gray-400 leading-relaxed">
+                    {item.acceptedAnswer.text}
+                  </p>
+                </div>
+              ))}
             </div>
           </section>
         </div>

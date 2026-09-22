@@ -1,3 +1,4 @@
+import LocationProjectBrief from "@/components/LocationProjectBrief";
 import { pageNumber } from "@/lib/category-query";
 export const dynamic = "force-dynamic";
 import { Metadata } from "next";
@@ -16,13 +17,8 @@ import {
   generateInstallerJsonLd,
   generateBreadcrumbJsonLd,
 } from "@/lib/seo";
-import {
-  queryInstallersByCity,
-  queryInstallersByState,
-  queryTopCities,
-} from "@/lib/db";
+import { locationPage } from "@/lib/location-query";
 import { Installer } from "@/lib/types";
-import { getTier } from "@/lib/utils";
 import {
   CATEGORIES,
   CATEGORY_SLUGS,
@@ -36,66 +32,27 @@ interface PageProps {
 
 const PER_PAGE = 24;
 
-function titleCase(str: string): string {
-  return str.replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-async function getData(locationSlug: string, categorySlug: string) {
-  const config = CATEGORIES[categorySlug];
-  if (!config) return null;
-
-  // City+state first
-  const cs = parseCityStateSlug(locationSlug);
-  if (cs) {
-    const all = await queryInstallersByCity(cs.city, cs.stateAbbr);
-    const filtered = filterInstallersByCategory(all, categorySlug);
-    if (all.length === 0) return null;
-    return {
-      type: "city" as const,
-      city: titleCase(cs.city),
-      stateAbbr: cs.stateAbbr,
-      stateName: STATE_NAMES[cs.stateAbbr] || cs.stateAbbr,
-      installers: filtered,
-      totalInLocation: all.length,
-      config,
-    };
-  }
-
-  // State fallback (e.g., /installers/texas/body-kits)
-  const stateAbbr = stateAbbrFromSlug(locationSlug);
-  if (stateAbbr) {
-    const all = await queryInstallersByState(stateAbbr);
-    const filtered = filterInstallersByCategory(all, categorySlug);
-    if (all.length === 0) return null;
-    return {
-      type: "state" as const,
-      city: null,
-      stateAbbr,
-      stateName: STATE_NAMES[stateAbbr] || stateAbbr,
-      installers: filtered,
-      totalInLocation: all.length,
-      config,
-    };
-  }
-
-  return null;
-}
-
 export async function generateMetadata({
   params: pendingParams,
   searchParams,
 }: PageProps): Promise<Metadata> {
   const params = await pendingParams;
   const currentPage = pageNumber((await searchParams).page);
-  const data = await getData(params.location, params.category);
+  const data = await locationPage(
+    params.location,
+    currentPage,
+    params.category,
+  );
   if (!data) return { title: "Not Found" };
+  if (currentPage > data.pages) notFound();
+  const config = CATEGORIES[params.category];
 
   const locationLabel =
     data.type === "city" && data.city
       ? `${data.city}, ${data.stateAbbr}`
       : data.stateName;
-  const title = `${data.config.shortLabel}s in ${locationLabel} | Vicrez Installer Directory`;
-  const description = `Browse recorded ${data.config.shortLabel.toLowerCase()}s in ${locationLabel}. ${data.installers.length} local shops for ${data.config.heading.toLowerCase()}. Compare reviews, get directions, and request quotes.`;
+  const title = `${config.shortLabel}s in ${locationLabel} | Vicrez Installer Directory`;
+  const description = `Browse recorded ${config.shortLabel.toLowerCase()}s in ${locationLabel}. ${data.total} local shops for ${config.heading.toLowerCase()}. Compare reviews, get directions, and request quotes.`;
   const canonical = `https://installers.vicrez.com/installers/${params.location}/${params.category}${currentPage > 1 ? "?page=" + currentPage : ""}`;
 
   return {
@@ -103,13 +60,12 @@ export async function generateMetadata({
     description,
     openGraph: { title, description, type: "website", url: canonical },
     alternates: { canonical },
+    robots:
+      currentPage > 1 || data.total === 0
+        ? { index: false, follow: true }
+        : undefined,
   };
 }
-
-/**
- * Pre-build top 50 cities × 8 categories = 400 long-tail SEO pages.
- * Beyond that, on-demand ISR handles rest.
- */
 
 export default async function LocationCategoryPage({
   params: pendingParams,
@@ -117,40 +73,28 @@ export default async function LocationCategoryPage({
 }: PageProps) {
   const params = await pendingParams;
   const currentPage = pageNumber((await searchParams).page);
-  const data = await getData(params.location, params.category);
+  const data = await locationPage(
+    params.location,
+    currentPage,
+    params.category,
+  );
   if (!data) notFound();
 
   const {
-    installers,
     type,
     city,
     stateAbbr,
     stateName,
-    config,
     totalInLocation,
+    total: totalCount,
+    recorded: verifiedCount,
+    pages,
+    rows: paged,
   } = data;
+  const config = CATEGORIES[params.category];
   const locationLabel =
     type === "city" && city ? `${city}, ${stateAbbr}` : stateName;
-  const verifiedCount = installers.filter(
-    (i: Installer) => getTier(i.source) === "verified",
-  ).length;
-
-  // Sort: verified first, then by rating, then by review count
-  const sorted = [...installers].sort((a: Installer, b: Installer) => {
-    const aTier = getTier(a.source) === "verified" ? 0 : 1;
-    const bTier = getTier(b.source) === "verified" ? 0 : 1;
-    if (aTier !== bTier) return aTier - bTier;
-    const aRating = a.google_rating || 0;
-    const bRating = b.google_rating || 0;
-    if (bRating !== aRating) return bRating - aRating;
-    return (b.google_review_count || 0) - (a.google_review_count || 0);
-  });
-  const pages = Math.max(1, Math.ceil(sorted.length / PER_PAGE));
   if (currentPage > pages) notFound();
-  const paged = sorted.slice(
-    (currentPage - 1) * PER_PAGE,
-    currentPage * PER_PAGE,
-  );
 
   // Build JSON-LD: top 10 + breadcrumb
   const installerSchemas = paged
@@ -212,23 +156,28 @@ export default async function LocationCategoryPage({
 
           <div className="mb-8">
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-3">
-              Best {config.shortLabel}s in {locationLabel}
+              {config.shortLabel}s in {locationLabel}
             </h1>
             <p className="text-lg text-gray-300 max-w-3xl leading-relaxed">
-              {config.intro} Below are {installers.length}{" "}
+              {config.intro} Below are {totalCount}{" "}
               {config.shortLabel.toLowerCase()}s serving {locationLabel}
               {verifiedCount > 0 &&
-                ` — including ${verifiedCount} verified through the Vicrez dealer network`}
+                ` — including ${verifiedCount} with Vicrez business records`}
               .
             </p>
           </div>
 
+          {currentPage === 1 && (
+            <LocationProjectBrief
+              location={params.location}
+              category={params.category}
+            />
+          )}
+
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-white">
-                {installers.length}
-              </div>
+              <div className="text-2xl font-bold text-white">{totalCount}</div>
               <div className="text-xs text-vicrez-muted mt-1">
                 {config.shortLabel}s
               </div>
@@ -237,7 +186,9 @@ export default async function LocationCategoryPage({
               <div className="text-2xl font-bold text-green-400">
                 {verifiedCount}
               </div>
-              <div className="text-xs text-vicrez-muted mt-1">Verified</div>
+              <div className="text-xs text-vicrez-muted mt-1">
+                Vicrez-recorded
+              </div>
             </div>
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-white">
@@ -272,7 +223,7 @@ export default async function LocationCategoryPage({
             </p>
           </a>
 
-          {installers.length === 0 ? (
+          {totalCount === 0 ? (
             <div className="bg-vicrez-card border border-vicrez-border rounded-xl p-8 text-center mb-12">
               <h2 className="text-xl font-bold text-white mb-2">
                 No {config.shortLabel}s indexed in {locationLabel} yet
@@ -291,7 +242,7 @@ export default async function LocationCategoryPage({
           ) : (
             <>
               <h2 className="text-xl font-bold text-white mb-6">
-                Top {config.shortLabel}s in {locationLabel}
+                Listed {config.shortLabel}s in {locationLabel}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
                 {paged.map((installer) => (
@@ -301,7 +252,7 @@ export default async function LocationCategoryPage({
                   />
                 ))}
               </div>
-              {installers.length > PER_PAGE && (
+              {totalCount > PER_PAGE && (
                 <div className="mb-12 text-center">
                   <a
                     href={`/installers/${params.location}`}
@@ -405,7 +356,7 @@ export default async function LocationCategoryPage({
                   {locationLabel}?
                 </h3>
                 <p className="text-sm text-gray-400">
-                  Browse the verified Vicrez Installer Network for{" "}
+                  Browse recorded services in the Vicrez Installer Network for{" "}
                   {locationLabel}. Each shop listing includes contact info,
                   hours, recorded Google ratings, and directions. Confirm
                   current services, parts acceptance and availability with the

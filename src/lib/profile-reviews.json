@@ -1,0 +1,292 @@
+{
+  "b-wraps-las-vegas-nv": {
+    "id": "cmltx0fot005woqt4w14isz1l",
+    "name": "B wraps",
+    "city": "Las Vegas",
+    "state": "NV",
+    "reviewed": "2026-09-21",
+    "decision": "index",
+    "basis": "business-submission",
+    "summary": "The business submission identifies Chargers and Challengers as a particular focus, with aero/body-kit and paint/bodywork services recorded. Use the exact model year and trim when discussing a project; a shared model name does not establish that a particular kit will fit.",
+    "questions": [
+      "Which work is included for my exact Charger or Challenger kit: test fit, preparation, paint and final assembly?",
+      "Can you show a completed project on the same generation and body style?",
+      "Will you install the customer-supplied part numbers in my list, and who handles missing or damaged pieces?"
+    ],
+    "expectedCapabilities": ["Aero/Body Kits", "Paint/Bodywork"],
+    "expectedSpecialty": "Muscle European Electric Vehicles Jeep Truck & Offroad General Repair Mainly Chargers And Challengers Is What We Get",
+    "sourceLabel": "Business submission held by Vicrez",
+    "sourceUrl": null
+  },
+  "central-auto-customs-inc-sacramento-ca": {
+    "id": "cmltx02fb004doqt43g4cfhmv",
+    "name": "Central Auto Customs Inc",
+    "city": "Sacramento",
+    "state": "CA",
+    "reviewed": "2026-09-21",
+    "decision": "index",
+    "basis": "business-submission",
+    "summary": "The submitted specialty description specifically mentions Mopar vehicles and widebody conversions. Widebody kits, aero/body kits and paint/bodywork are recorded services. For a conversion, ask for one coordinated scope covering the panels, finish and any separately required wheel or suspension work.",
+    "questions": [
+      "Which panel modifications does this exact conversion require, and will the estimate explain them before work starts?",
+      "Are fitting and paint completed by this shop or quoted separately?",
+      "Can you provide photos and part details from a comparable Mopar widebody project?"
+    ],
+    "expectedCapabilities": [
+      "Widebody Kits",
+      "Aero/Body Kits",
+      "Paint/Bodywork"
+    ],
+    "expectedSpecialty": "Muscle European Truck & Offroad Mopar Like Hellcats And Others Making Into A Widebody",
+    "sourceLabel": "Business submission held by Vicrez",
+    "sourceUrl": null
+  },
+  "atomic-wraps-olympia-wa": {
+    "id": "cmltwze5k001koqt45c0ovne4",
+    "name": "Atomic Wraps",
+    "city": "Olympia",
+    "state": "WA",
+    "reviewed": "2026-09-21",
+    "decision": "index",
+    "basis": "business-submission",
+    "summary": "The submitted record lists vinyl wrap and aero/body-kit work, with interests spanning cars, classics, exotics, boats, motorcycles and RVs. Those categories describe the submission; the shop needs to confirm whether it currently accepts the particular vehicle and surface you want covered.",
+    "questions": [
+      "Is my project a color change, printed graphic, partial wrap or an aero-part installation?",
+      "What preparation or existing-film removal should be included in the estimate?",
+      "For a boat, motorcycle or RV, which surfaces and edges are included, and can you show a comparable example?"
+    ],
+    "expectedCapabilities": ["Aero/Body Kits", "Vinyl Wrap"],
+    "expectedSpecialty": "Muscle European Electric Vehicles Jeep Truck & Offroad Classics, Exotics, Boats, Motorcycles, Rvs",
+    "sourceLabel": "Business submission held by Vicrez",
+    "sourceUrl": null
+  },
+  "jc-emergency-lighting-llc-forked-river-nj": {
+    "id": "cmltwza150013oqt4gkv1giwc",
+    "name": "JC Emergency Lighting LLC",
+    "city": "Forked River",
+    "state": "NJ",
+    "reviewed": "2026-09-21",
+    "decision": "index",
+    "basis": "business-submission",
+    "summary": "The submitted specialty description distinguishes police, fire and EMS vehicle work from everyday customer projects, including window tint and wheel painting. The recorded service list also contains wheels/tires, paint/bodywork and aero/body kits. Confirm the intended use of the vehicle before arranging work.",
+    "questions": [
+      "Do you accept my everyday vehicle project, or is this scope handled through your fleet work?",
+      "Is wheel refinishing included, or does the quote cover mounting and related work separately?",
+      "What comparable project can you document for the specific service I am requesting?"
+    ],
+    "expectedCapabilities": [
+      "Wheels & Tires",
+      "Paint/Bodywork",
+      "Aero/Body Kits"
+    ],
+    "expectedSpecialty": "Police And Fire And Ems Vehicles Along With Window Tint And Painting Wheels On Every Day Customers Vehicles",
+    "sourceLabel": "Business submission held by Vicrez",
+    "sourceUrl": null
+  },
+  "rubio-premier-motors-westhampton-ny": {
+    "id": "cmltwzsku0038oqt4adjm4a5n",
+    "name": "Rubio Premier Motors",
+    "city": "Westhampton",
+    "state": "NY",
+    "reviewed": "2026-09-21",
+    "decision": "index",
+    "basis": "business-submission",
+    "summary": "The submitted record lists aero/body-kit and paint/bodywork services and mentions motorcycles, ATVs and exotic vehicles alongside general vehicle categories. Confirm which type of job the business currently accepts; sales, repair and aftermarket installation can involve different scopes.",
+    "questions": [
+      "Is this location accepting installation jobs for my motorcycle, ATV or car?",
+      "Does the written estimate separate repair work, part fitting and paint?",
+      "Can you show the result of a similar job and confirm acceptance of my supplied parts?"
+    ],
+    "expectedCapabilities": ["Aero/Body Kits", "Paint/Bodywork"],
+    "expectedSpecialty": "Muscle European Electric Vehicles Jeep Truck & Offroad General Repair Motorcycles/Atv/Exotic",
+    "sourceLabel": "Business submission held by Vicrez",
+    "sourceUrl": null
+  },
+  "dent-pro-usa-of-lafayette-lafayette-la": {
+    "id": "cmltwzbgt0019oqt4jlqpqn78",
+    "name": "Dent Pro USA of Lafayette",
+    "city": "Lafayette",
+    "state": "LA",
+    "reviewed": "2026-09-21",
+    "decision": "index",
+    "basis": "business-submission",
+    "summary": "The business submission includes aero/body-kit work and paint/bodywork, with custom aftermarket work noted in its specialty field. If a vehicle also has existing panel damage, describe that separately from the parts installation so the shop can quote the work that is actually needed.",
+    "questions": [
+      "Should existing panel damage be repaired before the aftermarket part is fitted?",
+      "Which preparation, fitting and finish steps are included in the written scope?",
+      "Can you document a similar aftermarket installation rather than only a dent-repair example?"
+    ],
+    "expectedCapabilities": ["Aero/Body Kits", "Paint/Bodywork"],
+    "expectedSpecialty": "Muscle European Electric Vehicles Jeep Truck & Offroad General Repair Custom Aftermarket",
+    "sourceLabel": "Business submission held by Vicrez",
+    "sourceUrl": null
+  },
+  "curley-reds-auto-body-half-moon-bay-ca": {
+    "id": "cmltx05au004poqt4is1sv50h",
+    "name": "CURLEY & REDS AUTO BODY",
+    "city": "Half Moon Bay",
+    "state": "CA",
+    "reviewed": "2026-09-21",
+    "decision": "index",
+    "basis": "business-submission",
+    "summary": "The submitted record identifies collision repair and paint alongside aero/body-kit installation. For a vehicle that needs both repair and customization, separate the damage-repair scope from the aftermarket work in the estimate and agree on the order of work with the shop.",
+    "questions": [
+      "Which line items address existing damage and which cover the new parts?",
+      "Does the quote include test fitting and finish work for the exact supplied kit?",
+      "What photographs and part numbers should I send for an initial review?"
+    ],
+    "expectedCapabilities": ["Aero/Body Kits", "Paint/Bodywork"],
+    "expectedSpecialty": "Muscle European Electric Vehicles Jeep Truck & Offroad General Repair Collision Repair",
+    "sourceLabel": "Business submission held by Vicrez",
+    "sourceUrl": null
+  },
+  "performance-off-road-automotive-bakersfield-ca": {
+    "id": "cmltx0daf005moqt43zn9yrgg",
+    "name": "Performance Off Road & Automotive",
+    "city": "Bakersfield",
+    "state": "CA",
+    "reviewed": "2026-09-21",
+    "decision": "index",
+    "basis": "business-submission",
+    "summary": "The submitted record mentions accessories and general vehicle service and repair, with aero/body-kit and paint/bodywork capabilities recorded. Describe existing modifications as well as the new parts; accessory work and body finishing should have an agreed scope before delivery.",
+    "questions": [
+      "Which current modifications or vehicle measurements do you need to assess this accessory project?",
+      "Will the estimate separate fitting, bodywork and finishing?",
+      "Do you accept my supplied parts and can you document a comparable job?"
+    ],
+    "expectedCapabilities": ["Aero/Body Kits", "Paint/Bodywork"],
+    "expectedSpecialty": "Muscle European Electric Vehicles Jeep Truck & Offroad General Repair Accessories, All Vehicle Service And Repair",
+    "sourceLabel": "Business submission held by Vicrez",
+    "sourceUrl": null
+  },
+  "wrap-elements-llc-san-antonio-tx": {
+    "id": "cmltwz83c000voqt49bg8nkxq",
+    "name": "Wrap Elements LLC.",
+    "city": "San Antonio",
+    "state": "TX",
+    "reviewed": "2026-09-21",
+    "decision": "index",
+    "basis": "business-submission",
+    "summary": "The business submission contains a broad service list: vinyl wrap, body and widebody kits, wheels/tires, suspension, paint/bodywork and performance modifications. For a build involving several of these services, ask which work is performed at this location and whether the shop will coordinate the sequence.",
+    "questions": [
+      "Which stages of my proposed build will you handle at this location?",
+      "Should any bodywork or part fitting be completed before the wrap is planned?",
+      "Can the estimate separate materials, installation and any subcontracted work?"
+    ],
+    "expectedCapabilities": [
+      "Aero/Body Kits",
+      "Widebody Kits",
+      "Wheels & Tires",
+      "Suspension",
+      "Vinyl Wrap",
+      "Paint/Bodywork",
+      "Performance Mods"
+    ],
+    "expectedSpecialty": "All Vehicles",
+    "sourceLabel": "Business submission held by Vicrez",
+    "sourceUrl": null
+  },
+  "cuztom-graphics-llc-muskogee-ok": {
+    "id": "cmltx04kv004moqt4rdcdjpsg",
+    "name": "Cuztom Graphics LLC.",
+    "city": "Muskogee",
+    "state": "OK",
+    "reviewed": "2026-09-21",
+    "decision": "index",
+    "basis": "business-submission",
+    "summary": "The submitted service list covers vinyl wrap, aero/body and widebody kits, wheels/tires, suspension, paint/bodywork and performance work. A broad list is a starting point for a conversation. Break a graphics-and-parts project into individual tasks so the accepted scope and delivery order are clear.",
+    "questions": [
+      "Which graphics or wrap areas and which mechanical or body tasks can you accept together?",
+      "Who supplies the artwork, film, parts and installation hardware?",
+      "What comparable finished job can you show for the combination of services I need?"
+    ],
+    "expectedCapabilities": [
+      "Aero/Body Kits",
+      "Widebody Kits",
+      "Wheels & Tires",
+      "Suspension",
+      "Vinyl Wrap",
+      "Paint/Bodywork",
+      "Performance Mods"
+    ],
+    "expectedSpecialty": "All",
+    "sourceLabel": "Business submission held by Vicrez",
+    "sourceUrl": null
+  },
+  "sss-fleet-llc-humble-tx": {
+    "id": "cmltx0mnw006poqt4pcu3vhqf",
+    "name": "SSS Fleet, LLC",
+    "city": "Humble",
+    "state": "TX",
+    "reviewed": "2026-09-21",
+    "decision": "index",
+    "basis": "business-submission",
+    "summary": "The business submission records aero/body-kit and paint/bodywork services and mentions ATV/UTV work in its specialty description. When requesting a quote, identify whether the job concerns a road vehicle or an ATV/UTV and provide the specific part application.",
+    "questions": [
+      "Do you currently accept this vehicle type and aftermarket installation scope?",
+      "Which fitting and finish tasks will appear in the written estimate?",
+      "Can you show a comparable completed job and confirm acceptance of my part numbers?"
+    ],
+    "expectedCapabilities": ["Aero/Body Kits", "Paint/Bodywork"],
+    "expectedSpecialty": "Muscle European Electric Vehicles Jeep Truck & Offroad General Repair Atv/Utv",
+    "sourceLabel": "Business submission held by Vicrez",
+    "sourceUrl": null
+  },
+  "tffp-llc-scottsdale-az": {
+    "id": "cmltx0a3j0059oqt48yt5jfzh",
+    "name": "TFFP LLC",
+    "city": "Scottsdale",
+    "state": "AZ",
+    "reviewed": "2026-09-21",
+    "decision": "index",
+    "basis": "business-submission",
+    "summary": "The business submission records aero/body-kit work and identifies muscle vehicles, trucks and off-road interests. It describes both a storefront/installer and an online store. Confirm where the physical installation would take place and which services are included beyond purchasing parts.",
+    "questions": [
+      "Is installation performed at this location, and who provides the estimate?",
+      "Which prep, fitting and finish work is included for my particular part?",
+      "Can you document a comparable job on the same vehicle generation?"
+    ],
+    "expectedCapabilities": ["Aero/Body Kits"],
+    "expectedSpecialty": "Muscle Truck & Offroad",
+    "sourceLabel": "Business submission held by Vicrez",
+    "sourceUrl": null
+  },
+  "kustom-kreations-inc-fitchburg-ma": {
+    "id": "c1b3jgl15rz2ug7ei8qf806h7",
+    "name": "Kustom Kreations Inc",
+    "city": "Fitchburg",
+    "state": "MA",
+    "reviewed": "2026-09-21",
+    "decision": "index",
+    "basis": "shop-website",
+    "summary": "The shop’s own website describes custom paint and bodywork, body-kit installation, and design/prototyping. It also presents 3D scanning, reverse-engineered bumper work, CNC machining and rendering services. The published Fitchburg address matches the directory location. These are shop-published descriptions; they do not establish experience with a particular Vicrez kit.",
+    "questions": [
+      "For my project, do I need installation of an existing kit or design and fabrication of a new part?",
+      "Can you show a comparable finished installation, including the vehicle and parts used?",
+      "Which design, fabrication, fitting and paint stages are included in the estimate?"
+    ],
+    "expectedCapabilities": ["Body Kits", "Aero/Body Kits"],
+    "expectedSpecialty": "",
+    "sourceLabel": "Shop website",
+    "sourceUrl": "https://kustombodyworks.com/"
+  },
+  "speedpro-chicago-loop-chicago-il-66fd2024": {
+    "id": "66fd2024-982e-43e3-b4bf-f78e0e47f266",
+    "name": "SpeedPro Chicago Loop",
+    "city": "Chicago",
+    "state": "IL",
+    "reviewed": "2026-09-21",
+    "decision": "index",
+    "basis": "approved-application",
+    "summary": "The approved directory application describes vehicle wraps and fleet graphics as part of a broader large-format printing business. The branch website confirms the Chicago Loop location and describes its printing operation. For an automotive job, specify whether you need commercial graphics or a color-change wrap and confirm the exact installation scope.",
+    "questions": [
+      "Does this branch accept my vehicle-wrap or fleet-graphics project?",
+      "Who supplies and approves the artwork, and are proofs and installation included?",
+      "Which vehicle surfaces, removal work and future replacement needs should the estimate cover?"
+    ],
+    "expectedCapabilities": ["vinyl-wrap"],
+    "expectedSpecialty": "",
+    "sourceLabel": "Approved directory application and branch website",
+    "sourceUrl": "https://www.speedpro.com/chicago-loop/"
+  }
+}
