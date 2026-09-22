@@ -27,11 +27,19 @@ export function locationRedirect(
   if (!location) return null;
   const query = new URLSearchParams(search);
   const pages = query.getAll("page");
+  let pageChanged = false;
   if (pages.length) {
     const page = /^[1-9]\d{0,4}$/.test(pages[0]) ? Number(pages[0]) : 1;
-    query.delete("page");
-    if (page > 1) query.set("page", String(page));
+    if (page === 1 || pages.length > 1) {
+      query.delete("page");
+      if (page > 1) query.set("page", String(page));
+      pageChanged = true;
+    }
   }
-  const next = `/installers/${location}${match[2] || ""}${query.size ? "?" + query.toString() : ""}`;
-  return next === pathname + search ? null : next;
+  const nextPath = `/installers/${location}${match[2] || ""}`;
+  // Query order/encoding is not a canonicalization reason: Vercel may reorder it
+  // while forwarding a redirect, causing a loop if we compare serialized strings.
+  if (nextPath === pathname && !pageChanged) return null;
+  const nextSearch = pageChanged ? (query.size ? "?" + query.toString() : "") : search;
+  return nextPath + nextSearch;
 }

@@ -8,6 +8,12 @@ const { STATE_NAMES, toStateSlug } = load("lib/locations.ts");
 const { profileIndexing, reviewedProfile } = load("lib/profile-indexing.ts");
 const reviews = require("../src/lib/profile-reviews.json");
 const legacy = require("../src/lib/legacy-indexable.json");
+test("valid tracking/pagination order and encoding never cause canonical self-redirects", () => {
+  for (const query of ["?page=2&utm_source=qa", "?utm_source=qa&page=2", "?utm_source=a%20b&page=2", "?utm_source=a+b&page=2"]) {
+    assert.equal(locationRedirect("/installers/california/vinyl-wrap", query), null);
+    assert.equal(locationRedirect("/installers/ca/vinyl-wrap", query), "/installers/california/vinyl-wrap" + query);
+  }
+});
 const fixture = (slug) => {
   const r = reviews[slug];
   return {
