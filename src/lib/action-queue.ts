@@ -261,6 +261,10 @@ export function decorateActions(
         workflow: a?.workflow || "open",
         note: a?.note || "",
         version: a?.version || 0,
+        automation_owner: a?.actor === "Vicrez Installer Agent (AI)" && !a?.assigned_to && !a?.automation_paused ? a?.automation_owner || null : null,
+        escalation_owner: a?.escalation_owner || null,
+        automation_state: a?.automation_state || null,
+        support_ticket_id: a?.zendesk_ticket_id || null,
         overdue: !!due && new Date(due).getTime() < now,
       };
     })
@@ -302,10 +306,10 @@ export async function loadActionQueue(pool: Pool) {
       "SELECT id,kind,reference,state,last_error,created_at FROM directory_notifications WHERE state IN ('failed','not_delivered','uncertain','held') ORDER BY created_at LIMIT 1001",
     ),
     pool.query(
-      "SELECT name,checked_at,ok FROM directory_operation_runs WHERE name IN ('backup','notifications','notification-delivery','operations-client')",
+      "SELECT name,checked_at,ok FROM directory_operation_runs WHERE name IN ('backup','notifications','notification-delivery','operations-client','installer-agent')",
     ),
     pool.query(
-      "SELECT a.*,s.display_name,s.active AS assignee_active FROM directory_action_assignments a LEFT JOIN directory_staff_users s ON s.id=a.assigned_to",
+      "SELECT a.*,s.display_name,s.active AS assignee_active,c.owner_name AS automation_owner,c.escalation_owner,c.state AS automation_state,c.paused AS automation_paused,c.zendesk_ticket_id FROM directory_action_assignments a LEFT JOIN directory_staff_users s ON s.id=a.assigned_to LEFT JOIN directory_automation_cases c ON c.task_key=a.task_key",
     ),
     pool.query(
       "SELECT id,username,display_name FROM directory_staff_users WHERE active ORDER BY display_name",

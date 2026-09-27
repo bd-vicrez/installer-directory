@@ -10,7 +10,8 @@ export async function operationHealth(db: Pool) {
  (SELECT COUNT(*)::int FROM directory_inquiry_followup WHERE next_followup_at<NOW() AND state NOT IN ('booked','declined')) AS followups_due,
  (SELECT checked_at FROM directory_operation_runs WHERE name='backup' AND ok=true) AS last_backup,
  (SELECT checked_at FROM directory_operation_runs WHERE name='notifications' AND ok=true) AS last_notification_worker,
- (SELECT checked_at FROM directory_operation_runs WHERE name='notification-delivery' AND ok=true) AS last_delivery_worker`)
+ (SELECT checked_at FROM directory_operation_runs WHERE name='notification-delivery' AND ok=true) AS last_delivery_worker,
+ (SELECT checked_at FROM directory_operation_runs WHERE name='installer-agent' AND ok=true) AS last_installer_agent`)
   ).rows[0];
   let inquiry: any = { available: false };
   try {
@@ -33,6 +34,8 @@ export async function operationHealth(db: Pool) {
     /* Report unavailable. */
   }
   const issues: string[] = [];
+  if (!counts.last_installer_agent || Date.now() - new Date(counts.last_installer_agent).getTime() > 25 * 60000)
+    issues.push("Installer application and inquiry agent check-in is missing or older than 25 minutes");
   for (const [key, label] of [
     ["applications_overdue", "applications awaiting review over 24 hours"],
     [
@@ -87,7 +90,7 @@ export async function queueStaffDigest(db: Pool) {
   const queue = await loadActionQueue(db);
   const overdue = queue.items.filter((i) => i.overdue).length,
     unassigned = queue.items.filter(
-      (i) => !i.assigned_to || !i.assignee_active,
+      (i) => (!i.assigned_to && !i.automation_owner) || !i.assignee_active,
     ).length;
   if (overdue) health.issues.push(overdue + " overdue action-queue tasks");
   if (unassigned)

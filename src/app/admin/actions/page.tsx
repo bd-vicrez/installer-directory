@@ -77,7 +77,7 @@ export default function Actions() {
       (kind === "all" || r.kind === kind) &&
       (filter === "all" ||
         (filter === "overdue" && r.overdue) ||
-        (filter === "unassigned" && (!r.assigned_to || !r.assignee_active)) ||
+        (filter === "unassigned" && ((!r.assigned_to && !r.automation_owner) || !r.assignee_active)) ||
         (filter === "mine" && r.assigned_to === data.identity?.id)),
   );
   return (
@@ -124,7 +124,7 @@ export default function Actions() {
               [
                 "Unassigned / inactive assignee",
                 data.items.filter(
-                  (i: any) => !i.assigned_to || !i.assignee_active,
+                  (i: any) => (!i.assigned_to && !i.automation_owner) || !i.assignee_active,
                 ).length,
               ],
             ].map(([label, count]) => (
@@ -149,8 +149,8 @@ export default function Actions() {
               <a href="/admin/security" className="underline">
                 Staff sign-in security
               </a>{" "}
-              to enable assignments. Tasks can still be reviewed and given due
-              dates.
+              to enable staff sign-in assignments. Automated tasks show their
+              agent owner and named support escalation owner below.
             </p>
           )}
           <div className="flex flex-wrap gap-4">
@@ -220,6 +220,13 @@ export default function Actions() {
                   </span>
                 </div>
                 <p>{item.reason}</p>
+                {item.automation_owner && (
+                  <p className="text-sm bg-blue-50 text-blue-900 rounded p-2">
+                    Automated owner: {item.automation_owner}. Staff escalation: {item.escalation_owner}.
+                    {item.support_ticket_id && <> Support ticket: <a className="underline" href={`https://vicrezcom.zendesk.com/agent/tickets/${item.support_ticket_id}`} target="_blank" rel="noreferrer">#{item.support_ticket_id}</a>.</>}
+                    {" "}Saving a staff work note takes this task out of automatic handling.
+                  </p>
+                )}
                 <p className="text-sm">
                   {item.kind} · source status: {item.source_status} · due:{" "}
                   {item.due_at

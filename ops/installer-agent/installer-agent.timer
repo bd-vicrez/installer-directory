@@ -1,0 +1,11 @@
+[Unit]
+Description=Review new installer applications and follow up on inquiries every 10 minutes
+
+[Timer]
+OnCalendar=*:0/10
+RandomizedDelaySec=20
+Persistent=true
+Unit=installer-agent.service
+
+[Install]
+WantedBy=timers.target
