@@ -1,0 +1,23 @@
+[Unit]
+Description=Vicrez installer application review and inquiry follow-through
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/installer-operations/agent
+ExecStart=/usr/bin/python3 /root/installer-operations/agent/agent.py --live
+Environment=PYTHONUNBUFFERED=1
+UMask=0077
+TimeoutStartSec=540
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/root/installer-operations/agent/state
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=512M
+Nice=10
+StandardOutput=journal
+StandardError=journal
+
