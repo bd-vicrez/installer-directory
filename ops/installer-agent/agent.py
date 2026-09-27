@@ -188,7 +188,7 @@ class Agent:
     'Review the shop response and coordinate the next customer step; no appointment has been confirmed.' if responses else
     'Customer requested another shop. '+self.cfg['owner_name']+' must review the request and consent before any additional sharing.' if alternative else
     'Confirm the outcome directly with the customer; older shop notifications do not have response links.' if missing_links else
-    'Await shop response; the agent checks every 10 minutes and sends one eligible reminder after 48 hours.')
+    'Await shop response; the agent checks once daily and sends one eligible reminder after 48 hours.')
    if age>=72 and not human:step+=' Escalated to '+self.cfg['owner_name']+' because more than 72 hours have elapsed.'
    state='staff_attention' if human or responses or alternative or age>=72 else 'monitoring'
    stage='shop_response' if responses else 'alternative' if alternative else 'waiting_72h' if age>=72 else 'initial'
@@ -205,8 +205,8 @@ class Agent:
     with self.db:
      with self.db.cursor(cursor_factory=RealDictCursor) as q:
       for r in active:
-       i=r['submission_id'];due=now()+timedelta(hours=24) if state=='staff_attention' else max(now()+timedelta(minutes=10),utc(r['created_at'])+timedelta(hours=48))
-       self.save_case(q,'inquiry',i,state,step,now()+timedelta(minutes=10),ev={'group':ids,'worker_recent':worker_ok,'reminders_queued':reminders},ticket=ticket,paused=human)
+       i=r['submission_id'];due=now()+timedelta(hours=24) if state=='staff_attention' else max(now()+timedelta(hours=24),utc(r['created_at'])+timedelta(hours=48))
+       self.save_case(q,'inquiry',i,state,step,now()+timedelta(hours=24),ev={'group':ids,'worker_recent':worker_ok,'reminders_queued':reminders},ticket=ticket,paused=human)
        self.assign(q,'inquiry',i,step,due)
        q.execute('SELECT pg_advisory_xact_lock(19312,hashtext(%s))',(str(i),))
        q.execute('SELECT * FROM directory_inquiry_followup WHERE submission_id=%s FOR UPDATE',(i,));old=q.fetchone()

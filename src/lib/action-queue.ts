@@ -221,7 +221,9 @@ export function deriveActions(data: any, now = Date.now()): ActionItem[] {
     );
   for (const r of data.runs || []) {
     const age = now - new Date(r.checked_at).getTime();
-    if (r.ok && age < (r.name === "backup" ? 36 * 3600000 : 15 * 60000))
+    const maxAge = r.name === "backup" ? 36 * 3600000
+      : r.name === "installer-agent" ? 30 * 3600000 : 15 * 60000;
+    if (r.ok && age < maxAge)
       continue;
     add(
       "operation",

@@ -1,9 +1,9 @@
 [Unit]
-Description=Review new installer applications and follow up on inquiries every 10 minutes
+Description=Review new installer applications and follow up on inquiries daily at 9 AM Eastern
 
 [Timer]
-OnCalendar=*:0/10
-RandomizedDelaySec=20
+OnCalendar=*-*-* 09:00:00 America/New_York
+AccuracySec=1s
 Persistent=true
 Unit=installer-agent.service
 
