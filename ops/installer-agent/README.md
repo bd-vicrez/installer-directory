@@ -18,6 +18,8 @@ installer acquisition remain separate workflows.
 - Uses the existing `claude-haiku-4-5-20251001` model. Maximum 5 application
   attempts per run, 20 per UTC day, four public pages per application, and 6
   customer messages per run. Unchanged information requests are rechecked daily.
+- Invalid AI quotations get at most one retry, with the original evidence gates
+  unchanged. Thus 20 application attempts permit at most 40 AI calls per day.
 - No local PC or OpenClaw session is required for scheduled runs.
 - Admin visibility: `/admin/actions`, `/admin/applications`, `/admin/inquiries`,
   and `/admin/operations`. The worker records ownership, next steps, support
