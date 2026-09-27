@@ -60,7 +60,16 @@ def review_ai(app,ev,cfg,retry=False):
  if len(blocks)!=1:raise EvidenceUnavailable('ai_invalid_response')
  result=blocks[0]['input'];result['_model']=d.get('model');result['_usage']=d.get('usage')
  refs=result.get('evidence',[])
+ # A fully verified passage can be shortened mechanically. Never shorten an
+ # unverified quote to hide a fabricated suffix or combined passage.
+ shortened=0
+ if isinstance(refs,list):
+  for x in refs:
+   if isinstance(x,dict) and isinstance(x.get('quote'),str) and len(x['quote'])>240 and any(x.get('url')==p['url'] and norm(x['quote']) in norm(p['text']) for p in ev['pages']):
+    x['quote']=x['quote'][:240].rsplit(' ',1)[0];shortened+=1
+ if shortened:result['_verified_quotes_shortened']=shortened
  valid_quotes=isinstance(refs,list) and 2<=len(refs)<=3 and all(isinstance(x,dict) and isinstance(x.get('quote'),str) and 15<=len(x['quote'])<=240 and any(x.get('url')==p['url'] and norm(x['quote']) in norm(p['text']) for p in ev['pages']) for x in refs)
  if not valid_quotes and not retry:
   corrected=review_ai(app,ev,cfg,retry=True);corrected['_quotation_retry']=True;corrected['_first_attempt_usage']=d.get('usage');return corrected
+ if not valid_quotes:raise EvidenceUnavailable('ai_quote_validation_failed')
  return result

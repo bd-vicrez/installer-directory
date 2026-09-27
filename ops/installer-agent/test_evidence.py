@@ -1,7 +1,7 @@
 import copy,unittest
 from unittest.mock import patch
 from test_rules import fixture
-from evidence import review_ai
+from evidence import review_ai,EvidenceUnavailable
 from rules import ai_valid
 
 class Reply:
@@ -18,6 +18,17 @@ class EvidenceTest(unittest.TestCase):
  def test_retry_still_fails_closed(self):
   app,ev=fixture();bad=copy.deepcopy(ev['ai']);bad['evidence'][0]['quote']='A quotation that is not on the website.'
   with patch('evidence.requests.post',side_effect=[response(bad),response(bad)]) as post:
+   with self.assertRaises(EvidenceUnavailable):review_ai(app,ev,{'model':'qa-model','anthropic_key':'qa-only'})
+  self.assertEqual(post.call_count,2)
+ def test_long_verified_passage_is_safely_shortened(self):
+  app,ev=fixture();quote='Verified continuous passage about commercial vehicle wraps. '*7
+  ev['pages'][0]['text']+=' '+quote;ev['ai']['evidence'][0]['quote']=quote
+  with patch('evidence.requests.post',return_value=response(ev['ai'])) as post:
    result=review_ai(app,ev,{'model':'qa-model','anthropic_key':'qa-only'})
-  self.assertEqual(post.call_count,2);self.assertFalse(ai_valid(result,ev['pages'],app['install_capabilities']))
+  self.assertEqual(post.call_count,1);self.assertTrue(ai_valid(result,ev['pages'],app['install_capabilities']));self.assertLessEqual(len(result['evidence'][0]['quote']),240)
+ def test_unverified_suffix_is_not_hidden_by_shortening(self):
+  app,ev=fixture();quote='Verified continuous passage about commercial vehicle wraps. '*7
+  ev['pages'][0]['text']+=' '+quote;ev['ai']['evidence'][0]['quote']=quote+' Invented certification and invented address.'
+  with patch('evidence.requests.post',side_effect=[response(ev['ai']),response(ev['ai'])]):
+   with self.assertRaises(EvidenceUnavailable):review_ai(app,ev,{'model':'qa-model','anthropic_key':'qa-only'})
 if __name__=='__main__':unittest.main()
