@@ -34,8 +34,8 @@ export async function operationHealth(db: Pool) {
     /* Report unavailable. */
   }
   const issues: string[] = [];
-  if (!counts.last_installer_agent || Date.now() - new Date(counts.last_installer_agent).getTime() > 25 * 60000)
-    issues.push("Installer application and inquiry agent check-in is missing or older than 25 minutes");
+  if (!counts.last_installer_agent || Date.now() - new Date(counts.last_installer_agent).getTime() >= 30 * 3600000)
+    issues.push("Installer application and inquiry agent check-in is missing or older than 30 hours");
   for (const [key, label] of [
     ["applications_overdue", "applications awaiting review over 24 hours"],
     [

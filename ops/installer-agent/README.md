@@ -8,7 +8,9 @@ installer acquisition remain separate workflows.
 ## Production
 
 - Code: `/root/installer-operations/agent` on the Vicrez VPS.
-- Schedule: `installer-agent.timer`, every ten minutes with a small jitter.
+- Schedule: `installer-agent.timer`, once daily at 9:00 AM America/New_York
+  (Eastern time, including daylight saving changes). A missed run catches up
+  after VPS downtime. Health checks allow 30 hours between successful runs.
 - Reviewer: `Vicrez Installer Agent (AI)`; initial support escalation owner: the
   existing Zendesk account `Luis V.`. Change the owner fields in private config
   when responsibility is reassigned.
