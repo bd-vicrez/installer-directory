@@ -20,6 +20,9 @@ installer acquisition remain separate workflows.
   customer messages per run. Unchanged information requests are rechecked daily.
 - Invalid AI quotations get at most one retry, with the original evidence gates
   unchanged. Thus 20 application attempts permit at most 40 AI calls per day.
+  A verified long passage is shortened after full source matching. Persistent
+  quotation-validation errors schedule an internal retry rather than requesting
+  new business information from an applicant whose evidence was not evaluated.
 - No local PC or OpenClaw session is required for scheduled runs.
 - Admin visibility: `/admin/actions`, `/admin/applications`, `/admin/inquiries`,
   and `/admin/operations`. The worker records ownership, next steps, support
