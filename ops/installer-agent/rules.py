@@ -135,9 +135,9 @@ def ai_valid(result,pages,capabilities):
  if result.get('identity_supported') is not True or result.get('safe_public_address') is not True or result.get('contradictions')!=[]:return False
  if not isinstance(result.get('supported_services'),list) or not set(capabilities)<=set(result['supported_services']):return False
  refs=result.get('evidence')
- if not isinstance(refs,list) or len(refs)<2:return False
+ if not isinstance(refs,list) or not 2<=len(refs)<=3:return False
  for e in refs:
-  if not isinstance(e,dict) or len(str(e.get('quote',''))) < 15:return False
+  if not isinstance(e,dict) or not isinstance(e.get('quote'),str) or not 15<=len(e['quote'])<=240:return False
   if not any(e.get('url')==p['url'] and norm(e['quote']) in norm(p['text']) for p in pages):return False
  return True
 def decide(app,ev,duplicates):
