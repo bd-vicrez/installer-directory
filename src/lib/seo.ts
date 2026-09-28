@@ -1,3 +1,4 @@
+import { publicZip, usableShopLocation } from "./location-quality";
 import { Installer } from "./types";
 import { getTier, parseRating, parseCapabilities, formatPhone } from "./utils";
 import { getProfileDescription } from "./profile-content";
@@ -23,21 +24,20 @@ export function generateInstallerJsonLd(installer: Installer) {
       streetAddress: installer.street_address || undefined,
       addressLocality: installer.city,
       addressRegion: installer.state,
-      postalCode: installer.zip_code,
+      postalCode: publicZip(installer.zip_code) || undefined,
       addressCountry: "US",
     },
     ...(phone && { telephone: phone }),
     ...(website && {
       url: website.startsWith("http") ? website : `https://${website}`,
     }),
-    ...(installer.lat &&
-      installer.lng && {
-        geo: {
-          "@type": "GeoCoordinates",
-          latitude: installer.lat,
-          longitude: installer.lng,
-        },
-      }),
+    ...(usableShopLocation(installer) && {
+      geo: {
+        "@type": "GeoCoordinates",
+        latitude: installer.lat,
+        longitude: installer.lng,
+      },
+    }),
     // Google-sourced ratings remain visible but are not our own collected reviews.
     // Do not republish them as review rich-result markup.
     description: getProfileDescription(installer),

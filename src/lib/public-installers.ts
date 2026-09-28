@@ -6,6 +6,11 @@ import {
 import type { Installer } from "./types";
 import { getTier, parseCapabilities } from "./utils";
 import { canReceiveQuote } from "./installer-contact";
+import {
+  publicZip,
+  usableShopLocation,
+  PARTS_POLICY_LABELS,
+} from "./location-quality";
 
 export const PUBLIC_INSTALLER_FIELDS = [
   "id",
@@ -39,6 +44,9 @@ export type PublicInstaller = Pick<
   rating: number | null;
   capabilities: string[];
   quote_available: boolean;
+  location_note: string;
+  parts_policy: string;
+  owner_confirmed_at: string | null;
 };
 // Never spread a database row into a response or client-component prop.
 export function toPublicInstaller(row: Record<string, any>): PublicInstaller {
@@ -52,8 +60,24 @@ export function toPublicInstaller(row: Record<string, any>): PublicInstaller {
         : row.tier === "listed"
           ? "listed"
           : getTier(row.source || ""),
+    zip_code: publicZip(row.zip_code),
+    lat: usableShopLocation(row) ? row.lat : null,
+    lng: usableShopLocation(row) ? row.lng : null,
     distance:
-      row.distance == null ? null : Math.round(Number(row.distance) * 10) / 10,
+      row.distance == null || !usableShopLocation(row)
+        ? null
+        : Math.round(Number(row.distance) * 10) / 10,
+    location_note: usableShopLocation(row)
+      ? ""
+      : "City listing · exact location needs confirmation",
+    parts_policy:
+      row.owner_details_confirmed_at &&
+      PARTS_POLICY_LABELS[row.owner_details?.parts_policy]
+        ? PARTS_POLICY_LABELS[row.owner_details.parts_policy]
+        : "Parts policy not confirmed",
+    owner_confirmed_at: row.owner_reconfirmed_at
+      ? new Date(row.owner_reconfirmed_at).toISOString()
+      : null,
     rating: row.google_rating == null ? null : Number(row.google_rating),
     capabilities: serviceLabels(row.install_capabilities || ""),
     quote_available:

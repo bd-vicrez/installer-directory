@@ -268,6 +268,35 @@ export default function ReviewQueue({
               </p>
             </div>
             {kind === "applications" && (
+              <>
+                {row.details?.applicant_update && (
+                  <section
+                    className="border border-blue-200 bg-blue-50 rounded p-3"
+                    aria-label="Applicant update"
+                  >
+                    <h3 className="font-semibold">
+                      New information from applicant
+                    </h3>
+                    <p className="whitespace-pre-wrap">
+                      {row.details.applicant_update.note}
+                    </p>
+                    <p className="text-sm break-all">
+                      Supporting page:{" "}
+                      {row.details.applicant_update.evidence_url ||
+                        "None supplied"}
+                    </p>
+                    <p className="text-sm">
+                      Received{" "}
+                      {new Date(
+                        row.details.applicant_update.submitted_at,
+                      ).toLocaleString()}
+                      . Verify these submitted details before deciding.
+                    </p>
+                  </section>
+                )}
+              </>
+            )}
+            {kind === "applications" && (
               <section
                 className="rounded-lg border bg-slate-50 p-4 space-y-2"
                 aria-label="Application summary"

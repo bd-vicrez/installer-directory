@@ -3,6 +3,7 @@ import { sessionAcquisition } from "@/lib/acquisition-client";
 import { useEffect, useRef, useState } from "react";
 import ProjectBriefFields from "./ProjectBriefFields";
 import AccessibleDialog from "./AccessibleDialog";
+import { quoteStepError } from "@/lib/quote-steps";
 import { QUOTE_SERVICES } from "@/lib/quote-services";
 import { quoteEvent, quoteSession } from "@/lib/quote-telemetry";
 
@@ -59,13 +60,26 @@ export default function QuoteRequestDialog({
   onClose,
   installer,
   locationLabel,
+  initialService = "",
 }: {
   isOpen: boolean;
   onClose: () => void;
   installer?: QuoteShop;
   locationLabel?: string;
+  initialService?: string;
 }) {
   const flow = installer ? "selected" : "network";
+  const [step, setStep] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
+  const stepHeading = useRef<HTMLHeadingElement>(null);
+  const goStep = (next: number) => {
+    setStep(next);
+    setError("");
+    requestAnimationFrame(() => {
+      stepHeading.current?.focus();
+      stepHeading.current?.scrollIntoView({ block: "nearest" });
+    });
+  };
   const [fields, setFields] = useState<Fields>(emptyFields);
   const [brief, setBrief] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -80,11 +94,15 @@ export default function QuoteRequestDialog({
     setFields((current) => ({ ...current, [key]: value }));
   useEffect(() => {
     if (isOpen && !wasOpen.current) {
-      if (!requestId.current) requestId.current = crypto.randomUUID();
+      if (!requestId.current) {
+        requestId.current = crypto.randomUUID();
+        if (initialService)
+          setFields((current) => ({ ...current, service: initialService }));
+      }
       quoteEvent("quote_open", flow);
     }
     wasOpen.current = isOpen;
-  }, [isOpen, flow]);
+  }, [isOpen, flow, initialService]);
   useEffect(() => {
     if (receipt || error) notice.current?.focus();
   }, [!!receipt, error]);
@@ -92,14 +110,18 @@ export default function QuoteRequestDialog({
     if (
       changed &&
       attempted.current ===
-        JSON.stringify({ ...fields, installer_id: installer?.id })
+        JSON.stringify({
+          ...fields,
+          project_brief: brief,
+          installer_id: installer?.id,
+        })
     ) {
       setChanged(false);
       setError(
         "The original details are restored. You can retry this request without creating another one.",
       );
     }
-  }, [fields, installer?.id, changed]);
+  }, [fields, brief, installer?.id, changed]);
   useEffect(() => {
     if (!isOpen || !receipt?.token) return;
     let cancelled = false,
@@ -141,6 +163,7 @@ export default function QuoteRequestDialog({
     requestId.current = crypto.randomUUID();
     attempted.current = "";
     setReceipt(null);
+    setStep(0);
     setError("");
     setChanged(false);
     if (!keepDetails) {
@@ -150,7 +173,7 @@ export default function QuoteRequestDialog({
     requestAnimationFrame(() =>
       document
         .getElementById(
-          (installer ? "shop-quote" : "network-quote") + "-customer_name",
+          (installer ? "shop-quote" : "network-quote") + "-vehicle_year",
         )
         ?.focus(),
     );
@@ -158,6 +181,24 @@ export default function QuoteRequestDialog({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (submitting) return;
+    const stepError = quoteStepError(fields, step, !!installer);
+    if (stepError) {
+      setError(stepError);
+      return;
+    }
+    if (step < 2) {
+      goStep(step + 1);
+      return;
+    }
+    for (const previous of [0, 1]) {
+      const issue = quoteStepError(fields, previous, !!installer);
+      if (issue) {
+        setStep(previous);
+        setError(issue);
+        return;
+      }
+    }
+
     const content = {
       ...fields,
       project_brief: brief,
@@ -322,7 +363,23 @@ export default function QuoteRequestDialog({
               </>
             )}
           </p>
-          <form onSubmit={submit} className="space-y-4">
+          <form ref={formRef} onSubmit={submit} className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Step {step + 1} of 3 · Project → Contact → Review
+            </p>
+            <h3
+              ref={stepHeading}
+              tabIndex={-1}
+              className="text-lg font-semibold outline-none"
+            >
+              {
+                [
+                  "Your installation project",
+                  "Your contact details",
+                  "Review and send",
+                ][step]
+              }
+            </h3>
             <fieldset disabled={submitting} className="space-y-4">
               <legend className="sr-only">
                 Your contact and installation details. Fields marked with an
@@ -340,227 +397,309 @@ export default function QuoteRequestDialog({
                   />
                 </label>
               </div>
-              {input("customer_name", "Your name", {
-                minLength: 2,
-                maxLength: 80,
-                autoComplete: "name",
-              })}
-              {input("customer_email", "Email", {
-                type: "email",
-                minLength: 5,
-                maxLength: 255,
-                autoComplete: "email",
-              })}
-              {input("customer_phone", "Phone", {
-                type: "tel",
-                minLength: 10,
-                maxLength: 30,
-                autoComplete: "tel",
-              })}
-              {!installer && (
+              <fieldset
+                data-step="0"
+                hidden={step !== 0}
+                disabled={submitting || step !== 0}
+                className="space-y-4"
+              >
+                <legend className="sr-only">Project details</legend>
+                {!installer && (
+                  <div>
+                    <label
+                      htmlFor={prefix + "-zip"}
+                      className="block text-sm font-medium text-gray-800 mb-1"
+                    >
+                      Your ZIP code *
+                    </label>
+                    <input
+                      id={prefix + "-zip"}
+                      name="zip_code"
+                      className="input-field w-full"
+                      inputMode="numeric"
+                      autoComplete="postal-code"
+                      pattern="[0-9]{5}"
+                      maxLength={5}
+                      required
+                      value={fields.zip_code}
+                      onChange={(e) => field("zip_code", e.target.value)}
+                    />
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {input(
+                    "vehicle_year",
+                    "Vehicle year (1990–" +
+                      (new Date().getFullYear() + 1) +
+                      ")",
+                    { minLength: 4, maxLength: 4, placeholder: "2024" },
+                  )}
+                  {input("vehicle_make", "Make", {
+                    minLength: 2,
+                    maxLength: 40,
+                    placeholder: "Dodge",
+                  })}
+                  {input("vehicle_model", "Model", {
+                    minLength: 1,
+                    maxLength: 60,
+                    placeholder: "Charger",
+                  })}
+                </div>
                 <div>
                   <label
-                    htmlFor={prefix + "-zip"}
+                    htmlFor={prefix + "-service"}
                     className="block text-sm font-medium text-gray-800 mb-1"
                   >
-                    Your ZIP code *
+                    Installation service *
                   </label>
-                  <input
-                    id={prefix + "-zip"}
-                    name="zip_code"
-                    className="input-field w-full"
-                    inputMode="numeric"
-                    autoComplete="postal-code"
-                    pattern="[0-9]{5}"
-                    maxLength={5}
+                  <select
+                    id={prefix + "-service"}
+                    name="service"
                     required
-                    value={fields.zip_code}
-                    onChange={(e) => field("zip_code", e.target.value)}
+                    className="input-field w-full"
+                    value={fields.service}
+                    onChange={(e) => field("service", e.target.value)}
+                  >
+                    <option value="">Choose a service</option>
+                    {QUOTE_SERVICES.map((service) => (
+                      <option key={service.id} value={service.id}>
+                        {service.label}
+                      </option>
+                    ))}
+                  </select>
+                  {!installer && fields.service === "other" && (
+                    <p className="text-sm text-gray-600 mt-2">
+                      This request will need review; we will not automatically
+                      send it to shops with unrelated services.
+                    </p>
+                  )}
+                </div>
+                {input("what_needed", "Parts or work needed", {
+                  minLength: 1,
+                  maxLength: 80,
+                  placeholder: "For example: install a rear diffuser",
+                })}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      htmlFor={prefix + "-timeline"}
+                      className="block text-sm font-medium text-gray-800 mb-1"
+                    >
+                      Timeline (optional)
+                    </label>
+                    <select
+                      id={prefix + "-timeline"}
+                      className="input-field w-full"
+                      value={fields.install_timeline}
+                      onChange={(e) =>
+                        field("install_timeline", e.target.value)
+                      }
+                    >
+                      <option value="">Choose a timeline</option>
+                      {[
+                        "As soon as available",
+                        "2–4 weeks",
+                        "1–3 months",
+                        "Researching options",
+                      ].map((value) => (
+                        <option key={value}>{value}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor={prefix + "-budget"}
+                      className="block text-sm font-medium text-gray-800 mb-1"
+                    >
+                      Budget (optional)
+                    </label>
+                    <select
+                      id={prefix + "-budget"}
+                      className="input-field w-full"
+                      value={fields.budget_range}
+                      onChange={(e) => field("budget_range", e.target.value)}
+                    >
+                      <option value="">Choose a range</option>
+                      {[
+                        "Under $1,000",
+                        "$1,000–$2,500",
+                        "$2,500–$5,000",
+                        "$5,000+",
+                        "Not sure",
+                      ].map((value) => (
+                        <option key={value}>{value}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label
+                    htmlFor={prefix + "-project-detail"}
+                    className="block text-sm font-medium text-gray-800 mb-1"
+                  >
+                    {fields.service === "wheels-tires"
+                      ? "Tire/wheel size and parts already owned (optional)"
+                      : fields.service === "body-kits" ||
+                          fields.service === "paint-bodywork"
+                        ? "Part or product link, test fitting and paint needs (optional)"
+                        : fields.service === "ppf" ||
+                            fields.service === "vinyl-wrap"
+                          ? "Desired coverage, finish and existing film (optional)"
+                          : "Project requirements (optional)"}
+                  </label>
+                  <textarea
+                    id={prefix + "-project-detail"}
+                    maxLength={250}
+                    className="input-field w-full"
+                    value={fields.project_detail}
+                    onChange={(e) => field("project_detail", e.target.value)}
                   />
                 </div>
-              )}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {input(
-                  "vehicle_year",
-                  "Vehicle year (1990–" + (new Date().getFullYear() + 1) + ")",
-                  { minLength: 4, maxLength: 4, placeholder: "2024" },
-                )}
-                {input("vehicle_make", "Make", {
-                  minLength: 2,
-                  maxLength: 40,
-                  placeholder: "Dodge",
-                })}
-                {input("vehicle_model", "Model", {
-                  minLength: 1,
-                  maxLength: 60,
-                  placeholder: "Charger",
-                })}
-              </div>
-              <div>
-                <label
-                  htmlFor={prefix + "-service"}
-                  className="block text-sm font-medium text-gray-800 mb-1"
-                >
-                  Installation service *
-                </label>
-                <select
-                  id={prefix + "-service"}
-                  name="service"
-                  required
-                  className="input-field w-full"
-                  value={fields.service}
-                  onChange={(e) => field("service", e.target.value)}
-                >
-                  <option value="">Choose a service</option>
-                  {QUOTE_SERVICES.map((service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.label}
-                    </option>
-                  ))}
-                </select>
-                {!installer && fields.service === "other" && (
-                  <p className="text-sm text-gray-600 mt-2">
-                    This request will need review; we will not automatically
-                    send it to shops with unrelated services.
-                  </p>
-                )}
-              </div>
-              {input("what_needed", "Parts or work needed", {
-                minLength: 1,
-                maxLength: 80,
-                placeholder: "For example: install a rear diffuser",
-              })}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <details className="my-4">
+                  <summary className="font-semibold cursor-pointer">
+                    Add product and installation details
+                  </summary>
+                  <ProjectBriefFields
+                    value={brief}
+                    onChange={setBrief}
+                    service={fields.service}
+                  />
+                </details>
                 <div>
                   <label
-                    htmlFor={prefix + "-timeline"}
+                    htmlFor={prefix + "-notes"}
                     className="block text-sm font-medium text-gray-800 mb-1"
                   >
-                    Timeline (optional)
+                    Additional details (optional)
                   </label>
-                  <select
-                    id={prefix + "-timeline"}
-                    className="input-field w-full"
-                    value={fields.install_timeline}
-                    onChange={(e) => field("install_timeline", e.target.value)}
-                  >
-                    <option value="">Choose a timeline</option>
-                    {[
-                      "As soon as available",
-                      "2–4 weeks",
-                      "1–3 months",
-                      "Researching options",
-                    ].map((value) => (
-                      <option key={value}>{value}</option>
-                    ))}
-                  </select>
+                  <textarea
+                    id={prefix + "-notes"}
+                    className="input-field w-full min-h-24"
+                    maxLength={
+                      fields.project_detail
+                        ? Math.max(0, 480 - fields.project_detail.length)
+                        : 500
+                    }
+                    value={fields.additional_notes}
+                    onChange={(e) => field("additional_notes", e.target.value)}
+                  />
                 </div>
-                <div>
-                  <label
-                    htmlFor={prefix + "-budget"}
-                    className="block text-sm font-medium text-gray-800 mb-1"
-                  >
-                    Budget (optional)
-                  </label>
-                  <select
-                    id={prefix + "-budget"}
-                    className="input-field w-full"
-                    value={fields.budget_range}
-                    onChange={(e) => field("budget_range", e.target.value)}
-                  >
-                    <option value="">Choose a range</option>
-                    {[
-                      "Under $1,000",
-                      "$1,000–$2,500",
-                      "$2,500–$5,000",
-                      "$5,000+",
-                      "Not sure",
-                    ].map((value) => (
-                      <option key={value}>{value}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label
-                  htmlFor={prefix + "-project-detail"}
-                  className="block text-sm font-medium text-gray-800 mb-1"
-                >
-                  {fields.service === "wheels-tires"
-                    ? "Tire/wheel size and parts already owned (optional)"
-                    : fields.service === "body-kits" ||
-                        fields.service === "paint-bodywork"
-                      ? "Part or product link, test fitting and paint needs (optional)"
-                      : fields.service === "ppf" ||
-                          fields.service === "vinyl-wrap"
-                        ? "Desired coverage, finish and existing film (optional)"
-                        : "Project requirements (optional)"}
-                </label>
-                <textarea
-                  id={prefix + "-project-detail"}
-                  maxLength={250}
-                  className="input-field w-full"
-                  value={fields.project_detail}
-                  onChange={(e) => field("project_detail", e.target.value)}
-                />
-              </div>
-              <details className="my-4">
-                <summary className="font-semibold cursor-pointer">
-                  Add product and installation details
-                </summary>
-                <ProjectBriefFields
-                  value={brief}
-                  onChange={setBrief}
-                  service={fields.service}
-                />
-              </details>
-              <div>
-                <label
-                  htmlFor={prefix + "-notes"}
-                  className="block text-sm font-medium text-gray-800 mb-1"
-                >
-                  Additional details (optional)
-                </label>
-                <textarea
-                  id={prefix + "-notes"}
-                  className="input-field w-full min-h-24"
-                  maxLength={
-                    fields.project_detail
-                      ? Math.max(0, 480 - fields.project_detail.length)
-                      : 500
-                  }
-                  value={fields.additional_notes}
-                  onChange={(e) => field("additional_notes", e.target.value)}
-                />
-              </div>
-              <label
-                htmlFor={prefix + "-consent"}
-                className="flex gap-3 items-start text-sm text-gray-800 rounded-xl border border-gray-200 p-3"
+              </fieldset>
+              <fieldset
+                data-step="1"
+                hidden={step !== 1}
+                disabled={submitting || step !== 1}
+                className="space-y-4"
               >
-                <input
-                  id={prefix + "-consent"}
-                  type="checkbox"
-                  required
-                  className="mt-1 w-5 h-5 shrink-0 accent-red-700"
-                  checked={fields.sharing_consent}
-                  onChange={(e) => field("sharing_consent", e.target.checked)}
-                />
-                <span>
-                  {installer ? (
-                    <>
-                      I want Vicrez to share these details with{" "}
-                      {installer.business_name} so the shop can contact me about
-                      this installation.
-                    </>
-                  ) : (
-                    <>
-                      I want Vicrez to share these details with up to three
-                      eligible nearby shops matching my selected service, so
-                      they can contact me about this installation.
-                    </>
+                <legend className="sr-only">Contact details</legend>
+                {input("customer_name", "Your name", {
+                  minLength: 2,
+                  maxLength: 80,
+                  autoComplete: "name",
+                })}
+                {input("customer_email", "Email", {
+                  type: "email",
+                  minLength: 5,
+                  maxLength: 255,
+                  autoComplete: "email",
+                })}
+                {input("customer_phone", "Phone", {
+                  type: "tel",
+                  minLength: 10,
+                  maxLength: 30,
+                  autoComplete: "tel",
+                })}
+                <p className="text-sm text-gray-600">
+                  Your contact details are used to handle this installation
+                  request.
+                </p>
+              </fieldset>
+              <fieldset
+                data-step="2"
+                hidden={step !== 2}
+                disabled={submitting || step !== 2}
+                className="space-y-4"
+              >
+                <legend className="sr-only">Review and permission</legend>
+                <div className="rounded-lg bg-gray-50 border p-4 space-y-2 text-sm break-words">
+                  <p>
+                    <strong>Vehicle:</strong> {fields.vehicle_year}{" "}
+                    {fields.vehicle_make} {fields.vehicle_model}
+                  </p>
+                  <p>
+                    <strong>Service:</strong>{" "}
+                    {QUOTE_SERVICES.find((s) => s.id === fields.service)?.label}
+                  </p>
+                  <p>
+                    <strong>Work requested:</strong> {fields.what_needed}
+                  </p>
+                  {!installer && (
+                    <p>
+                      <strong>ZIP:</strong> {fields.zip_code}
+                    </p>
                   )}
-                </span>
-              </label>
+                  <p>
+                    <strong>Contact:</strong> {fields.customer_name} ·{" "}
+                    {fields.customer_email} · {fields.customer_phone}
+                  </p>
+                  {fields.install_timeline && (
+                    <p>
+                      <strong>Timeline:</strong> {fields.install_timeline}
+                    </p>
+                  )}
+                  {fields.budget_range && (
+                    <p>
+                      <strong>Budget:</strong> {fields.budget_range}
+                    </p>
+                  )}
+                  {fields.project_detail && (
+                    <p>
+                      <strong>Project details:</strong> {fields.project_detail}
+                    </p>
+                  )}
+                  {fields.additional_notes && (
+                    <p>
+                      <strong>Additional details:</strong>{" "}
+                      {fields.additional_notes}
+                    </p>
+                  )}
+                  {Object.entries(brief)
+                    .filter(([, v]) => v)
+                    .map(([k, v]) => (
+                      <p key={k}>
+                        <strong>{k.replaceAll("_", " ")}:</strong> {v}
+                      </p>
+                    ))}
+                </div>
+                <label
+                  htmlFor={prefix + "-consent"}
+                  className="flex gap-3 items-start text-sm text-gray-800 rounded-xl border border-gray-200 p-3"
+                >
+                  <input
+                    id={prefix + "-consent"}
+                    type="checkbox"
+                    required
+                    className="mt-1 w-5 h-5 shrink-0 accent-red-700"
+                    checked={fields.sharing_consent}
+                    onChange={(e) => field("sharing_consent", e.target.checked)}
+                  />
+                  <span>
+                    {installer ? (
+                      <>
+                        I want Vicrez to share these details with{" "}
+                        {installer.business_name} so the shop can contact me
+                        about this installation.
+                      </>
+                    ) : (
+                      <>
+                        I want Vicrez to share these details with up to three
+                        eligible nearby shops matching my selected service, so
+                        they can contact me about this installation.
+                      </>
+                    )}
+                  </span>
+                </label>
+              </fieldset>
             </fieldset>
             {error && (
               <div
@@ -581,6 +720,16 @@ export default function QuoteRequestDialog({
                 Start a separate request with these details
               </button>
             )}
+            {step > 0 && (
+              <button
+                type="button"
+                disabled={submitting}
+                className="btn-secondary w-full"
+                onClick={() => goStep(step - 1)}
+              >
+                Back
+              </button>
+            )}
             <button
               type="submit"
               disabled={submitting || changed}
@@ -588,7 +737,11 @@ export default function QuoteRequestDialog({
             >
               {submitting
                 ? "Saving your request…"
-                : "Send installation request"}
+                : step === 0
+                  ? "Continue to contact details"
+                  : step === 1
+                    ? "Review request"
+                    : "Send installation request"}
             </button>
             <p className="text-xs text-gray-600">
               For vehicles outside the supported year range, contact the shop

@@ -72,6 +72,8 @@ export default function ShopComparison({
                 "Services",
                 "Google rating",
                 "Online inquiry",
+                "Customer-supplied parts",
+                "Last owner confirmation",
               ].map((key) => (
                 <tr className="border-t" key={key}>
                   <th className="p-2 text-left" scope="row">
@@ -94,9 +96,17 @@ export default function ShopComparison({
                                   (s.google_review_count || 0) +
                                   " reviews"
                                 : "Not available"
-                              : s.quote_available
-                                ? "Available; response not guaranteed"
-                                : "Use the shop’s public contact options"}
+                              : key === "Customer-supplied parts"
+                                ? s.parts_policy
+                                : key === "Last owner confirmation"
+                                  ? s.owner_confirmed_at
+                                    ? new Date(
+                                        s.owner_confirmed_at,
+                                      ).toLocaleDateString()
+                                    : "Not recorded"
+                                  : s.quote_available
+                                    ? "Available; response not guaranteed"
+                                    : "Use the shop’s public contact options"}
                     </td>
                   ))}
                 </tr>
