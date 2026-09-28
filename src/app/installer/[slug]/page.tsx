@@ -1,3 +1,4 @@
+import { publicZip, usableShopLocation } from "@/lib/location-quality";
 import ProfileBrief from "@/components/ProfileBrief";
 import { profileIndexing, reviewedProfile } from "@/lib/profile-indexing";
 import { listingFreshness } from "@/lib/listing-freshness";
@@ -222,9 +223,20 @@ export default async function InstallerPage({
                 )}
               </div>
 
+              <QuoteButton
+                available={canReceiveQuote(installer)}
+                installer={{
+                  id: installer.id.toString(),
+                  business_name: installer.business_name,
+                  city: installer.city,
+                  state: installer.state,
+
+                  phone: phone || installer.phone || "",
+                }}
+              />
               {/* CTAs */}
               <div className="flex flex-wrap gap-3">
-                {installer.lat && installer.lng && (
+                {usableShopLocation(installer) && (
                   <a
                     href={`https://www.google.com/maps/dir/?api=1&destination=${installer.lat},${installer.lng}`}
                     target="_blank"
@@ -276,6 +288,12 @@ export default async function InstallerPage({
                 )}
               </div>
 
+              {!usableShopLocation(installer) && (
+                <p className="text-sm text-amber-800">
+                  Exact shop location needs confirmation. Contact the business
+                  before traveling or shipping parts.
+                </p>
+              )}
               {/* Details */}
               <div className="card p-6 space-y-4">
                 <h2 className="text-lg font-semibold text-white">
@@ -308,7 +326,8 @@ export default async function InstallerPage({
                       <div>{installer.street_address}</div>
                     )}
                     <div>
-                      {installer.city}, {installer.state} {installer.zip_code}
+                      {installer.city}, {installer.state}{" "}
+                      {publicZip(installer.zip_code)}
                     </div>
                   </div>
                 </div>
@@ -363,19 +382,6 @@ export default async function InstallerPage({
                   </div>
                 )}
               </div>
-
-              {/* Quote Request */}
-              <QuoteButton
-                available={canReceiveQuote(installer)}
-                installer={{
-                  id: installer.id.toString(),
-                  business_name: installer.business_name,
-                  city: installer.city,
-                  state: installer.state,
-
-                  phone: phone || installer.phone || "",
-                }}
-              />
 
               {/* Capabilities */}
               {capabilities.length > 0 && (
@@ -470,7 +476,7 @@ export default async function InstallerPage({
               </section>
 
               {/* Google Map */}
-              {installer.lat && installer.lng && (
+              {usableShopLocation(installer) && (
                 <div className="card overflow-hidden">
                   <iframe
                     title={`Map of ${installer.business_name}`}

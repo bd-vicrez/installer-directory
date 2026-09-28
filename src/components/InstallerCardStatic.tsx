@@ -1,3 +1,4 @@
+import { publicZip, usableShopLocation } from "@/lib/location-quality";
 import { Installer } from "@/lib/types";
 import {
   getTier,
@@ -162,7 +163,7 @@ export default function InstallerCardStatic({
           </svg>
           <span>
             {installer.street_address && `${installer.street_address}, `}
-            {installer.city}, {installer.state} {installer.zip_code}
+            {installer.city}, {installer.state} {publicZip(installer.zip_code)}
           </span>
         </div>
 
@@ -222,7 +223,7 @@ export default function InstallerCardStatic({
               View Profile
             </a>
           )}
-          {installer.lat && installer.lng && (
+          {usableShopLocation(installer) && (
             <a
               href={`https://www.google.com/maps/dir/?api=1&destination=${installer.lat},${installer.lng}`}
               target="_blank"

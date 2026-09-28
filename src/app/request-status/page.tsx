@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import OnboardingUpdateForm from "@/components/OnboardingUpdateForm";
 export default function StatusPage() {
   const [result, setResult] = useState<any>(null),
     [error, setError] = useState("");
@@ -49,11 +50,25 @@ export default function StatusPage() {
         <button className="btn-secondary" onClick={refresh}>
           Refresh status
         </button>
+        {result?.last_update && (
+          <p className="text-sm">
+            Information last supplied{" "}
+            {new Date(result.last_update).toLocaleString()}.
+          </p>
+        )}
+        {result?.can_update && (
+          <OnboardingUpdateForm
+            key={result.revision}
+            request={result}
+            onSaved={refresh}
+          />
+        )}
         <p>
           <a className="underline" href="/contact">
             Contact Vicrez
           </a>{" "}
-          if you need to add information. Keep this status link private.
+          for help with identity changes or a completed request. Keep this
+          status link private.
         </p>
       </main>
       <Footer />

@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ClaimForm from "@/components/ClaimForm";
+import ShopLookup from "@/components/ShopLookup";
 import { getPool } from "@/lib/db";
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -28,26 +29,7 @@ export default async function ClaimPage({
       <Header />
       <main className="max-w-2xl mx-auto px-4 py-10 w-full">
         <h1 className="text-3xl font-bold mb-6">Claim or update a listing</h1>
-        {listing ? (
-          <ClaimForm shop={listing} />
-        ) : (
-          <div className="space-y-4">
-            <p>
-              Find your shop in the directory, then select “Claim or update this
-              listing” to attach your request to the correct business.
-            </p>
-            <a className="btn-primary inline-block" href="/">
-              Find your listing
-            </a>
-            <p>
-              Not listed yet?{" "}
-              <a className="underline" href="/apply">
-                List your shop
-              </a>
-              .
-            </p>
-          </div>
-        )}
+        {listing ? <ClaimForm shop={listing} /> : <ShopLookup />}
       </main>
       <Footer />
     </>

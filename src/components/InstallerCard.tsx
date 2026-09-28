@@ -3,17 +3,20 @@
 import type { PublicInstaller } from "@/lib/public-installers";
 import { formatPhone, formatDistance } from "@/lib/utils";
 import StarRating from "./StarRating";
+import QuoteButton from "./QuoteButton";
 
 interface InstallerCardProps {
   installer: PublicInstaller;
   onClaimClick: () => void;
   onRemovalClick: (installer: PublicInstaller) => void;
+  initialService?: string;
 }
 
 export default function InstallerCard({
   installer,
   onClaimClick,
   onRemovalClick,
+  initialService,
 }: InstallerCardProps) {
   const isVerified = installer.tier === "verified";
 
@@ -106,6 +109,16 @@ export default function InstallerCard({
         )}
 
         {/* Rating */}
+        <p
+          className={`text-xs font-medium ${installer.quote_available ? "text-green-800" : "text-gray-600"}`}
+        >
+          {installer.quote_available
+            ? "Online inquiry available"
+            : "Contact shop directly"}
+        </p>
+        {installer.location_note && (
+          <p className="text-xs text-amber-800">{installer.location_note}</p>
+        )}
         <StarRating
           rating={installer.google_rating ?? installer.rating}
           reviewCount={installer.google_review_count}
@@ -186,6 +199,19 @@ export default function InstallerCard({
 
       {/* Card footer */}
       <div className="px-4 pb-4 pt-2 border-t border-vicrez-border space-y-2">
+        {installer.quote_available && (
+          <QuoteButton
+            available
+            installer={{
+              id: String(installer.id),
+              business_name: installer.business_name,
+              city: installer.city,
+              state: installer.state,
+              phone: installer.phone,
+            }}
+            initialService={initialService}
+          />
+        )}
         {/* View Profile */}
         <a
           href={`/installer/${installer.slug || installer.id}`}

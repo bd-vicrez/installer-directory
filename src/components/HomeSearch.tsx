@@ -27,6 +27,7 @@ type Results = {
   verified: number;
   listed: number;
   location: { label: string } | null;
+  location_unconfirmed: number;
 };
 const initial: SearchState = {
   sort: "recommended",
@@ -174,9 +175,12 @@ export default function HomeSearch() {
         resultCount={results?.total ?? null}
         locationLabel={results?.location?.label ?? null}
         initialInput={search.q}
+        service={search.service}
+        onServiceChange={(service) => change({ service })}
       />
       <section
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+        id="results"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8"
         aria-label="Installer search results"
         aria-busy={loading || loadingMore}
       >
@@ -208,6 +212,13 @@ export default function HomeSearch() {
               {results.total} results · {results.verified} Vicrez records ·{" "}
               {results.listed} listed
             </p>
+            {!!results.location_unconfirmed && (
+              <p className="text-sm text-gray-600 mb-4">
+                Includes {results.location_unconfirmed} listings with an
+                unconfirmed exact location. Their distance and inclusion within
+                your radius cannot be confirmed.
+              </p>
+            )}
             {results.total === 0 ? (
               <div className="text-center py-12">
                 <h2 className="text-xl font-semibold mb-2">
@@ -233,6 +244,7 @@ export default function HomeSearch() {
                   <div key={installer.id}>
                     <InstallerCard
                       installer={installer}
+                      initialService={search.service}
                       onClaimClick={() => setClaim(installer)}
                       onRemovalClick={setRemoval}
                     />

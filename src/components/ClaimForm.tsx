@@ -102,31 +102,41 @@ export default function ClaimForm({
           onChange={(e) => change("correction", e.target.value)}
         />
       </label>
-      <fieldset>
-        <legend className="font-medium">
-          Services your shop offers (optional)
-        </legend>
-        <div className="flex flex-wrap gap-3 mt-2">
-          {QUOTE_SERVICES.filter((s) => s.id !== "other").map((s) => (
-            <label className="flex gap-2 items-center text-sm" key={s.id}>
-              <input
-                type="checkbox"
-                checked={values.services.includes(s.id)}
-                onChange={(e) =>
-                  change(
-                    "services",
-                    e.target.checked
-                      ? [...values.services, s.id]
-                      : values.services.filter((x: string) => x !== s.id),
-                  )
-                }
-              />
-              {s.label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <OwnerDetailsFields values={values} onChange={change} />
+      <details>
+        <summary className="font-medium cursor-pointer py-2">
+          Services and activation details (optional)
+        </summary>
+        <p className="text-sm text-gray-600 my-3">
+          To prepare your shop for inquiries, confirm services, supplied-parts
+          policy, hours and the best business contact. Staff will separately
+          verify authority, inquiry permission and owner access.
+        </p>
+        <fieldset>
+          <legend className="font-medium">
+            Services your shop offers (optional)
+          </legend>
+          <div className="flex flex-wrap gap-3 mt-2">
+            {QUOTE_SERVICES.filter((s) => s.id !== "other").map((s) => (
+              <label className="flex gap-2 items-center text-sm" key={s.id}>
+                <input
+                  type="checkbox"
+                  checked={values.services.includes(s.id)}
+                  onChange={(e) =>
+                    change(
+                      "services",
+                      e.target.checked
+                        ? [...values.services, s.id]
+                        : values.services.filter((x: string) => x !== s.id),
+                    )
+                  }
+                />
+                {s.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <OwnerDetailsFields values={values} onChange={change} />
+      </details>
       <input
         aria-hidden="true"
         tabIndex={-1}
