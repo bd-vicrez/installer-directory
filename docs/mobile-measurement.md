@@ -6,7 +6,7 @@ The staff report is at `/admin/performance`, under **Speed and journey measureme
 
 Apply `migrations/20260929_mobile_measurement.sql` before deploying this release. The additive migration retains historical rows with null device metadata; those rows are excluded from the new report. It is safe to rerun. Rolling code back does not require dropping columns or deleting collected data.
 
-The homepage streams its search shell before the public directory overview finishes. Overview queries cache for 300 seconds. Saved search URLs include fresh server-rendered results and hydrate without repeating the query; changes to search controls still use the public API. Search results, shop-contact eligibility and inquiry submission read current records. Search status space is reserved and quote code loads on demand, retaining a draft after closing.
+The homepage streams its search shell before the public directory overview finishes. Overview queries cache for 300 seconds. Saved search URLs include six fresh server-rendered results and hydrate without repeating the query; changes to search controls still use the public API. The existing Load More button retrieves another 24 shops without changing the total count, filters or ordering. Search results, shop-contact eligibility and inquiry submission read current records. Search status space is reserved and quote code loads on demand, retaining a draft after closing.
 
 ## What the report means
 

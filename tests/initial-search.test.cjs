@@ -61,6 +61,7 @@ test("saved search seeds validated public results and forwards only supported se
   assert.equal(seed.error, "");
   assert.equal(seed.state.inquiry, "1");
   assert.equal(requested.get("q"), "92101");
+  assert.equal(requested.get("limit"), "6");
   for (const key of ["utm_source", "offset", "lat", "lng"])
     assert.equal(requested.has(key), false);
 });

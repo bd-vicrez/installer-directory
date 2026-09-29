@@ -3,6 +3,7 @@ import { discoveryEvent } from "@/lib/discovery-client";
 import ShopComparison from "./ShopComparison";
 import { normalizeService } from "@/lib/service-taxonomy";
 import { resultBucket } from "@/lib/measurement-client";
+import { INITIAL_SEARCH_LIMIT } from "@/lib/search-limits";
 import dynamic from "next/dynamic";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -104,6 +105,7 @@ export default function HomeSearch({
       if (updateUrl && next.lat === undefined)
         window.history.pushState(null, "", "?" + params.toString());
       params.set("offset", String(offset));
+      params.set("limit", String(offset ? 24 : INITIAL_SEARCH_LIMIT));
       try {
         const response = await fetch("/api/installers?" + params, {
           signal: controller.signal,
