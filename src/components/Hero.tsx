@@ -108,12 +108,18 @@ export default function Hero({
             {error}
           </p>
         )}
-        {resultCount !== null && (
-          <p role="status" className="text-sm text-center mt-2">
-            {resultCount.toLocaleString()} matching listings
-            {locationLabel ? " near " + locationLabel : ""}
-          </p>
-        )}
+        <p role="status" className="text-sm text-center mt-2 min-h-10">
+          {resultCount !== null ? (
+            <>
+              {resultCount.toLocaleString()} matching listings
+              {locationLabel ? " near " + locationLabel : ""}
+            </>
+          ) : isLoading ? (
+            "Finding nearby installers…"
+          ) : (
+            "Search by location to compare nearby shops."
+          )}
+        </p>
       </div>
     </section>
   );

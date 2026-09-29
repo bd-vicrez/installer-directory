@@ -1,5 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
+import { discoveryEvent } from "@/lib/discovery-client";
+import { resultBucket } from "@/lib/measurement-client";
 export default function ShopLookup({
   onContinue,
 }: {
@@ -12,9 +14,14 @@ export default function ShopLookup({
     [busy, setBusy] = useState(false),
     [limited, setLimited] = useState(false);
   const sequence = useRef(0);
+  const journey = useRef("");
   async function search(e: React.FormEvent) {
     e.preventDefault();
     const id = ++sequence.current;
+    const journey_id = crypto.randomUUID(),
+      started = performance.now();
+    journey.current = journey_id;
+    discoveryEvent("lookup_start", { journey_id });
     setBusy(true);
     setError("");
     setShops(null);
@@ -26,10 +33,19 @@ export default function ShopLookup({
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       if (sequence.current === id) {
+        discoveryEvent("lookup_results", {
+          journey_id,
+          result_bucket: resultBucket(d.shops.length),
+          duration_ms: Math.round(performance.now() - started),
+        });
         setShops(d.shops);
         setLimited(d.limited);
       }
     } catch (e) {
+      discoveryEvent("lookup_error", {
+        journey_id,
+        duration_ms: Math.round(performance.now() - started),
+      });
       if (sequence.current === id)
         setError(e instanceof Error ? e.message : "Please retry.");
     } finally {
@@ -99,6 +115,11 @@ export default function ShopLookup({
               <a
                 className="btn-primary inline-block text-sm"
                 href={"/claim?shop=" + encodeURIComponent(s.id)}
+                onClick={() =>
+                  discoveryEvent("lookup_claim", {
+                    journey_id: journey.current || crypto.randomUUID(),
+                  })
+                }
               >
                 Claim or update this shop
               </a>{" "}
@@ -112,7 +133,12 @@ export default function ShopLookup({
       {onContinue ? (
         <button
           type="button"
-          onClick={onContinue}
+          onClick={() => {
+            discoveryEvent("lookup_new", {
+              journey_id: journey.current || crypto.randomUUID(),
+            });
+            onContinue();
+          }}
           className="underline text-sm min-h-10"
         >
           My location needs a new listing — continue application

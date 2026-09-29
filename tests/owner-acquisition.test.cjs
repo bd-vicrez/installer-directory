@@ -73,11 +73,12 @@ test("acquisition allowlist drops raw fields and opted-out attribution never inc
 test("first-entry attribution survives navigation and module reload in the same browser session", () => {
   const session_id = crypto.randomUUID(),
     storage = new Map(),
-    location = {
-      href: "https://installers.vicrez.com/?utm_source=google&utm_medium=cpc",
-    };
+    location = new URL(
+      "https://installers.vicrez.com/?utm_source=google&utm_medium=cpc",
+    );
   const globals = {
-    navigator: { doNotTrack: "0" },
+    navigator: { doNotTrack: "0", userAgent: "Chrome" },
+    window: { location },
     location,
     document: { referrer: "" },
     sessionStorage: {

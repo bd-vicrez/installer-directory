@@ -1,5 +1,6 @@
 "use client";
 import { sessionAcquisition } from "./acquisition-client";
+import { measurementAllowed, measurementDevice } from "./measurement-client";
 export function pageKind(path: string) {
   if (path === "/") return "home";
   if (path.startsWith("/installer/")) return "profile";
@@ -15,24 +16,18 @@ export function discoveryEvent(
   event: string,
   data: Record<string, unknown> = {},
 ) {
-  if (
-    process.env.NEXT_PUBLIC_DISABLE_QUOTE_ANALYTICS === "1" ||
-    navigator.doNotTrack === "1" ||
-    window.location.pathname.startsWith("/owner") ||
-    window.location.pathname.startsWith("/inquiry-progress") ||
-    window.location.pathname.startsWith("/shop-response") ||
-    window.location.pathname.startsWith("/admin") ||
-    window.location.pathname.startsWith("/request-status")
-  )
-    return;
+  if (!measurementAllowed()) return;
   const attribution = sessionAcquisition();
   const payload = {
     ...data,
     id:
-      event === "session_start" ? attribution.session_id : crypto.randomUUID(),
+      event === "session_start"
+        ? attribution.session_id
+        : data.id || crypto.randomUUID(),
     session_id: attribution.session_id,
     event,
-    page: pageKind(window.location.pathname),
+    page: data.page || pageKind(window.location.pathname),
+    device_category: measurementDevice(),
     campaign_source: attribution.source,
     acquisition_channel: attribution.channel,
   };

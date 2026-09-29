@@ -1,4 +1,5 @@
 "use client";
+import { measurementAllowed } from "./measurement-client";
 let session = "";
 export function quoteSession() {
   if (session) return session;
@@ -17,11 +18,7 @@ export function quoteEvent(
   flow: "selected" | "network",
   service?: string,
 ) {
-  if (
-    process.env.NEXT_PUBLIC_DISABLE_QUOTE_ANALYTICS === "1" ||
-    navigator.doNotTrack === "1"
-  )
-    return;
+  if (!measurementAllowed()) return;
   const payload = {
     id: crypto.randomUUID(),
     session_id: quoteSession(),

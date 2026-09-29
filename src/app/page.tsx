@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
 import { Metadata } from "next";
+import { Suspense } from "react";
+import { unstable_cache } from "next/cache";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HomeSearch from "@/components/HomeSearch";
@@ -76,9 +78,9 @@ const SEO_GUIDES = [
   },
 ];
 
-export default async function HomePage() {
-  const [topCities, states, stats, ratingResult, reviewedProfiles] =
-    await Promise.all([
+const homepageOverview = unstable_cache(
+  async () =>
+    Promise.all([
       queryTopCities(20),
       queryAllStatesWithCounts(),
       queryInstallerStats(),
@@ -86,7 +88,14 @@ export default async function HomePage() {
         "SELECT ROUND(AVG(google_rating)::numeric, 1) as avg_rating FROM installers WHERE status = 'active' AND google_rating IS NOT NULL",
       ),
       queryReviewedProfiles(),
-    ]);
+    ]),
+  ["homepage-overview-v1"],
+  { revalidate: 300 },
+);
+
+async function HomeDirectoryContent() {
+  const [topCities, states, stats, ratingResult, reviewedProfiles] =
+    await homepageOverview();
 
   const totalInstallers = Number(stats?.total || 0);
   const verifiedCount = Number(stats?.verified || 0);
@@ -95,222 +104,225 @@ export default async function HomePage() {
 
   return (
     <>
-      <Header />
-      <main className="flex-1">
-        <HomeSearch />
-
-        {/* Stats Bar */}
-        <section className="border-y border-vicrez-border bg-vicrez-card/50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-              <div>
-                <div className="text-3xl font-bold text-white">
-                  {totalInstallers.toLocaleString()}
-                </div>
-                <div className="text-sm text-vicrez-muted mt-1">
-                  Active directory records
-                </div>
+      {/* Stats Bar */}
+      <section className="border-y border-vicrez-border bg-vicrez-card/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            <div>
+              <div className="text-3xl font-bold text-white">
+                {totalInstallers.toLocaleString()}
               </div>
-              <div>
-                <div className="text-3xl font-bold text-white">
-                  {stateCount}
-                </div>
-                <div className="text-sm text-vicrez-muted mt-1">
-                  States Covered
-                </div>
+              <div className="text-sm text-vicrez-muted mt-1">
+                Active directory records
               </div>
-              <div>
-                <div className="text-3xl font-bold text-green-400">
-                  {verifiedCount}
-                </div>
-                <div className="text-sm text-vicrez-muted mt-1">
-                  Vicrez-recorded shops
-                </div>
+            </div>
+            <div>
+              <div className="text-3xl font-bold text-white">{stateCount}</div>
+              <div className="text-sm text-vicrez-muted mt-1">
+                States Covered
               </div>
-              <div>
-                <div className="text-3xl font-bold text-yellow-400">
-                  {avgRating}
-                </div>
-                <div className="text-sm text-vicrez-muted mt-1">
-                  Mean recorded Google rating
-                </div>
+            </div>
+            <div>
+              <div className="text-3xl font-bold text-green-400">
+                {verifiedCount}
+              </div>
+              <div className="text-sm text-vicrez-muted mt-1">
+                Vicrez-recorded shops
+              </div>
+            </div>
+            <div>
+              <div className="text-3xl font-bold text-yellow-400">
+                {avgRating}
+              </div>
+              <div className="text-sm text-vicrez-muted mt-1">
+                Mean recorded Google rating
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <p className="text-xs text-gray-600 text-center px-4 mt-3">
-          Directory record counts do not establish active dealer membership or
-          shop participation. Updated {new Date().toLocaleDateString("en-US")}.
+      <p className="text-xs text-gray-600 text-center px-4 mt-3">
+        Directory record counts do not establish active dealer membership or
+        shop participation. Updated {new Date().toLocaleDateString("en-US")}.
+      </p>
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h2 className="text-2xl font-bold text-white mb-3">
+          Explore shop profiles
+        </h2>
+        <p className="text-vicrez-muted mb-6">
+          Compare recorded services and prepare questions for your project.
+          These shops have dealer-form records in the directory; inclusion is
+          not a ranking or workmanship guarantee.
         </p>
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <h2 className="text-2xl font-bold text-white mb-3">
-            Explore shop profiles
-          </h2>
-          <p className="text-vicrez-muted mb-6">
-            Compare recorded services and prepare questions for your project.
-            These shops have dealer-form records in the directory; inclusion is
-            not a ranking or workmanship guarantee.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {reviewedProfiles.map(
-              (shop: {
-                slug: string;
-                business_name: string;
-                city: string;
-                state: string;
-              }) => (
-                <a
-                  key={shop.slug}
-                  href={`/installer/${shop.slug}`}
-                  className="card p-5 hover:border-vicrez-red/50"
-                >
-                  <h3 className="font-semibold text-white">
-                    {shop.business_name}
-                  </h3>
-                  <p className="text-sm text-vicrez-muted mt-2">
-                    {shop.city}, {shop.state}
-                  </p>
-                </a>
-              ),
-            )}
-          </div>
-          <p className="mt-5">
-            <a
-              href="/how-verification-works"
-              className="text-vicrez-red hover:underline"
-            >
-              Understand directory record labels →
-            </a>
-          </p>
-        </section>
-
-        {/* Browse by Category */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <h2 className="text-2xl font-bold text-white mb-6">
-            Browse by Category
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {CATEGORIES.map((cat) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {reviewedProfiles.map(
+            (shop: {
+              slug: string;
+              business_name: string;
+              city: string;
+              state: string;
+            }) => (
               <a
-                key={cat.slug}
-                href={`/installers/category/${cat.slug}`}
-                className="card p-5 text-center hover:border-vicrez-red/50 transition-colors group"
+                key={shop.slug}
+                href={`/installer/${shop.slug}`}
+                className="card p-5 hover:border-vicrez-red/50"
               >
-                <div className="text-sm font-medium text-white group-hover:text-vicrez-red transition-colors">
-                  {cat.label}
-                </div>
+                <h3 className="font-semibold text-white">
+                  {shop.business_name}
+                </h3>
+                <p className="text-sm text-vicrez-muted mt-2">
+                  {shop.city}, {shop.state}
+                </p>
+              </a>
+            ),
+          )}
+        </div>
+        <p className="mt-5">
+          <a
+            href="/how-verification-works"
+            className="text-vicrez-red hover:underline"
+          >
+            Understand directory record labels →
+          </a>
+        </p>
+      </section>
+
+      {/* Browse by Category */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h2 className="text-2xl font-bold text-white mb-6">
+          Browse by Category
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {CATEGORIES.map((cat) => (
+            <a
+              key={cat.slug}
+              href={`/installers/category/${cat.slug}`}
+              className="card p-5 text-center hover:border-vicrez-red/50 transition-colors group"
+            >
+              <div className="text-sm font-medium text-white group-hover:text-vicrez-red transition-colors">
+                {cat.label}
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA Banner */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-gradient-to-r from-vicrez-red/10 to-vicrez-red/5 border border-vicrez-red/20 rounded-xl p-8 text-center">
+          <h2 className="text-xl font-bold text-black mb-2">
+            Own an Automotive Shop?
+          </h2>
+          <p className="text-vicrez-muted mb-4">
+            Showcase your tire, wheel, body, wrap, PPF or performance
+            installation services. Join the Vicrez Installer Network with a free
+            shop listing.
+          </p>
+          <a href="/apply" className="btn-primary inline-block">
+            List Your Shop — Free
+          </a>
+        </div>
+      </section>
+
+      {/* Top Cities */}
+      <section className="border-t border-vicrez-border bg-vicrez-card/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <h2 className="text-2xl font-bold text-white mb-6">Top Cities</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {topCities.map((city: any) => (
+              <a
+                key={`${city.city}-${city.state}`}
+                href={`/installers/${toLocationSlug(city.city, city.state)}`}
+                className="flex items-center justify-between px-4 py-3 rounded-lg bg-vicrez-dark border border-vicrez-border hover:border-vicrez-red/50 transition-colors"
+              >
+                <span className="text-sm text-gray-300 truncate">
+                  {city.city}, {city.state}
+                </span>
+                <span className="text-xs text-vicrez-muted ml-2 flex-shrink-0">
+                  {city.count}
+                </span>
               </a>
             ))}
           </div>
-        </section>
-
-        {/* CTA Banner */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-gradient-to-r from-vicrez-red/10 to-vicrez-red/5 border border-vicrez-red/20 rounded-xl p-8 text-center">
-            <h2 className="text-xl font-bold text-black mb-2">
-              Own an Automotive Shop?
-            </h2>
-            <p className="text-vicrez-muted mb-4">
-              Showcase your tire, wheel, body, wrap, PPF or performance
-              installation services. Join the Vicrez Installer Network with a
-              free shop listing.
-            </p>
-            <a href="/apply" className="btn-primary inline-block">
-              List Your Shop — Free
+          <div className="text-center mt-6">
+            <a
+              href="/directory"
+              className="text-sm text-vicrez-red hover:underline"
+            >
+              View all cities and states →
             </a>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Top Cities */}
-        <section className="border-t border-vicrez-border bg-vicrez-card/30">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <h2 className="text-2xl font-bold text-white mb-6">Top Cities</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {topCities.map((city: any) => (
-                <a
-                  key={`${city.city}-${city.state}`}
-                  href={`/installers/${toLocationSlug(city.city, city.state)}`}
-                  className="flex items-center justify-between px-4 py-3 rounded-lg bg-vicrez-dark border border-vicrez-border hover:border-vicrez-red/50 transition-colors"
-                >
-                  <span className="text-sm text-gray-300 truncate">
-                    {city.city}, {city.state}
-                  </span>
-                  <span className="text-xs text-vicrez-muted ml-2 flex-shrink-0">
-                    {city.count}
-                  </span>
-                </a>
-              ))}
-            </div>
-            <div className="text-center mt-6">
+      {/* Browse by State */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h2 className="text-2xl font-bold text-white mb-6">Browse by State</h2>
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+          {states
+            .filter((s: any) => STATE_NAMES[s.state?.toUpperCase()])
+            .map((s: any) => (
               <a
-                href="/directory"
-                className="text-sm text-vicrez-red hover:underline"
+                key={s.state}
+                href={`/installers/${toStateSlug(s.state.toUpperCase())}`}
+                className="text-center px-2 py-2 rounded-lg bg-vicrez-card border border-vicrez-border hover:border-vicrez-red/50 transition-colors"
               >
-                View all cities and states →
+                <div className="text-sm font-medium text-white">{s.state}</div>
+                <div className="text-xs text-vicrez-muted">{s.count}</div>
               </a>
+            ))}
+        </div>
+      </section>
+
+      {/* SEO Guides */}
+      <section className="border-t border-vicrez-border bg-vicrez-card/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-white">
+                Installation Guides
+              </h2>
+              <p className="text-sm text-vicrez-muted mt-2">
+                Practical guides covering body kits, wheels, tires, suspension,
+                wraps, and paint protection.
+              </p>
             </div>
+            <a
+              href="/guides"
+              className="text-sm text-vicrez-red hover:underline whitespace-nowrap"
+            >
+              View all guides →
+            </a>
           </div>
-        </section>
-
-        {/* Browse by State */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <h2 className="text-2xl font-bold text-white mb-6">
-            Browse by State
-          </h2>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-            {states
-              .filter((s: any) => STATE_NAMES[s.state?.toUpperCase()])
-              .map((s: any) => (
-                <a
-                  key={s.state}
-                  href={`/installers/${toStateSlug(s.state.toUpperCase())}`}
-                  className="text-center px-2 py-2 rounded-lg bg-vicrez-card border border-vicrez-border hover:border-vicrez-red/50 transition-colors"
-                >
-                  <div className="text-sm font-medium text-white">
-                    {s.state}
-                  </div>
-                  <div className="text-xs text-vicrez-muted">{s.count}</div>
-                </a>
-              ))}
-          </div>
-        </section>
-
-        {/* SEO Guides */}
-        <section className="border-t border-vicrez-border bg-vicrez-card/30">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <div className="flex items-center justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-white">
-                  Installation Guides
-                </h2>
-                <p className="text-sm text-vicrez-muted mt-2">
-                  Practical guides covering body kits, wheels, tires,
-                  suspension, wraps, and paint protection.
-                </p>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {SEO_GUIDES.map((guide) => (
               <a
-                href="/guides"
-                className="text-sm text-vicrez-red hover:underline whitespace-nowrap"
+                key={guide.slug}
+                href={`/guides/${guide.slug}`}
+                className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 hover:border-vicrez-red/30 transition-colors"
               >
-                View all guides →
+                <h3 className="text-sm font-semibold text-white">
+                  {guide.title}
+                </h3>
               </a>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {SEO_GUIDES.map((guide) => (
-                <a
-                  key={guide.slug}
-                  href={`/guides/${guide.slug}`}
-                  className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 hover:border-vicrez-red/30 transition-colors"
-                >
-                  <h3 className="text-sm font-semibold text-white">
-                    {guide.title}
-                  </h3>
-                </a>
-              ))}
-            </div>
+            ))}
           </div>
-        </section>
+        </div>
+      </section>
+    </>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <>
+      <Header />
+      <main className="flex-1">
+        <HomeSearch />
+        <Suspense fallback={<div className="min-h-80" aria-hidden="true" />}>
+          <HomeDirectoryContent />
+        </Suspense>
       </main>
       <Footer />
     </>

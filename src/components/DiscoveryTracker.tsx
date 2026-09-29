@@ -20,17 +20,6 @@ export default function DiscoveryTracker() {
       )?.dataset.installerId;
       if (listing) discoveryEvent("profile_view", { listing_id: listing });
     }
-    let started = false;
-    const input = (e: Event) => {
-      if (
-        !started &&
-        (e.target as Element)?.closest("main form") &&
-        (path === "/apply" || path === "/claim")
-      ) {
-        started = true;
-        discoveryEvent(path === "/apply" ? "application_start" : "claim_start");
-      }
-    };
     const click = (e: MouseEvent) => {
       const a = (e.target as Element)?.closest<HTMLAnchorElement>("a[href]");
       if (!a) return;
@@ -57,10 +46,8 @@ export default function DiscoveryTracker() {
           discoveryEvent("website_click", { listing_id: listing });
       }
     };
-    document.addEventListener("input", input, true);
     document.addEventListener("click", click, true);
     return () => {
-      document.removeEventListener("input", input, true);
       document.removeEventListener("click", click, true);
     };
   }, [path]);

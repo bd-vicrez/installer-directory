@@ -2,13 +2,15 @@
 import { discoveryEvent } from "@/lib/discovery-client";
 import ShopComparison from "./ShopComparison";
 import { normalizeService } from "@/lib/service-taxonomy";
+import { resultBucket } from "@/lib/measurement-client";
+import dynamic from "next/dynamic";
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Hero from "./Hero";
 import Filters from "./Filters";
 import InstallerCard from "./InstallerCard";
-import ClaimModal from "./ClaimModal";
-import RemovalModal from "./RemovalModal";
+const ClaimModal = dynamic(() => import("./ClaimModal"));
+const RemovalModal = dynamic(() => import("./RemovalModal"));
 import type { PublicInstaller } from "@/lib/public-installers";
 
 type SearchState = {
@@ -47,10 +49,23 @@ export default function HomeSearch() {
   const [compare, setCompare] = useState<PublicInstaller[]>([]);
   const [removal, setRemoval] = useState<PublicInstaller | null>(null);
   const pending = useRef<AbortController | null>(null);
+  const renderedSearch = useRef<{
+    id: string;
+    started: number;
+    service: string;
+    total: number;
+  } | null>(null);
   const runSearch = useCallback(
     async (next: SearchState, offset = 0, updateUrl = true) => {
       pending.current?.abort();
       const controller = new AbortController();
+      const journey_id = crypto.randomUUID(),
+        started = performance.now();
+      if (!offset)
+        discoveryEvent("search_start", {
+          journey_id,
+          service: next.service || undefined,
+        });
       pending.current = controller;
       setSearch(next);
       setError("");
@@ -84,17 +99,18 @@ export default function HomeSearch() {
           throw new Error(data.error || "Search is temporarily unavailable.");
         if (pending.current !== controller) return;
         if (!offset) {
-          const result_bucket =
-            data.total === 0
-              ? "0"
-              : data.total <= 5
-                ? "1-5"
-                : data.total <= 24
-                  ? "6-24"
-                  : "25+";
+          const result_bucket = resultBucket(data.total);
+          renderedSearch.current = {
+            id: journey_id,
+            started,
+            service: next.service,
+            total: data.total,
+          };
           discoveryEvent("search", {
             service: next.service || undefined,
             result_bucket,
+            journey_id,
+            duration_ms: Math.round(performance.now() - started),
           });
           if (!data.total)
             discoveryEvent("search_empty", {
@@ -110,7 +126,15 @@ export default function HomeSearch() {
               : data.installers,
         }));
       } catch (e: any) {
-        if (e.name !== "AbortError")
+        if (!offset)
+          discoveryEvent(
+            e.name === "AbortError" ? "search_cancel" : "search_error",
+            {
+              journey_id,
+              duration_ms: Math.round(performance.now() - started),
+            },
+          );
+        if (e.name !== "AbortError" && pending.current === controller)
           setError(
             e.message || "Search is temporarily unavailable. Please try again.",
           );
@@ -124,9 +148,24 @@ export default function HomeSearch() {
     [],
   );
   useEffect(() => {
+    if (!results || loading || !renderedSearch.current) return;
+    const completed = renderedSearch.current;
+    renderedSearch.current = null;
+    discoveryEvent("search_results", {
+      journey_id: completed.id,
+      service: completed.service || undefined,
+      result_bucket: resultBucket(completed.total),
+      duration_ms: Math.round(performance.now() - completed.started),
+    });
+  }, [results, loading]);
+  useEffect(() => {
     const restore = () => {
       const p = new URLSearchParams(window.location.search);
-      if (p.toString())
+      if (
+        ["q", "service", "tier", "radius", "sort", "inquiry"].some((key) =>
+          p.has(key),
+        )
+      )
         runSearch(
           {
             sort: p.get("sort") || "recommended",
@@ -180,7 +219,7 @@ export default function HomeSearch() {
       />
       <section
         id="results"
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 min-h-[28rem]"
         aria-label="Installer search results"
         aria-busy={loading || loadingMore}
       >
@@ -292,16 +331,20 @@ export default function HomeSearch() {
           setCompare((items) => items.filter((i) => i.id !== id))
         }
       />
-      <ClaimModal
-        isOpen={!!claim}
-        shop={claim}
-        onClose={() => setClaim(null)}
-      />
-      <RemovalModal
-        isOpen={!!removal}
-        installer={removal}
-        onClose={() => setRemoval(null)}
-      />
+      {claim && (
+        <ClaimModal
+          isOpen={!!claim}
+          shop={claim}
+          onClose={() => setClaim(null)}
+        />
+      )}
+      {removal && (
+        <RemovalModal
+          isOpen={!!removal}
+          installer={removal}
+          onClose={() => setRemoval(null)}
+        />
+      )}
     </>
   );
 }

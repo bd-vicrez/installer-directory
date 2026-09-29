@@ -7,13 +7,14 @@ test("rendered analytics initializer executes and excludes private status fragme
   const fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
   const source = fs.readFileSync(path.join(__dirname, "../src/components/GoogleAnalytics.tsx"), "utf8");
   const template = source.match(/\{`(window\.dataLayer[\s\S]*?)`\}/)[1];
-  const script = vm.runInNewContext("`" + template + "`", { id: "G-QATEST" });
+  const script = vm.runInNewContext("`" + template + "`", { id: "G-QATEST", tracking: true });
   for (const pathname of ["/", "/request-status", "/admin/applications"]) {
     const context = {
       location: { origin: "https://example.test", pathname, search: "", hash: "#private-status-token" },
     };
     context.window = context;
     vm.runInNewContext(script, context);
+    assert.equal(context['ga-disable-G-QATEST'], false);
     const config = context.dataLayer.find((event) => event[0] === "config");
     assert.equal(config[1], "G-QATEST");
     assert.equal(config[2].send_page_view, pathname === "/");

@@ -6,6 +6,11 @@ import AccessibleDialog from "./AccessibleDialog";
 import { quoteStepError } from "@/lib/quote-steps";
 import { QUOTE_SERVICES } from "@/lib/quote-services";
 import { quoteEvent, quoteSession } from "@/lib/quote-telemetry";
+import { discoveryEvent, pageKind } from "@/lib/discovery-client";
+import {
+  measurementAllowed,
+  measurementDevice,
+} from "@/lib/measurement-client";
 
 export type QuoteShop = {
   id: string;
@@ -73,6 +78,7 @@ export default function QuoteRequestDialog({
   const formRef = useRef<HTMLFormElement>(null);
   const stepHeading = useRef<HTMLHeadingElement>(null);
   const goStep = (next: number) => {
+    track("quote_step", next);
     setStep(next);
     setError("");
     requestAnimationFrame(() => {
@@ -89,6 +95,29 @@ export default function QuoteRequestDialog({
   const requestId = useRef("");
   const attempted = useRef("");
   const wasOpen = useRef(false);
+  const startedAt = useRef(0),
+    entered = useRef(false),
+    lastValidation = useRef(0);
+  const track = (event: string, currentStep = step) => {
+    if (!requestId.current) return;
+    discoveryEvent(event, {
+      journey_id: requestId.current,
+      step: ["project", "contact", "review"][currentStep],
+      duration_ms: Math.min(
+        3600000,
+        Math.max(0, Math.round(performance.now() - startedAt.current)),
+      ),
+    });
+  };
+  const validation = (currentStep = step) => {
+    if (performance.now() - lastValidation.current < 1000) return;
+    lastValidation.current = performance.now();
+    track("quote_validation", currentStep);
+  };
+  const close = () => {
+    if (!receipt) track("quote_close");
+    onClose();
+  };
   const notice = useRef<HTMLDivElement>(null);
   const field = (key: keyof Fields, value: string | boolean) =>
     setFields((current) => ({ ...current, [key]: value }));
@@ -96,10 +125,13 @@ export default function QuoteRequestDialog({
     if (isOpen && !wasOpen.current) {
       if (!requestId.current) {
         requestId.current = crypto.randomUUID();
+        startedAt.current = performance.now();
         if (initialService)
           setFields((current) => ({ ...current, service: initialService }));
       }
       quoteEvent("quote_open", flow);
+      track("quote_open");
+      if (!receipt) track("quote_step");
     }
     wasOpen.current = isOpen;
   }, [isOpen, flow, initialService]);
@@ -161,6 +193,10 @@ export default function QuoteRequestDialog({
 
   function newRequest(keepDetails = false) {
     requestId.current = crypto.randomUUID();
+    startedAt.current = performance.now();
+    entered.current = false;
+    track("quote_open", 0);
+    track("quote_step", 0);
     attempted.current = "";
     setReceipt(null);
     setStep(0);
@@ -183,6 +219,7 @@ export default function QuoteRequestDialog({
     if (submitting) return;
     const stepError = quoteStepError(fields, step, !!installer);
     if (stepError) {
+      validation();
       setError(stepError);
       return;
     }
@@ -193,6 +230,8 @@ export default function QuoteRequestDialog({
     for (const previous of [0, 1]) {
       const issue = quoteStepError(fields, previous, !!installer);
       if (issue) {
+        validation(previous);
+        track("quote_step", previous);
         setStep(previous);
         setError(issue);
         return;
@@ -221,6 +260,7 @@ export default function QuoteRequestDialog({
     setError("");
     setChanged(false);
     quoteEvent("quote_attempt", flow, fields.service);
+    track("quote_attempt");
     try {
       const response = await fetch("/api/quote-request", {
         method: "POST",
@@ -230,6 +270,12 @@ export default function QuoteRequestDialog({
           request_id: requestId.current,
           session_id: quoteSession(),
           acquisition: sessionAcquisition(),
+          measurement: measurementAllowed()
+            ? {
+                page: pageKind(location.pathname),
+                device_category: measurementDevice(),
+              }
+            : undefined,
         }),
       });
       const accepted = await response.json().catch(() => ({}));
@@ -259,6 +305,7 @@ export default function QuoteRequestDialog({
           : "Unable to confirm your request.",
       );
       quoteEvent("quote_error", flow, fields.service);
+      track("quote_error");
     } finally {
       setSubmitting(false);
     }
@@ -297,7 +344,7 @@ export default function QuoteRequestDialog({
   return (
     <AccessibleDialog
       open={isOpen}
-      onClose={onClose}
+      onClose={close}
       title={
         receipt
           ? "Quote request received"
@@ -363,7 +410,18 @@ export default function QuoteRequestDialog({
               </>
             )}
           </p>
-          <form ref={formRef} onSubmit={submit} className="space-y-4">
+          <form
+            ref={formRef}
+            onSubmit={submit}
+            className="space-y-4"
+            onInputCapture={() => {
+              if (!entered.current) {
+                entered.current = true;
+                track("quote_input");
+              }
+            }}
+            onInvalidCapture={() => validation()}
+          >
             <p className="text-sm text-gray-600">
               Step {step + 1} of 3 · Project → Contact → Review
             </p>

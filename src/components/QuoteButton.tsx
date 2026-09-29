@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import QuoteModal from "./QuoteModal";
+import dynamic from "next/dynamic";
+const QuoteModal = dynamic(() => import("./QuoteModal"));
 
 interface Props {
   available: boolean;
@@ -20,6 +21,7 @@ export default function QuoteButton({
   available,
   initialService,
 }: Props) {
+  const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [unavailable, setUnavailable] = useState(!available);
   const [checking, setChecking] = useState(false);
@@ -39,6 +41,7 @@ export default function QuoteButton({
         setUnavailable(true);
         return;
       }
+      setMounted(true);
       setOpen(true);
     } catch {
       setError(
@@ -86,12 +89,14 @@ export default function QuoteButton({
           {error}
         </p>
       )}
-      <QuoteModal
-        isOpen={open}
-        onClose={() => setOpen(false)}
-        installer={installer}
-        initialService={initialService}
-      />
+      {mounted && (
+        <QuoteModal
+          isOpen={open}
+          onClose={() => setOpen(false)}
+          installer={installer}
+          initialService={initialService}
+        />
+      )}
     </>
   );
 }
