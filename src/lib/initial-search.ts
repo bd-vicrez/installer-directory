@@ -1,6 +1,7 @@
 import type { InitialSearch } from "@/components/HomeSearch";
 import { InstallerSearchError, searchInstallers } from "./installer-search";
 import { readSearchOptions } from "./public-installers";
+import { INITIAL_SEARCH_LIMIT } from "./search-limits";
 
 export async function initialSearch(
   query: Record<string, string | string[] | undefined>,
@@ -12,6 +13,7 @@ export async function initialSearch(
       params.set(key, Array.isArray(value) ? value[0] : value);
   }
   if (!params.size) return undefined;
+  params.set("limit", String(INITIAL_SEARCH_LIMIT));
   let state: InitialSearch["state"] = {
     q: "",
     service: "",
