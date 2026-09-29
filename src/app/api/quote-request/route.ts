@@ -2,6 +2,7 @@ import { projectBrief } from "@/lib/project-brief";
 import { acquisitionInput } from "@/lib/acquisition";
 import { NextRequest, NextResponse } from "next/server";
 import { InputError } from "@/lib/onboarding";
+import { recordSavedQuote } from "@/lib/quote-measurement";
 import { getPool } from "@/lib/db";
 import { canReceiveQuote } from "@/lib/installer-contact";
 import { quoteReceipt, validateQuoteInput } from "@/lib/quote-validation";
@@ -129,6 +130,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) throw new Error("Receipt unavailable");
     const saved = await response.json();
     const receipt = quoteReceipt(saved);
+    await recordSavedQuote(request, body);
     await recordQuoteEvent("quote_received", {
       id: `directory-quote-${saved.submission_id}`,
       flow: payload.flow,

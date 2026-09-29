@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { generateOrganizationJsonLd } from "@/lib/seo";
-import SideNav from "@/components/SideNav";
+import WebVitals from "@/components/WebVitals";
 import UtmLinkAppender from "@/components/UtmLinkAppender";
 import DiscoveryTracker from "@/components/DiscoveryTracker";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
@@ -52,6 +52,7 @@ export default function RootLayout({
         <UtmLinkAppender />
         <GoogleAnalytics />
         <DiscoveryTracker />
+        <WebVitals />
         {children}
       </body>
     </html>

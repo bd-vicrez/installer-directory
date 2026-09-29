@@ -1,12 +1,10 @@
 "use client";
 import { acquisitionInput, classifyAcquisition } from "./acquisition";
 import { quoteSession } from "./quote-telemetry";
+import { measurementAllowed } from "./measurement-client";
 let current: ReturnType<typeof acquisitionInput> | undefined;
 export function sessionAcquisition() {
-  if (
-    process.env.NEXT_PUBLIC_DISABLE_QUOTE_ANALYTICS === "1" ||
-    navigator.doNotTrack === "1"
-  )
+  if (!measurementAllowed())
     return acquisitionInput({ source: "opted-out", channel: "opted-out" });
   if (current) return current;
   const session_id = quoteSession();

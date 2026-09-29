@@ -1,6 +1,8 @@
 "use client";
 import { usePathname } from "next/navigation";
 import Script from "next/script";
+import { useEffect, useState } from "react";
+import { measurementAllowed } from "@/lib/measurement-client";
 
 /**
  * GA4 tag (gtag.js). Renders nothing unless NEXT_PUBLIC_GA_MEASUREMENT_ID is set,
@@ -9,8 +11,20 @@ import Script from "next/script";
  */
 export default function GoogleAnalytics() {
   const pathname = usePathname();
+  const [allowed, setAllowed] = useState(false);
+  const [tracking, setTracking] = useState(false);
   const id = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+  useEffect(() => {
+    // Retain the ordinary script cost in lab tests while excluding their analytics events.
+    const enabled = measurementAllowed();
+    if (id)
+      (window as unknown as Record<string, unknown>)["ga-disable-" + id] =
+        !enabled;
+    setAllowed(measurementAllowed(true));
+    setTracking(enabled);
+  }, [pathname, id]);
   if (
+    !allowed ||
     pathname.startsWith("/owner") ||
     pathname.startsWith("/inquiry-progress") ||
     pathname.startsWith("/shop-response") ||
@@ -29,6 +43,7 @@ export default function GoogleAnalytics() {
       />
       <Script id="ga4-init" strategy="afterInteractive">
         {`window.dataLayer = window.dataLayer || [];
+window['ga-disable-${id}'] = ${!tracking};
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', '${id}', { send_page_view: !location.pathname.startsWith('/owner') && !location.pathname.startsWith('/inquiry-progress') && !location.pathname.startsWith('/shop-response') && !location.pathname.startsWith('/request-status') && !location.pathname.startsWith('/admin'), page_location: location.origin+location.pathname+location.search });`}

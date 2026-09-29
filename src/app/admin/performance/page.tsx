@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import ExperienceReport from "@/components/ExperienceReport";
 export default function Performance() {
   const [data, setData] = useState<any>(null),
     [error, setError] = useState("");
@@ -15,6 +16,7 @@ export default function Performance() {
   return (
     <div className="max-w-6xl space-y-5 text-gray-100">
       <h1 className="text-2xl font-bold">Traffic and inquiry outcomes</h1>
+      <ExperienceReport />
       <p>
         Last 30 days. The source from the first public page in a browser tab’s
         session is retained through navigation and saved with the inquiry.

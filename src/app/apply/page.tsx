@@ -1,5 +1,5 @@
 "use client";
-import { discoveryEvent } from "@/lib/discovery-client";
+import { useFormMeasurement } from "@/lib/form-measurement";
 
 import { useState, useRef } from "react";
 import Header from "@/components/Header";
@@ -18,6 +18,7 @@ const HOW_HEARD_OPTIONS = [
 ];
 
 export default function ApplyPage() {
+  const measurement = useFormMeasurement("application");
   const [newListing, setNewListing] = useState(false);
   const [formData, setFormData] = useState({
     business_name: "",
@@ -65,12 +66,14 @@ export default function ApplyPage() {
       !formData.email ||
       !formData.agreement
     ) {
+      measurement.event("validation");
       setError("Please fill in all required fields and accept the agreement.");
       return;
     }
 
     // Check social media/website presence
     if (!formData.website && !formData.instagram && !formData.facebook) {
+      measurement.event("validation");
       setError(
         "Please provide at least one form of web presence (website, Instagram, or Facebook).",
       );
@@ -79,6 +82,7 @@ export default function ApplyPage() {
 
     // Check services
     if (formData.services.length === 0) {
+      measurement.event("validation");
       setError("Please select at least one service you offer.");
       return;
     }
@@ -86,6 +90,7 @@ export default function ApplyPage() {
     if (!requestId.current) requestId.current = crypto.randomUUID();
     setLoading(true);
     setError("");
+    measurement.event("attempt");
 
     try {
       const response = await fetch("/api/applications", {
@@ -107,12 +112,13 @@ export default function ApplyPage() {
       }
 
       setReceipt(result);
-      discoveryEvent("application_complete");
+      measurement.event("complete");
       requestAnimationFrame(() =>
         document.getElementById("application-receipt")?.focus(),
       );
       setSuccess(true);
     } catch (err: any) {
+      measurement.event("error");
       setError(err.message);
     } finally {
       setLoading(false);
@@ -214,7 +220,12 @@ export default function ApplyPage() {
           {!newListing && <ShopLookup onContinue={() => setNewListing(true)} />}
           {newListing && (
             <>
-              <form onSubmit={handleSubmit} className="space-y-8">
+              <form
+                onSubmit={handleSubmit}
+                onInputCapture={measurement.start}
+                onInvalidCapture={() => measurement.event("validation")}
+                className="space-y-8"
+              >
                 <div className="bg-white border border-gray-200 rounded-xl p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-6">
                     Business Information

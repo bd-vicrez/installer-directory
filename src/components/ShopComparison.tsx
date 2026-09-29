@@ -1,5 +1,5 @@
 "use client";
-import { quoteSession } from "@/lib/quote-telemetry";
+import { discoveryEvent } from "@/lib/discovery-client";
 import { useState } from "react";
 import AccessibleDialog from "./AccessibleDialog";
 import type { PublicInstaller } from "@/lib/public-installers";
@@ -21,17 +21,7 @@ export default function ShopComparison({
           className="btn-primary"
           onClick={() => {
             setOpen(true);
-            if (process.env.NEXT_PUBLIC_DISABLE_QUOTE_ANALYTICS !== "1")
-              void fetch("/api/discovery-events", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  event: "comparison_open",
-                  id: crypto.randomUUID(),
-                  session_id: quoteSession(),
-                }),
-                keepalive: true,
-              }).catch(() => {});
+            discoveryEvent("comparison_open");
           }}
         >
           Compare shops

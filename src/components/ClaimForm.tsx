@@ -1,5 +1,5 @@
 "use client";
-import { discoveryEvent } from "@/lib/discovery-client";
+import { useFormMeasurement } from "@/lib/form-measurement";
 import { useRef, useState } from "react";
 import { QUOTE_SERVICES } from "@/lib/quote-services";
 import OwnerDetailsFields from "./OwnerDetailsFields";
@@ -8,6 +8,7 @@ export default function ClaimForm({
 }: {
   shop: { id: string; business_name: string };
 }) {
+  const measurement = useFormMeasurement("claim");
   const [values, setValues] = useState<Record<string, any>>({
       services: [],
       agreement: false,
@@ -22,6 +23,7 @@ export default function ClaimForm({
     e.preventDefault();
     setError("");
     setBusy(true);
+    measurement.event("attempt");
     if (!requestId.current) requestId.current = crypto.randomUUID();
     try {
       const r = await fetch("/api/claims", {
@@ -36,8 +38,9 @@ export default function ClaimForm({
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       setReceipt(d);
-      discoveryEvent("claim_complete");
+      measurement.event("complete");
     } catch (e) {
+      measurement.event("error");
       setError(e instanceof Error ? e.message : "Please retry.");
     } finally {
       setBusy(false);
@@ -66,7 +69,12 @@ export default function ClaimForm({
       </div>
     );
   return (
-    <form className="space-y-4" onSubmit={submit}>
+    <form
+      className="space-y-4"
+      onSubmit={submit}
+      onInputCapture={measurement.start}
+      onInvalidCapture={() => measurement.event("validation")}
+    >
       <p>
         Request ownership review or a correction for{" "}
         <strong>{shop.business_name}</strong>. Wholesale membership is a
