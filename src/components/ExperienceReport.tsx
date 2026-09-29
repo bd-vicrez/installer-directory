@@ -124,7 +124,7 @@ export default function ExperienceReport() {
               {search.started} started → {search.results} rendered results.{" "}
               {search.errors} errors; {search.cancelled} superseded or
               cancelled; {search.no_result_recorded} with no recorded result
-              after 30 minutes. Results rendered at p75:{" "}
+              after 30 minutes. Interactive search results at p75:{" "}
               {search.results_p75_ms === null
                 ? "not available"
                 : Math.round(search.results_p75_ms) + " ms"}

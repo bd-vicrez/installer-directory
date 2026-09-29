@@ -13,7 +13,7 @@ const ClaimModal = dynamic(() => import("./ClaimModal"));
 const RemovalModal = dynamic(() => import("./RemovalModal"));
 import type { PublicInstaller } from "@/lib/public-installers";
 
-type SearchState = {
+export type SearchState = {
   sort: string;
   inquiry: string;
   q: string;
@@ -23,7 +23,7 @@ type SearchState = {
   tier: string;
   radius: number;
 };
-type Results = {
+export type Results = {
   installers: PublicInstaller[];
   total: number;
   verified: number;
@@ -39,12 +39,26 @@ const initial: SearchState = {
   tier: "",
   radius: 50,
 };
-export default function HomeSearch() {
-  const [search, setSearch] = useState<SearchState>(initial);
-  const [results, setResults] = useState<Results | null>(null);
+export type InitialSearch = {
+  state: SearchState;
+  results: Results | null;
+  error: string;
+};
+export default function HomeSearch({
+  initialSearch,
+}: {
+  initialSearch?: InitialSearch;
+}) {
+  const [search, setSearch] = useState<SearchState>(
+    initialSearch?.state || initial,
+  );
+  const [results, setResults] = useState<Results | null>(
+    initialSearch?.results || null,
+  );
   const [loading, setLoading] = useState(false),
     [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialSearch?.error || "");
+  const restoredInitial = useRef(false);
   const [claim, setClaim] = useState<PublicInstaller | null>(null);
   const [compare, setCompare] = useState<PublicInstaller[]>([]);
   const [removal, setRemoval] = useState<PublicInstaller | null>(null);
@@ -187,7 +201,24 @@ export default function HomeSearch() {
         setError("");
       }
     };
-    restore();
+    if (initialSearch) {
+      if (!restoredInitial.current) {
+        restoredInitial.current = true;
+        const journey_id = crypto.randomUUID();
+        const meta = {
+          journey_id,
+          service: initialSearch.state.service || undefined,
+        };
+        discoveryEvent("search_start", meta);
+        if (initialSearch.results) {
+          const result_bucket = resultBucket(initialSearch.results.total);
+          discoveryEvent("search", { ...meta, result_bucket });
+          discoveryEvent("search_results", { ...meta, result_bucket });
+          if (!initialSearch.results.total)
+            discoveryEvent("search_empty", { ...meta, result_bucket });
+        } else discoveryEvent("search_error", meta);
+      }
+    } else restore();
     window.addEventListener("popstate", restore);
     return () => {
       pending.current?.abort();

@@ -5,6 +5,7 @@ import { unstable_cache } from "next/cache";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HomeSearch from "@/components/HomeSearch";
+import { initialSearch } from "@/lib/initial-search";
 import {
   queryTopCities,
   queryAllStatesWithCounts,
@@ -314,12 +315,17 @@ async function HomeDirectoryContent() {
   );
 }
 
-export default function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const seed = await initialSearch(await searchParams);
   return (
     <>
       <Header />
       <main className="flex-1">
-        <HomeSearch />
+        <HomeSearch initialSearch={seed} />
         <Suspense fallback={<div className="min-h-80" aria-hidden="true" />}>
           <HomeDirectoryContent />
         </Suspense>
