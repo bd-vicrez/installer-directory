@@ -162,16 +162,20 @@ test("internal feed permits the authorized reader and prevents shared caching", 
 });
 test("public search uses bounded database queries and projects the result", async () => {
   const calls = [];
+  let released = false;
   const { GET } = load("app/api/installers/route.ts", {
     "@/lib/db": {
       getPool: () => ({
-        query: async (sql, values) => {
-          calls.push({ sql, values });
-          return {
-            rows:
-              calls.length === 1
-                ? [{ total: 2, verified: 1 }]
-                : [
+        connect: async () => ({
+          release: () => { released = true; },
+          query: async (sql, values) => {
+            calls.push({ sql, values });
+            return {
+              rows: [
+                {
+                  total: 2,
+                  verified: 1,
+                  installers: [
                     {
                       id: 1,
                       source: "manual",
@@ -179,8 +183,11 @@ test("public search uses bounded database queries and projects the result", asyn
                       email: "hidden",
                     },
                   ],
-          };
-        },
+                },
+              ],
+            };
+          },
+        }),
       }),
     },
     "@/lib/geocode": {
@@ -198,8 +205,11 @@ test("public search uses bounded database queries and projects the result", asyn
   const data = await result.json();
   assert.equal(data.total, 2);
   assert.equal(data.installers[0].internal_notes, undefined);
-  assert.match(calls[1].sql, /LIMIT \$\d+ OFFSET \$\d+/);
-  assert.equal(calls[1].values.at(-1), 12);
+  assert.equal(calls.length, 1);
+  assert.equal(released, true);
+  assert.match(result.headers.get("server-timing"), /connection;dur=\d+/);
+  assert.match(calls[0].sql, /LIMIT \$\d+ OFFSET \$\d+/);
+  assert.equal(calls[0].values.at(-1), 12);
   assert.ok(calls[0].values.includes(" ppf "));
 });
 test("search distinguishes unknown locations from backend failures", async () => {

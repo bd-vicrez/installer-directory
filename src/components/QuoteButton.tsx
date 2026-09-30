@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import dynamic from "next/dynamic";
-const QuoteModal = dynamic(() => import("./QuoteModal"));
+import { prepareQuoteDialog } from "@/lib/prepare-quote";
+const loadQuoteModal = () => import("./QuoteModal");
+const QuoteModal = dynamic(loadQuoteModal);
 
 interface Props {
   available: boolean;
@@ -26,18 +28,23 @@ export default function QuoteButton({
   const [unavailable, setUnavailable] = useState(!available);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
+  const inFlight = useRef(false);
   async function openQuote() {
-    if (checking) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     setChecking(true);
     setError("");
     try {
-      const response = await fetch(
-        "/api/quote-availability?id=" + encodeURIComponent(installer.id),
-        { cache: "no-store" },
-      );
-      if (!response.ok) throw new Error();
-      const result = await response.json();
-      if (result.available !== true) {
+      const available = await prepareQuoteDialog(async () => {
+        const response = await fetch(
+          "/api/quote-availability?id=" + encodeURIComponent(installer.id),
+          { cache: "no-store" },
+        );
+        if (!response.ok) throw new Error();
+        const result = await response.json();
+        return result.available === true;
+      }, loadQuoteModal);
+      if (!available) {
         setUnavailable(true);
         return;
       }
@@ -45,9 +52,10 @@ export default function QuoteButton({
       setOpen(true);
     } catch {
       setError(
-        "We could not check this shop’s online contact option. Please retry or use its phone or website.",
+        "We could not open this shop’s quote form. Please retry or use its phone or website.",
       );
     } finally {
+      inFlight.current = false;
       setChecking(false);
     }
   }
