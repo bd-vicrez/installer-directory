@@ -6,8 +6,9 @@ import { measurementAllowed } from "@/lib/measurement-client";
 
 /**
  * GA4 tag (gtag.js). Renders nothing unless NEXT_PUBLIC_GA_MEASUREMENT_ID is set,
- * so preview/dev builds stay untracked. Loaded afterInteractive so it never blocks
- * first paint or SSR (Googlebot gets the same HTML either way).
+ * so preview/dev builds stay untracked. Queue configuration during hydration,
+ * then download the tag after load when the browser is idle. First-party journey
+ * events remain immediate and independent of the external analytics script.
  */
 export default function GoogleAnalytics() {
   const pathname = usePathname();
@@ -39,7 +40,7 @@ export default function GoogleAnalytics() {
     <>
       <Script
         src={`https://www.googletagmanager.com/gtag/js?id=${id}`}
-        strategy="afterInteractive"
+        strategy="lazyOnload"
       />
       <Script id="ga4-init" strategy="afterInteractive">
         {`window.dataLayer = window.dataLayer || [];
