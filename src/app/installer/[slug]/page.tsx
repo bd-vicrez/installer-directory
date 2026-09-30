@@ -1,3 +1,4 @@
+import DeferredMap from "@/components/DeferredMap";
 import { publicZip, usableShopLocation } from "@/lib/location-quality";
 import ProfileBrief from "@/components/ProfileBrief";
 import { profileIndexing, reviewedProfile } from "@/lib/profile-indexing";
@@ -477,17 +478,11 @@ export default async function InstallerPage({
 
               {/* Google Map */}
               {usableShopLocation(installer) && (
-                <div className="card overflow-hidden">
-                  <iframe
-                    title={`Map of ${installer.business_name}`}
-                    width="100%"
-                    height="350"
-                    style={{ border: 0 }}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${installer.lat},${installer.lng}&zoom=14`}
-                  />
-                </div>
+                <DeferredMap
+                  title={`Map of ${installer.business_name}`}
+                  directionsUrl={`https://www.google.com/maps/dir/?api=1&destination=${installer.lat},${installer.lng}`}
+                  src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${installer.lat},${installer.lng}&zoom=14`}
+                />
               )}
             </div>
 
