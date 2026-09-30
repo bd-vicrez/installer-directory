@@ -313,7 +313,7 @@ export default function HomeSearch({
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {results.installers.map((installer) => (
-                  <div key={installer.id}>
+                  <div key={installer.id} className="search-result">
                     <InstallerCard
                       installer={installer}
                       initialService={search.service}
