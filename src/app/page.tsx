@@ -327,7 +327,9 @@ export default async function HomePage({
       <main className="flex-1">
         <HomeSearch initialSearch={seed} />
         <Suspense fallback={<div className="min-h-80" aria-hidden="true" />}>
-          <HomeDirectoryContent />
+          <div className="directory-overview">
+            <HomeDirectoryContent />
+          </div>
         </Suspense>
       </main>
       <Footer />
