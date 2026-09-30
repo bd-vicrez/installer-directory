@@ -3,24 +3,10 @@ import { reviewedProfile } from "./profile-indexing";
 import { filterInstallersByCategory } from "./categories";
 import { cache } from "react";
 import { INDEX_CANDIDATE_SLUGS, profileIndexing } from "./profile-indexing";
-import { Pool } from "pg";
+import { getPool } from "./db-pool";
+export { getPool } from "./db-pool";
 import { VERIFIED_KEYWORDS } from "./utils";
 import { REVIEWED_PROFILE_SLUGS } from "./profile-content";
-
-let pool: Pool;
-
-export function getPool(): Pool {
-  if (!pool) {
-    const connection = new URL(process.env.DATABASE_URL || "");
-    connection.searchParams.set("sslmode", "verify-full");
-    pool = new Pool({
-      connectionString: connection.toString(),
-      ssl: { rejectUnauthorized: true },
-      max: 5,
-    });
-  }
-  return pool;
-}
 
 export async function queryInstallers(whereClause = "", params: any[] = []) {
   const db = getPool();

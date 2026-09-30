@@ -36,7 +36,7 @@ export default function InstallerCardStatic({
   return (
     <div
       data-installer-id={installer.id}
-      className={`card relative ${isVerified ? "border-green-500/30" : ""}`}
+      className={`card directory-card relative ${isVerified ? "border-green-500/30" : ""}`}
     >
       {/* Tier badge */}
       <div

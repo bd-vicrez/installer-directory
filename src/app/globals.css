@@ -103,9 +103,13 @@
   content-visibility: auto;
   contain-intrinsic-size: auto 180rem;
 }
+.directory-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 20rem;
+}
 
 @media print {
-  .search-result, .directory-overview {
+  .search-result, .directory-overview, .directory-card {
     content-visibility: visible;
     contain-intrinsic-size: none;
   }
