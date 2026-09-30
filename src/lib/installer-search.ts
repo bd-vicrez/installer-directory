@@ -18,7 +18,15 @@ export class InstallerSearchError extends Error {
   }
 }
 
-export async function searchInstallers(params: URLSearchParams) {
+export type SearchTimings = Partial<
+  Record<"geocode" | "connection" | "database" | "search", number>
+>;
+
+export async function searchInstallers(
+  params: URLSearchParams,
+  timings: SearchTimings = {},
+) {
+  const started = Date.now();
   let options;
   try {
     options = readSearchOptions(params);
@@ -40,7 +48,9 @@ export async function searchInstallers(params: URLSearchParams) {
         }
       : null;
   if (options.q && !location) {
+    const geocodeStarted = Date.now();
     location = await geocodeLocation(options.q);
+    timings.geocode = Date.now() - geocodeStarted;
     if (!location)
       throw new InstallerSearchError(
         "Location not found. Enter a US ZIP code or city and state.",
@@ -83,31 +93,57 @@ export async function searchInstallers(params: URLSearchParams) {
   if (options.tier) filters.push("tier = " + bind(options.tier));
   if (options.inquiry) filters.push("quote_available=true");
   const available = `COALESCE(status='active' AND quote_routing_enabled=true AND owner_inquiry_paused=false AND LENGTH(routing_email)<=255 AND BTRIM(routing_email) ~ '^[^[:space:]@<>]+@[^[:space:]@<>]+\\.[^[:space:]@<>]+$' AND COALESCE(google_status,'') NOT IN ('CLOSED_PERMANENTLY','CLOSED_TEMPORARILY'),false)`;
-  const cte = `WITH candidates AS (SELECT ${PUBLIC_INSTALLER_FIELDS.join(",")}, owner_details, owner_details_confirmed_at, owner_reconfirmed_at, ${tier} AS tier, ${distance} AS distance, ${available} AS quote_available FROM installers WHERE ${conditions.join(" AND ")}), matches AS (SELECT * FROM candidates ${filters.length ? "WHERE " + filters.join(" AND ") : ""})`;
+  // Materialize only the small matching/sorting projection once. Fetch full
+  // public records for the requested page after counting and pagination.
+  const cte = `WITH candidates AS (SELECT id,business_name,city,state,zip_code,
+    ${tier} AS tier, ${distance} AS distance, ${available} AS quote_available,
+    NOT COALESCE((${USABLE_LOCATION_SQL}),false) AS location_unconfirmed
+    FROM installers WHERE ${conditions.join(" AND ")}),
+    matches AS MATERIALIZED (SELECT * FROM candidates ${filters.length ? "WHERE " + filters.join(" AND ") : ""})`;
   const db = getPool();
-  const counts = await db.query(
-    cte +
-      ` SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE tier='verified')::int AS verified, COUNT(*) FILTER (WHERE NOT COALESCE((${USABLE_LOCATION_SQL}),false))::int AS location_unconfirmed FROM matches`,
-    values,
-  );
-  const ordering =
+  const ordering = (prefix: string) =>
     options.sort === "nearest" && location
-      ? "distance ASC NULLS LAST, id ASC"
+      ? `${prefix}distance ASC NULLS LAST, ${prefix}id ASC`
       : location
-        ? "(distance IS NULL) ASC, FLOOR(distance/10) ASC NULLS LAST, quote_available DESC, distance ASC NULLS LAST, id ASC"
-        : "quote_available DESC, business_name ASC, id ASC";
-  const page = await db.query(
-    cte +
-      ` SELECT * FROM matches ORDER BY ${ordering} LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
-    [...values, options.limit, options.offset],
-  );
-  const { total, verified: verifiedCount } = counts.rows[0];
+        ? `(${prefix}distance IS NULL) ASC, FLOOR(${prefix}distance/10) ASC NULLS LAST, ${prefix}quote_available DESC, ${prefix}distance ASC NULLS LAST, ${prefix}id ASC`
+        : `${prefix}quote_available DESC, ${prefix}business_name ASC, ${prefix}id ASC`;
+  const connectionStarted = Date.now();
+  const client = await db.connect();
+  timings.connection = Date.now() - connectionStarted;
+  const databaseStarted = Date.now();
+  let result;
+  try {
+    result = await client.query(
+      cte +
+        `, counts AS (SELECT COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE tier='verified')::int AS verified,
+        COUNT(*) FILTER (WHERE location_unconfirmed)::int AS location_unconfirmed FROM matches),
+      page AS (SELECT * FROM matches ORDER BY ${ordering("")} LIMIT $${values.length + 1} OFFSET $${values.length + 2})
+      SELECT counts.*, COALESCE((SELECT json_agg(shop) FROM (
+        SELECT ${PUBLIC_INSTALLER_FIELDS.map((field) => "i." + field).join(",")},
+          i.owner_details,i.owner_details_confirmed_at,i.owner_reconfirmed_at,
+          p.tier,p.distance,p.quote_available
+        FROM page p JOIN installers i ON i.id=p.id ORDER BY ${ordering("p.")}
+      ) shop),'[]'::json) AS installers FROM counts`,
+      [...values, options.limit, options.offset],
+    );
+  } finally {
+    client.release();
+  }
+  timings.database = Date.now() - databaseStarted;
+  timings.search = Date.now() - started;
+  const {
+    total,
+    verified: verifiedCount,
+    location_unconfirmed,
+    installers,
+  } = result.rows[0];
   return {
-    installers: page.rows.map(toPublicInstaller),
+    installers: installers.map(toPublicInstaller),
     total,
     verified: verifiedCount,
     listed: total - verifiedCount,
-    location_unconfirmed: counts.rows[0].location_unconfirmed || 0,
+    location_unconfirmed: location_unconfirmed || 0,
     limit: options.limit,
     offset: options.offset,
     location,

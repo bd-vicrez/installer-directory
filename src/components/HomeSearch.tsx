@@ -328,13 +328,15 @@ export default function HomeSearch({
                           compare.length >= 3 &&
                           !compare.some((i) => i.id === installer.id)
                         }
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          // Read the control before React can restore its controlled value.
+                          const checked = e.currentTarget.checked;
                           setCompare((items) =>
-                            e.target.checked
+                            checked
                               ? [...items, installer]
                               : items.filter((i) => i.id !== installer.id),
-                          )
-                        }
+                          );
+                        }}
                       />
                       Compare this shop
                     </label>

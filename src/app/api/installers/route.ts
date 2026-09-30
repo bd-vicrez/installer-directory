@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { InstallerSearchError, searchInstallers } from "@/lib/installer-search";
+import {
+  InstallerSearchError,
+  searchInstallers,
+  type SearchTimings,
+} from "@/lib/installer-search";
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
-    return NextResponse.json(
-      await searchInstallers(request.nextUrl.searchParams),
-      { headers: { "Cache-Control": "no-store" } },
-    );
+    const timings: SearchTimings = {};
+    const result = await searchInstallers(request.nextUrl.searchParams, timings);
+    return NextResponse.json(result, {
+      headers: {
+        "Cache-Control": "no-store",
+        "Server-Timing": Object.entries(timings)
+          .map(([name, ms]) => `${name};dur=${ms}`)
+          .join(", "),
+      },
+    });
   } catch (error) {
     if (!(error instanceof InstallerSearchError))
       console.error("Installer search failed");
