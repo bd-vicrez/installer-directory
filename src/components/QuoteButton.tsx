@@ -5,6 +5,9 @@ import dynamic from "next/dynamic";
 import { prepareQuoteDialog } from "@/lib/prepare-quote";
 const loadQuoteModal = () => import("./QuoteModal");
 const QuoteModal = dynamic(loadQuoteModal);
+// Download only the form on interaction intent; permissions remain a fresh
+// no-store request when opening. A failed preload is retried by openQuote.
+const preloadQuoteModal = () => { void loadQuoteModal().catch(() => {}); };
 
 interface Props {
   available: boolean;
@@ -86,6 +89,9 @@ export default function QuoteButton({
     <>
       <button
         onClick={openQuote}
+        onPointerEnter={preloadQuoteModal}
+        onPointerDown={preloadQuoteModal}
+        onFocus={preloadQuoteModal}
         aria-disabled={checking}
         aria-haspopup="dialog"
         className="btn-primary w-full text-center text-lg py-3"

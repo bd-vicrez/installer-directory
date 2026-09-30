@@ -38,7 +38,7 @@ test('quote validation enforces service, boolean consent, scalar values and boun
   for(const changes of [{service:'unknown'},{sharing_consent:'true'},{request_id:null},{vehicle_year:[2024]},{install_timeline:'Soon\nInjected'},{customer_email:'<customer>@example.test'},{installer_id:''}])assert.ok(validateQuoteInput({...quote(),...changes}));
 });
 test('availability endpoint returns only a safe boolean',async()=>{
-  const {GET}=load('app/api/quote-availability/route.ts',{'@/lib/db':{getPool:()=>({query:async()=>({rows:[shop]})})}});
+  const {GET}=load('app/api/quote-availability/route.ts',{'@/lib/db-pool':{getPool:()=>({connect:async()=>({query:async()=>({rows:[shop]}),release(){}})})}});
   const response=await GET(request('/api/quote-availability?id=shop'));assert.equal(response.status,200);assert.deepEqual(await response.json(),{available:true});assert.equal(response.headers.get('cache-control'),'no-store');
 });
 test('private recipient search blocks untrusted callers before reading records',async()=>{
