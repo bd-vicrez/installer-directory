@@ -23,35 +23,21 @@ export default function UtmLinkAppender() {
       if (tagged !== href) el.setAttribute("href", tagged);
       originals.set(el, { original, tagged });
     };
-    const scan = (node: Node) => {
-      if (node instanceof HTMLAnchorElement) tag(node);
-      if (node instanceof Element)
-        node.querySelectorAll<HTMLAnchorElement>("a[href]").forEach(tag);
-    };
-    scan(document.body);
-    const observer = new MutationObserver((records) => {
-      for (const record of records) {
-        if (record.type === "attributes") scan(record.target);
-        else record.addedNodes.forEach(scan);
-      }
-    });
-    observer.observe(document.body, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ["href"],
-    });
-    const click = (e: Event) => {
+    // Tag only the link being used, including keyboard, middle-click and
+    // context-menu actions. Delegation also covers subsequently rendered links.
+    const prepareLink = (e: Event) => {
       const a =
         e.target instanceof Element
           ? e.target.closest<HTMLAnchorElement>("a[href]")
           : null;
       if (a) tag(a);
     };
-    document.addEventListener("click", click, true);
+    const events = ["pointerdown", "focusin", "contextmenu", "click", "auxclick"];
+    for (const event of events)
+      document.addEventListener(event, prepareLink, true);
     return () => {
-      observer.disconnect();
-      document.removeEventListener("click", click, true);
+      for (const event of events)
+        document.removeEventListener(event, prepareLink, true);
     };
   }, [pathname]);
   return null;

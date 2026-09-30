@@ -1,6 +1,5 @@
 "use client";
 import { discoveryEvent } from "@/lib/discovery-client";
-import ShopComparison from "./ShopComparison";
 import { normalizeService } from "@/lib/service-taxonomy";
 import { resultBucket } from "@/lib/measurement-client";
 import { INITIAL_SEARCH_LIMIT } from "@/lib/search-limits";
@@ -12,6 +11,7 @@ import Filters from "./Filters";
 import InstallerCard from "./InstallerCard";
 const ClaimModal = dynamic(() => import("./ClaimModal"));
 const RemovalModal = dynamic(() => import("./RemovalModal"));
+const ShopComparison = dynamic(() => import("./ShopComparison"));
 import type { PublicInstaller } from "@/lib/public-installers";
 
 export type SearchState = {
@@ -358,12 +358,14 @@ export default function HomeSearch({
           </>
         )}
       </section>
-      <ShopComparison
-        shops={compare}
-        onRemove={(id) =>
-          setCompare((items) => items.filter((i) => i.id !== id))
-        }
-      />
+      {compare.length > 0 && (
+        <ShopComparison
+          shops={compare}
+          onRemove={(id) =>
+            setCompare((items) => items.filter((i) => i.id !== id))
+          }
+        />
+      )}
       {claim && (
         <ClaimModal
           isOpen={!!claim}
