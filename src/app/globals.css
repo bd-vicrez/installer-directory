@@ -94,6 +94,18 @@
 .quote-launcher > summary::-webkit-details-marker { display: none; }
 .quote-launcher > summary:focus-visible { outline: 2px solid #b91c1c; outline-offset: 3px; }
 
+/* One decorative element replaces ten repeated SVG nodes per rating. The
+   numeric rating remains ordinary text for assistive technology and copying. */
+.directory-rating-stars {
+  display: inline-block;
+  width: 6rem;
+  height: 1rem;
+  flex-shrink: 0;
+  background: linear-gradient(to right, #facc15 calc(var(--rating-filled) * 1.25rem), #4b5563 calc(var(--rating-filled) * 1.25rem));
+  -webkit-mask: url('/icons/rating-star.svg') left center / 1.25rem 1rem repeat-x;
+  mask: url('/icons/rating-star.svg') left center / 1.25rem 1rem repeat-x;
+}
+
 /* Keep offscreen results and directory links in the document, but let the
    browser skip their layout/paint until they approach the viewport. Auto
    remembers the measured height after a section has been rendered. */
