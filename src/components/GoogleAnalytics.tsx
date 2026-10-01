@@ -3,17 +3,20 @@ import { usePathname } from "next/navigation";
 import Script from "next/script";
 import { useEffect, useState } from "react";
 import { measurementAllowed } from "@/lib/measurement-client";
+import { afterPagePaint } from "@/lib/after-page-paint";
 
 /**
  * GA4 tag (gtag.js). Renders nothing unless NEXT_PUBLIC_GA_MEASUREMENT_ID is set,
  * so preview/dev builds stay untracked. Queue configuration during hydration,
- * then download the tag after load when the browser is idle. First-party journey
+ * then download the tag after the loaded page paints and the browser is idle. First-party journey
  * events remain immediate and independent of the external analytics script.
  */
 export default function GoogleAnalytics() {
   const pathname = usePathname();
   const [allowed, setAllowed] = useState(false);
   const [tracking, setTracking] = useState(false);
+  const [painted, setPainted] = useState(false);
+  useEffect(() => afterPagePaint(() => setPainted(true)), []);
   const id = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   useEffect(() => {
     // Retain the ordinary script cost in lab tests while excluding their analytics events.
@@ -38,10 +41,12 @@ export default function GoogleAnalytics() {
 
   return (
     <>
-      <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${id}`}
-        strategy="lazyOnload"
-      />
+      {painted && (
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${id}`}
+          strategy="lazyOnload"
+        />
+      )}
       <Script id="ga4-init" strategy="afterInteractive">
         {`window.dataLayer = window.dataLayer || [];
 window['ga-disable-${id}'] = ${!tracking};

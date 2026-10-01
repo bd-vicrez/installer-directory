@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { prepareQuoteDialog } from "@/lib/prepare-quote";
 const loadQuoteModal = () => import("./QuoteModal");
@@ -31,22 +31,34 @@ export default function QuoteButton({
   const [unavailable, setUnavailable] = useState(!available);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
-  const inFlight = useRef(false);
+  const launcher = useRef<HTMLDetailsElement>(null);
+  const pending = useRef<AbortController | null>(null);
+  // The native disclosure responds before hydration. If it was opened early,
+  // resume that same action once the event handlers are ready.
+  useEffect(() => {
+    if (launcher.current?.open) void openQuote();
+    return () => {
+      pending.current?.abort();
+      pending.current = null;
+    };
+  }, []);
   async function openQuote() {
-    if (inFlight.current) return;
-    inFlight.current = true;
+    if (pending.current) return;
+    const attempt = new AbortController();
+    pending.current = attempt;
     setChecking(true);
     setError("");
     try {
       const available = await prepareQuoteDialog(async () => {
         const response = await fetch(
           "/api/quote-availability?id=" + encodeURIComponent(installer.id),
-          { cache: "no-store" },
+          { cache: "no-store", signal: attempt.signal },
         );
         if (!response.ok) throw new Error();
         const result = await response.json();
         return result.available === true;
       }, loadQuoteModal);
+      if (attempt.signal.aborted) return;
       if (!available) {
         setUnavailable(true);
         return;
@@ -54,12 +66,15 @@ export default function QuoteButton({
       setMounted(true);
       setOpen(true);
     } catch {
+      if (attempt.signal.aborted) return;
       setError(
         "We could not open this shop’s quote form. Please retry or use its phone or website.",
       );
     } finally {
-      inFlight.current = false;
-      setChecking(false);
+      if (pending.current === attempt) {
+        pending.current = null;
+        setChecking(false);
+      }
     }
   }
   if (unavailable)
@@ -87,26 +102,50 @@ export default function QuoteButton({
 
   return (
     <>
-      <button
-        onClick={openQuote}
-        onPointerEnter={preloadQuoteModal}
-        onPointerDown={preloadQuoteModal}
-        onFocus={preloadQuoteModal}
-        aria-disabled={checking}
-        aria-haspopup="dialog"
-        className="btn-primary w-full text-center text-lg py-3"
+      <details
+        ref={launcher}
+        className="quote-launcher"
+        onToggle={(event) => {
+          if (event.currentTarget.open) void openQuote();
+          else {
+            pending.current?.abort();
+            pending.current = null;
+            setChecking(false);
+          }
+        }}
       >
-        {checking ? "Checking contact availability…" : "Request a Quote"}
-      </button>
-      {error && (
-        <p role="alert" className="text-sm text-red-700">
-          {error}
-        </p>
-      )}
+        <summary
+          onPointerEnter={preloadQuoteModal}
+          onPointerDown={preloadQuoteModal}
+          onFocus={preloadQuoteModal}
+          aria-haspopup="dialog"
+          className="btn-primary w-full text-center text-lg py-3 list-none cursor-pointer"
+        >
+          Request a Quote
+        </summary>
+        {error ? (
+          <div role="alert" className="mt-2 text-sm text-red-700">
+            <p>{error}</p>
+            <button type="button" onClick={openQuote} className="underline mt-2">
+              Retry opening quote form
+            </button>
+          </div>
+        ) : (
+          <p role="status" className="mt-2 text-sm text-gray-700" aria-busy={checking}>
+            Preparing your quote form…
+          </p>
+        )}
+        <noscript>
+          Enable JavaScript to complete this form, or contact the shop using its phone or website.
+        </noscript>
+      </details>
       {mounted && (
         <QuoteModal
           isOpen={open}
-          onClose={() => setOpen(false)}
+          onClose={() => {
+            setOpen(false);
+            if (launcher.current) launcher.current.open = false;
+          }}
           installer={installer}
           initialService={initialService}
         />
