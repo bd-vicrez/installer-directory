@@ -106,26 +106,13 @@ export default async function LocationPage({
   const startIdx = (currentPage - 1) * INSTALLERS_PER_PAGE;
   const locationLabel =
     type === "city" && city ? `${city}, ${stateAbbr}` : stateName;
-  const nearbyCities = await locationCities(
-    stateAbbr,
-    city,
-    type === "city" ? 12 : 20,
-  );
-
-  // Pull unique AI-generated SEO content for this city (top ~450 cities pre-generated in city_seo table)
-  let citySeo: {
-    intro: string | null;
-    local_scene: string | null;
-    what_to_ask: string | null;
-    cost_context: string | null;
-  } | null = null;
-  if (type === "city" && city) {
-    try {
-      citySeo = await queryCitySeoContent(city, stateAbbr);
-    } catch {
-      // ignore
-    }
-  }
+  // These reads are independent; neither needs to wait for the other.
+  const [nearbyCities, citySeo] = await Promise.all([
+    locationCities(stateAbbr, city, type === "city" ? 12 : 20),
+    type === "city" && city
+      ? queryCitySeoContent(city, stateAbbr).catch(() => null)
+      : Promise.resolve(null),
+  ]);
 
   // Breadcrumbs
   const breadcrumbs = [

@@ -37,30 +37,32 @@ export const locationPage = cache(
     const recorded = `COALESCE(source ILIKE ANY(${bind(VERIFIED_KEYWORDS.map((k) => `%${k}%`))}::text[]),FALSE)`;
     const service = category ? serviceSql(category, bind) : "TRUE";
     const db = getPool();
-    const counts = (
-      await db.query(
-        `SELECT COUNT(*)::int AS location_total,
-    COUNT(*) FILTER (WHERE ${service})::int AS total,
-    COUNT(*) FILTER (WHERE ${service} AND ${recorded})::int AS recorded
-    FROM installers WHERE ${where}`,
-        values,
-      )
-    ).rows[0];
-    if (!counts.location_total) return null;
-    const pages = Math.max(1, Math.ceil(counts.total / LOCATION_PAGE_SIZE));
     const order = category
       ? "google_rating DESC NULLS LAST,google_review_count DESC NULLS LAST,id ASC"
       : "id ASC";
-    const rows: Installer[] =
-      page > pages
-        ? []
-        : (
-            await db.query(
-              `SELECT ${CARD_FIELDS} FROM installers WHERE ${where} AND ${service}
-     ORDER BY ${recorded} DESC,${order} LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
-              [...values, LOCATION_PAGE_SIZE, (page - 1) * LOCATION_PAGE_SIZE],
-            )
-          ).rows;
+    // Counts and the bounded page share one database round trip. The lateral
+    // guard avoids a row scan for nonexistent locations or out-of-range pages.
+    const result = await db.query(
+      `WITH counts AS MATERIALIZED (SELECT COUNT(*)::int AS location_total,
+    COUNT(*) FILTER (WHERE ${service})::int AS total,
+    COUNT(*) FILTER (WHERE ${service} AND ${recorded})::int AS recorded
+    FROM installers WHERE ${where})
+    SELECT counts.*,COALESCE(cards.rows,'[]'::jsonb) AS rows FROM counts
+    LEFT JOIN LATERAL (
+      SELECT jsonb_agg(selected) AS rows FROM (
+        SELECT ${CARD_FIELDS} FROM installers WHERE ${where} AND ${service}
+        AND counts.location_total>0
+        AND $${values.length + 3}<=GREATEST(1,CEIL(counts.total::numeric/${LOCATION_PAGE_SIZE}))
+        ORDER BY ${recorded} DESC,${order}
+        LIMIT $${values.length + 1} OFFSET $${values.length + 2}
+      ) selected
+    ) cards ON TRUE`,
+      [...values, LOCATION_PAGE_SIZE, (page - 1) * LOCATION_PAGE_SIZE, page],
+    );
+    const counts = result.rows[0];
+    if (!counts.location_total) return null;
+    const pages = Math.max(1, Math.ceil(counts.total / LOCATION_PAGE_SIZE));
+    const rows: Installer[] = counts.rows || [];
     return {
       type: city ? ("city" as const) : ("state" as const),
       city,
