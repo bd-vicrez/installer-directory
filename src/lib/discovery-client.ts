@@ -1,6 +1,7 @@
 "use client";
 import { sessionAcquisition } from "./acquisition-client";
 import { measurementAllowed, measurementDevice } from "./measurement-client";
+import { ga4JourneyEvent } from "./ga4-journeys";
 export function pageKind(path: string) {
   if (path === "/") return "home";
   if (path.startsWith("/installer/")) return "profile";
@@ -31,6 +32,7 @@ export function discoveryEvent(
     campaign_source: attribution.source,
     acquisition_channel: attribution.channel,
   };
+  ga4JourneyEvent(event, payload);
   void fetch("/api/discovery-events", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

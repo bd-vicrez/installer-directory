@@ -9,9 +9,23 @@ export function privateMeasurementPath(path: string) {
 }
 
 export function automatedMeasurementAgent(agent: string) {
-  return /bot\b|crawler|spider|headless|lighthouse|pagespeed|vicrez-.*audit/i.test(
+  return /bot\b|crawler|spider|headless|lightpanda\b|lighthouse|pagespeed|vicrez-.*audit/i.test(
     agent,
   );
+}
+
+export function localMeasurementReferrer(referrer: string) {
+  try {
+    const host = new URL(referrer).hostname.toLowerCase();
+    return (
+      host === "localhost" ||
+      host.endsWith(".localhost") ||
+      host === "[::1]" ||
+      /^127(?:\.\d{1,3}){3}$/.test(host)
+    );
+  } catch {
+    return false;
+  }
 }
 
 /** Also enforced at collection time; no raw user agent is saved. */

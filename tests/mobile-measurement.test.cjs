@@ -109,6 +109,7 @@ test("QA opt-out persists in the tab and private paths, bots, DNT, GPC and previ
     "Googlebot",
     "HeadlessChrome",
     "Chrome-Lighthouse",
+    "Lightpanda/1.0",
     "Vicrez-Mobile-Performance-Audit/1",
   ]) {
     navigator.userAgent = agent;

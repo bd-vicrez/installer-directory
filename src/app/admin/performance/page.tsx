@@ -23,6 +23,13 @@ export default function Performance() {
         Counts describe activity; they do not prove which channel caused a
         booking.
       </p>
+      <p className="rounded-lg border border-amber-400/40 bg-amber-950/30 p-3 text-sm">
+        Traffic quality: tab-session counts can include automated visits. The
+        measurement filter now excludes Lightpanda and visits referred from
+        localhost testing; earlier records remain unchanged and may contain
+        that activity. These totals are not verified people or GA4 sessions.
+        Use saved inquiries and recorded shop outcomes to judge growth.
+      </p>
       {error && <p role="alert">{error}</p>}
       {!data && !error && <p>Loading saved outcomes…</p>}
       {data && (
@@ -40,14 +47,14 @@ export default function Performance() {
           <div className="overflow-x-auto border rounded-xl bg-white text-gray-900">
             <table className="min-w-full text-sm">
               <caption className="p-3 text-left font-semibold">
-                Sessions, saved inquiries and recorded outcomes by source
+                Browser-tab activity and saved inquiry outcomes by source
               </caption>
               <thead>
                 <tr>
                   {[
                     "Source",
                     "Channel",
-                    "Sessions",
+                    "Tab sessions",
                     "Saved inquiries",
                     "Inquiries with a shop reply",
                     "Currently quoted",

@@ -52,7 +52,9 @@ export default function GoogleAnalytics() {
 window['ga-disable-${id}'] = ${!tracking};
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', '${id}', { send_page_view: !location.pathname.startsWith('/owner') && !location.pathname.startsWith('/inquiry-progress') && !location.pathname.startsWith('/shop-response') && !location.pathname.startsWith('/request-status') && !location.pathname.startsWith('/admin'), page_location: location.origin+location.pathname+location.search });`}
+gtag('config', '${id}', { send_page_view: !location.pathname.startsWith('/owner') && !location.pathname.startsWith('/inquiry-progress') && !location.pathname.startsWith('/shop-response') && !location.pathname.startsWith('/request-status') && !location.pathname.startsWith('/admin'), page_location: location.origin+location.pathname+location.search });
+window.__vicrezGa4Configured = '${id}';
+window.__vicrezGa4Flush?.();`}
       </Script>
     </>
   );
