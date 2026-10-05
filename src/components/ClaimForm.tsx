@@ -37,6 +37,10 @@ export default function ClaimForm({
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
+      if (d.success !== true || !d.reference || !d.token)
+        throw new Error(
+          "Your request could not be confirmed. Retry the same details.",
+        );
       setReceipt(d);
       measurement.event("complete");
     } catch (e) {

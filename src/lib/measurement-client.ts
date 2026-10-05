@@ -1,6 +1,7 @@
 "use client";
 import {
   automatedMeasurementAgent,
+  localMeasurementReferrer,
   privateMeasurementPath,
 } from "./measurement-privacy";
 
@@ -12,7 +13,9 @@ export function measurementAllowed(loadAssetsForAutomation = false) {
     return false;
   // QA visits opt out for this tab, including subsequent navigation. Preview and local builds are excluded.
   let excluded =
-    new URLSearchParams(window.location.search).get("analytics") === "off";
+    new URLSearchParams(window.location.search).get("analytics") === "off" ||
+    (typeof document !== "undefined" &&
+      localMeasurementReferrer(document.referrer));
   try {
     if (excluded) sessionStorage.setItem("vicrez-analytics-exclude", "1");
     excluded ||= sessionStorage.getItem("vicrez-analytics-exclude") === "1";

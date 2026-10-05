@@ -7,6 +7,7 @@ import { quoteStepError } from "@/lib/quote-steps";
 import { QUOTE_SERVICES } from "@/lib/quote-services";
 import { quoteEvent, quoteSession } from "@/lib/quote-telemetry";
 import { discoveryEvent, pageKind } from "@/lib/discovery-client";
+import { ga4JourneyEvent } from "@/lib/ga4-journeys";
 import {
   measurementAllowed,
   measurementDevice,
@@ -298,6 +299,10 @@ export default function QuoteRequestDialog({
           "Your request could not be confirmed. Retry the same details.",
         );
       setReceipt(accepted);
+      ga4JourneyEvent("quote_saved", {
+        journey_id: requestId.current,
+        page: pageKind(location.pathname),
+      });
     } catch (issue) {
       setError(
         issue instanceof Error

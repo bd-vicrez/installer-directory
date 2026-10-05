@@ -111,6 +111,11 @@ export default function ApplyPage() {
         throw new Error(result.error || "Failed to submit application");
       }
 
+      if (result.success !== true || !result.application_id || !result.token)
+        throw new Error(
+          "Your application could not be confirmed. Retry the same details.",
+        );
+
       setReceipt(result);
       measurement.event("complete");
       requestAnimationFrame(() =>
