@@ -86,6 +86,36 @@ Applicant messages and shop reminders use existing SendGrid reconciliation.
 
 ## Operations
 
+### Daily contact health
+
+The existing 9 a.m. run also checks active, unpaused inquiry recipients, with
+no model calls, SMTP probes or test emails. It batches domain lookups through
+Google and Cloudflare DNS and pages through SendGrid suppression lists, keeping
+only matches to directory recipients. Configure `contact_health_sendgrid_key`
+in the root-only agent config using the existing provider credential.
+
+Both DNS resolvers must agree on a nonexistent domain, null MX or absence of
+MX/address fallback before DNS can disable routing. An MX record is not required
+when address records support implicit MX. Invalid syntax, provider invalid-email
+records, explicit 5.1.1/5.1.2 recipient bounces, unsubscribes and spam reports also
+disable routing. Timeouts, DNS disagreement, sender-policy blocks and incomplete
+provider checks remain review items. DNS has a 160-second work budget; provider
+pagination has a 220-second overall budget. Both report unfinished work.
+
+Disabling routing rechecks the exact recipient and modification timestamp under
+a row lock and commits the audit in the same transaction. Listings stay present.
+No address is guessed, suppression removed, or routing automatically re-enabled.
+`state/contact-health.json` preserves per-shop evidence. Paused records remain
+under review on subsequent runs. The Operations page lists affected shops and
+the existing daily staff digest surfaces the check; no second timer is added.
+
+Unmatched inquiries are immediately escalated for service/project review rather
+than being described as awaiting a shop response. Existing human takeover and
+message-idempotency rules still apply.
+
+Run `python3 -m unittest test_contact_health test_inquiry_routing -v` for DNS,
+provider pagination, uncertain-result, changed-recipient and routing regressions.
+
 ```sh
 cd /root/installer-operations/agent
 python3 agent.py                 # dry-run; no case, listing or message changes

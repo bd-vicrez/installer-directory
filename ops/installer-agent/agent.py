@@ -8,6 +8,7 @@ import requests, psycopg2
 from psycopg2.extras import RealDictCursor, Json
 from rules import ACTOR, POLICY, fingerprint, phone, host, decide, group_inquiries, utc
 from evidence import gather, EvidenceUnavailable
+import contact_health
 
 ROOT=Path(os.environ.get('INSTALLER_AGENT_HOME','/root/installer-operations/agent'))
 def now():return datetime.now(timezone.utc)
@@ -178,20 +179,22 @@ class Agent:
    human=bool(ticket and self.ticket_human_reply(ticket))
    responses=[d for r in active for d in r['deliveries'] if d.get('response_state')]
    alternative=any(r.get('customer_action',{}).get('state')=='alternative_requested' for r in active)
+   unmatched=any(r.get('routing_state') in ('needs_review','failed') or not r['deliveries'] for r in active)
    age=(now()-min(utc(r['created_at']) for r in active)).total_seconds()/3600
    reminders=0
-   if worker_ok and not human and not alternative:
+   if worker_ok and not human and not alternative and not unmatched:
     for r in active:
      for delivery in r['deliveries']:reminders+=int(self.reminder(r,delivery))
    missing_links=any(not d.get('response_link_expires_at') for r in active for d in r['deliveries'])
    step=('A customer or staff member replied, closed, or reassigned the support ticket; '+self.cfg['owner_name']+' must handle the reply.' if human else
+    'No eligible shop delivery exists for at least one request. '+self.cfg['owner_name']+' must confirm the project/service and review a permitted shop match; do not describe this as waiting for a shop response.' if unmatched else
     'Review the shop response and coordinate the next customer step; no appointment has been confirmed.' if responses else
     'Customer requested another shop. '+self.cfg['owner_name']+' must review the request and consent before any additional sharing.' if alternative else
     'Confirm the outcome directly with the customer; older shop notifications do not have response links.' if missing_links else
     'Await shop response; the agent checks once daily and sends one eligible reminder after 48 hours.')
    if age>=72 and not human:step+=' Escalated to '+self.cfg['owner_name']+' because more than 72 hours have elapsed.'
-   state='staff_attention' if human or responses or alternative or age>=72 else 'monitoring'
-   stage='shop_response' if responses else 'alternative' if alternative else 'waiting_72h' if age>=72 else 'initial'
+   state='staff_attention' if human or unmatched or responses or alternative or age>=72 else 'monitoring'
+   stage='routing_review' if unmatched else 'shop_response' if responses else 'alternative' if alternative else 'waiting_72h' if age>=72 else 'initial'
    message_key='installer-inquiry-v1:'+str(sid)+':'+stage
    existing=self.query('SELECT state,ticket_id FROM directory_automation_messages WHERE event_key=%s',(message_key,))
    if not existing and not human and worker_ok:
@@ -219,6 +222,7 @@ class Agent:
         q.execute("INSERT INTO directory_review_audit(kind,record_id,actor,action,note) VALUES('inquiry',%s,%s,'automated_followup',%s)",(str(i),ACTOR,step))
  def customer_message(self,refs,stage,legacy):
   text={'initial':'We have your installation inquiry and are checking for a response from the shop or shops selected for your request.',
+   'routing_review':'Your inquiry is saved, but at least one request could not be matched to an eligible shop. Our support team needs to review the requested service and available options. Please reply with the exact part or product link and the installation work you need. No shop response, quote or appointment is confirmed for the unmatched request.',
    'waiting_72h':'We are following up on your installation inquiry. We have not recorded a shop response in our system yet. The shop may have contacted you directly.',
    'shop_response':'A shop has responded to your installation inquiry. Our support team is reviewing the response and the next step. This does not confirm a quote or appointment.',
    'alternative':'We received your request for help finding another shop. Our support team will review the available options and your consent before sharing your request further.'}[stage]
@@ -302,6 +306,10 @@ class Agent:
   # A PostgreSQL session lock protects against other hosts as well as overlapping timers.
   if not self.query('SELECT pg_try_advisory_lock(19327,1) AS locked')[0]['locked']:return {'skipped':'another_agent_is_running'}
   try:
+   try:self.report['contact_health']=contact_health.run(self,atomic,ROOT)
+   except Exception as e:
+    self.db.rollback();self.report['errors'].append({'check':'contact_health','error':type(e).__name__})
+    if self.live:self.query("INSERT INTO directory_operation_runs(name,ok,details) VALUES('contact-health',false,%s) ON CONFLICT(name) DO UPDATE SET checked_at=NOW(),ok=false,details=EXCLUDED.details",(Json({'error':type(e).__name__,'owner':self.cfg['owner_name']}),))
    self.applications();self.inquiries();self.dispatch();self.health()
   finally:self.query('SELECT pg_advisory_unlock(19327,1)')
   self.report['finished_at']=now().isoformat();atomic(ROOT/'state'/('latest.json' if self.live else 'dry-run.json'),self.report)
