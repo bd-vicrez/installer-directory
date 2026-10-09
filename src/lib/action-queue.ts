@@ -124,12 +124,12 @@ export function deriveActions(data: any, now = Date.now()): ActionItem[] {
     if (terminal && !due && !unhandledReply && !alternative) continue;
     let reason = alternative
       ? "Customer requested help finding another shop"
-      : r.escalation_due && !terminal
-        ? "Escalation: no shop response after 72 elapsed hours"
+      : routing
+        ? "Routing or notification delivery needs review"
         : unhandledReply
           ? "New shop response needs staff review"
-          : routing
-            ? "Routing or notification delivery needs review"
+          : r.escalation_due && !terminal
+            ? "Escalation: no shop response after 72 elapsed hours"
             : unsent
               ? "Notification still pending after one hour"
               : unanswered
@@ -308,7 +308,7 @@ export async function loadActionQueue(pool: Pool) {
       "SELECT id,kind,reference,state,last_error,created_at FROM directory_notifications WHERE state IN ('failed','not_delivered','uncertain','held') ORDER BY created_at LIMIT 1001",
     ),
     pool.query(
-      "SELECT name,checked_at,ok FROM directory_operation_runs WHERE name IN ('backup','notifications','notification-delivery','operations-client','installer-agent')",
+      "SELECT name,checked_at,ok FROM directory_operation_runs WHERE name IN ('backup','notifications','notification-delivery','operations-client','installer-agent','contact-health')",
     ),
     pool.query(
       "SELECT a.*,s.display_name,s.active AS assignee_active,c.owner_name AS automation_owner,c.escalation_owner,c.state AS automation_state,c.paused AS automation_paused,c.zendesk_ticket_id FROM directory_action_assignments a LEFT JOIN directory_staff_users s ON s.id=a.assigned_to LEFT JOIN directory_automation_cases c ON c.task_key=a.task_key",

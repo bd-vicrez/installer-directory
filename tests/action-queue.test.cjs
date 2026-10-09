@@ -71,6 +71,12 @@ test("queue escalates unsent and unanswered inquiries without multiplying a requ
   assert.ok(items.every((x) => x.priority === "urgent"));
   assert.match(items[1].reason, /pending/);
 });
+test("unmatched overdue inquiries retain the routing problem instead of implying shop delivery", () => {
+  const [item] = m.deriveActions({inquiries: [{submission_id: 17, created_at: created, service: "other", routing_state: "needs_review", escalation_due: true}]}, now);
+  assert.equal(item.reason, "Routing or notification delivery needs review");
+  assert.equal(item.priority, "urgent");
+});
+
 test("assignments sort urgent before overdue and do not hide waiting or inactive staff", () => {
   const items = [
     { key: "a", priority: "normal", source_due_at: created },
