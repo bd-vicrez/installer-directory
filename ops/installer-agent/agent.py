@@ -214,12 +214,19 @@ class Agent:
        q.execute('SELECT pg_advisory_xact_lock(19312,hashtext(%s))',(str(i),))
        q.execute('SELECT * FROM directory_inquiry_followup WHERE submission_id=%s FOR UPDATE',(i,));old=q.fetchone()
        if old and old['actor']!=ACTOR:continue
+       public_status=self.inquiry_public_status(r)
        if not old:
-        q.execute("INSERT INTO directory_inquiry_followup(submission_id,state,note,actor,next_followup_at,public_message) VALUES(%s,'new',%s,%s,%s,%s)",(i,step,ACTOR,due,'Your inquiry is being monitored for a shop response. No appointment is confirmed.'))
+        q.execute("INSERT INTO directory_inquiry_followup(submission_id,state,note,actor,next_followup_at,public_message) VALUES(%s,'new',%s,%s,%s,%s)",(i,step,ACTOR,due,public_status))
         q.execute("INSERT INTO directory_review_audit(kind,record_id,actor,action,note) VALUES('inquiry',%s,%s,'automated_review',%s)",(str(i),ACTOR,step))
-       elif old['note']!=step:
-        q.execute("UPDATE directory_inquiry_followup SET note=%s,next_followup_at=%s,updated_at=NOW() WHERE submission_id=%s AND actor=%s",(step,due,i,ACTOR))
+       elif old['note']!=step or old.get('public_message')!=public_status:
+        q.execute("UPDATE directory_inquiry_followup SET note=%s,next_followup_at=%s,public_message=%s,updated_at=NOW() WHERE submission_id=%s AND actor=%s",(step,due,public_status,i,ACTOR))
         q.execute("INSERT INTO directory_review_audit(kind,record_id,actor,action,note) VALUES('inquiry',%s,%s,'automated_followup',%s)",(str(i),ACTOR,step))
+ def inquiry_public_status(self,row):
+  if row.get('routing_state') in ('needs_review','failed') or not row.get('deliveries'):
+   return 'Your inquiry is saved and needs staff review to find an eligible shop. No shop response, quote or appointment is confirmed.'
+  if any(d.get('response_state') for d in row['deliveries']):
+   return 'A shop response is recorded and needs staff review. No appointment is confirmed.'
+  return 'Your inquiry is being monitored for a shop response. No appointment is confirmed.'
  def customer_message(self,refs,stage,legacy):
   text={'initial':'We have your installation inquiry and are checking for a response from the shop or shops selected for your request.',
    'routing_review':'Your inquiry is saved, but at least one request could not be matched to an eligible shop. Our support team needs to review the requested service and available options. Please reply with the exact part or product link and the installation work you need. No shop response, quote or appointment is confirmed for the unmatched request.',

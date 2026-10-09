@@ -14,6 +14,14 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(result['state'],'staff_attention');self.assertIn('No eligible shop delivery',result['next_step'])
         message=a.customer_message('VZ-1','routing_review',False)
         self.assertIn('could not be matched',message);self.assertNotIn('checking for a response',message)
+        self.assertIn('needs staff review to find an eligible shop',a.inquiry_public_status(row))
+
+    def test_public_status_distinguishes_delivered_and_answered_requests(self):
+        a=Agent.__new__(Agent)
+        row={'routing_state':'routed','deliveries':[{}]}
+        self.assertIn('monitored for a shop response',a.inquiry_public_status(row))
+        row['deliveries'][0]['response_state']='accepted'
+        self.assertIn('response is recorded',a.inquiry_public_status(row))
 
 
 if __name__=='__main__':unittest.main()
