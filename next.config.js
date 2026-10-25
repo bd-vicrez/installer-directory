@@ -1,7 +1,13 @@
+const { HTML_LIMITED_BOT_UA_RE } = require("next/dist/shared/lib/router/utils/html-bots");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: __dirname,
   poweredByHeader: false,
+  // Google's homepage crawl reported no canonical. Preserve Next's
+  // default crawler list and deliver metadata in <head> for Googlebot too.
+  // Ordinary browsers keep streaming; page content and canonical values match.
+  htmlLimitedBots: new RegExp(`${HTML_LIMITED_BOT_UA_RE.source}|Googlebot`, HTML_LIMITED_BOT_UA_RE.flags),
   async redirects() {
     return [
       {
