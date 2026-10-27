@@ -11,6 +11,7 @@ export default function PlanningGuide({ slug }: { slug: string }) {
       <p className="text-sm text-vicrez-muted mb-8">
         Vicrez Installer Directory · Published September 21, 2026 ·
         Project-planning checklist
+        {guide.updated && <> · Updated {new Date(`${guide.updated}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}</>}
       </p>
       {guide.sections.map((section) => (
         <section className="mb-8" key={section.title}>
@@ -31,7 +32,7 @@ export default function PlanningGuide({ slug }: { slug: string }) {
           )}
         </section>
       ))}
-      <section className="mb-8 border border-vicrez-border rounded-xl p-5">
+      <section id="project-worksheet" className="mb-8 border border-vicrez-border rounded-xl p-5 scroll-mt-24">
         <h2 className="text-2xl font-bold text-white mb-3">
           Your project worksheet
         </h2>
@@ -39,6 +40,7 @@ export default function PlanningGuide({ slug }: { slug: string }) {
           Copy these fields into your notes and fill them in with the shop’s
           answers.
         </p>
+        {guide.updated && <p className="mb-5"><a className="text-vicrez-red underline" href={`/worksheets/${slug}.txt`} download>Download the editable text worksheet</a><span className="block text-sm text-vicrez-muted mt-1">Open it in your notes app or a text editor. No account required.</span></p>}
         <dl className="space-y-4">
           {guide.worksheet.map((row) => (
             <div key={row.field}>
@@ -48,6 +50,13 @@ export default function PlanningGuide({ slug }: { slug: string }) {
           ))}
         </dl>
       </section>
+      {guide.updated && (
+        <section className="mb-8">
+          <h2 className="text-2xl font-bold text-white mb-3">Find a shop for the next conversation</h2>
+          <p className="text-gray-300 mb-3">Search your location, compare the services on each profile and use the worksheet to ask about your actual project. A service label does not establish acceptance of a particular part.</p>
+          <a href="/" className="text-vicrez-red underline">Find an installer near you</a>
+        </section>
+      )}
       <nav aria-label="Related project checklists" className="space-y-3 mb-8">
         {Object.entries(PLANNING_GUIDES)
           .filter(([key]) => key !== slug)

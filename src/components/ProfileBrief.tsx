@@ -1,3 +1,4 @@
+import { pilotProfile, supportedPilotCities } from "@/lib/editorial-pilot";
 import { Installer } from "@/lib/types";
 import { reviewedProfile } from "@/lib/profile-indexing";
 import { RECOVERY_LOCATIONS } from "@/lib/recovery-locations";
@@ -5,6 +6,9 @@ import { RECOVERY_LOCATIONS } from "@/lib/recovery-locations";
 export default function ProfileBrief({ installer }: { installer: Installer }) {
   const brief = reviewedProfile(installer);
   if (!brief) return null;
+  const planning = pilotProfile(installer);
+  const city = supportedPilotCities([installer])[0];
+  const reviewedDate = new Date(`${brief.reviewed}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
   const local = Object.entries(RECOVERY_LOCATIONS).find(
     ([, entry]) => entry.shop === installer.slug,
   );
@@ -17,6 +21,15 @@ export default function ProfileBrief({ installer }: { installer: Installer }) {
         Plan a project with {installer.business_name}
       </h2>
       <p className="text-gray-300 leading-relaxed mb-4">{brief.summary}</p>
+      {planning && (
+        <div className="mb-5">
+          <h3 className="font-semibold text-white mb-2">What to prepare: {planning.focus}</h3>
+          <p className="text-gray-300 leading-relaxed mb-3">{planning.prepare}</p>
+          <h3 className="font-semibold text-white mb-2">Start your request</h3>
+          <p className="text-sm text-vicrez-muted mb-2">Replace the bracketed details with your project information.</p>
+          <blockquote className="border-l-2 border-vicrez-red pl-4 text-gray-300 leading-relaxed">{planning.request}</blockquote>
+        </div>
+      )}
       <h3 className="font-semibold text-white mb-2">Questions for this shop</h3>
       <ul className="list-disc pl-5 space-y-2 text-gray-300">
         {brief.questions.map((q) => (
@@ -30,6 +43,8 @@ export default function ProfileBrief({ installer }: { installer: Installer }) {
         >
           Agree on customer-supplied parts before ordering
         </a>
+        <a className="block text-vicrez-red underline" href="/guides/compare-installation-quotes#project-worksheet">Download a quote-comparison worksheet</a>
+        {city && <a className="block text-vicrez-red underline" href={`/installers/${city[0]}`}>Browse shops and project planning in {city[1].city}</a>}
         {local && (
           <a
             className="block text-vicrez-red underline"
@@ -53,7 +68,7 @@ export default function ProfileBrief({ installer }: { installer: Installer }) {
         ) : (
           brief.sourceLabel
         )}
-        . Reviewed September 21, 2026.
+        . Editorial review: {reviewedDate}.
       </p>
       <p className="text-sm text-vicrez-muted mt-2">
         Confirm current services, customer-supplied parts and availability with

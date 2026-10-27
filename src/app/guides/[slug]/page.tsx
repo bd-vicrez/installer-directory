@@ -36,7 +36,7 @@ const GUIDES: Record<
         title: guide.title,
         description: guide.description,
         datePublished: "2026-09-21",
-        dateModified: "2026-09-21",
+        dateModified: guide.updated || "2026-09-21",
         component: () => <PlanningGuide slug={slug} />,
       },
     ]),

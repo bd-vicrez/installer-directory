@@ -6,7 +6,7 @@ import { INDEX_CANDIDATE_SLUGS, profileIndexing } from "./profile-indexing";
 import { getPool } from "./db-pool";
 export { getPool } from "./db-pool";
 import { VERIFIED_KEYWORDS } from "./utils";
-import { REVIEWED_PROFILE_SLUGS } from "./profile-content";
+import { PILOT_PROFILES, pilotProfile } from "./editorial-pilot";
 
 export async function queryInstallers(whereClause = "", params: any[] = []) {
   const db = getPool();
@@ -158,8 +158,8 @@ export async function queryIndexableInstallerSlugs() {
 }
 
 /**
- * Cities that have unique AI-written SEO content in city_seo AND at least
- * one live installer. These are the only city pages in the sitemap.
+ * Preserve the existing city sitemap cohort while its listings remain live.
+ * Legacy generated prose is no longer displayed; city_seo is not quality evidence.
  */
 export async function queryCitySeoCities(): Promise<
   { city: string; state: string }[]
@@ -193,15 +193,15 @@ export async function queryAllInstallerSlugs(limit = 500) {
   return rows.map((r: any) => r.slug);
 }
 
-/** Ten evidence-reviewed profiles, excluding withdrawn or reclassified records. */
+/** Reviewed homepage cohort. Identity or service changes suppress stale editorial content. */
 export async function queryReviewedProfiles() {
   const { rows } = await getPool().query(
-    `SELECT slug, business_name, city, state FROM installers
-     WHERE slug = ANY($1::text[]) AND status NOT IN ('removed', 'non_us_excluded')
-       AND source ILIKE $2 ORDER BY business_name LIMIT 10`,
-    [REVIEWED_PROFILE_SLUGS, "%[New Dealer Form]%"],
+    `SELECT id, slug, business_name, city, state, source, status, install_capabilities, specialize_in
+     FROM installers WHERE slug = ANY($1::text[])
+       AND status NOT IN ('removed', 'non_us_excluded') ORDER BY business_name LIMIT 5`,
+    [Object.keys(PILOT_PROFILES)],
   );
-  return rows;
+  return rows.filter((shop) => pilotProfile(shop));
 }
 
 /** Only the five evidence-backed service/location briefs, while their supporting records remain valid. */

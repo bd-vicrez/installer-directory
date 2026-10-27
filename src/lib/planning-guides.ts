@@ -1,4 +1,5 @@
 export interface PlanningGuide {
+  updated?: string;
   title: string;
   description: string;
   sections: { title: string; paragraphs?: string[]; items?: string[] }[];
@@ -7,6 +8,7 @@ export interface PlanningGuide {
 
 export const PLANNING_GUIDES: Record<string, PlanningGuide> = {
   "customer-supplied-parts-installation": {
+    updated: "2026-10-27",
     title: "Bring Your Own Parts: Agree on the Installation Before Ordering",
     description:
       "A practical brief for confirming supplied-parts acceptance, the installation scope, delivery arrangements and responsibility for missing pieces.",
@@ -75,6 +77,7 @@ export const PLANNING_GUIDES: Record<string, PlanningGuide> = {
     ],
   },
   "compare-installation-quotes": {
+    updated: "2026-10-27",
     title: "Compare Installation Quotes Using the Same Written Scope",
     description:
       "Compare preparation, fitting, finishing, materials, exclusions and handover details without mistaking a lower headline price for the same job.",

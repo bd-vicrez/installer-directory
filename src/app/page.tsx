@@ -5,6 +5,7 @@ import { unstable_cache } from "next/cache";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HomeSearch from "@/components/HomeSearch";
+import { PILOT_PROFILES, supportedPilotCities } from "@/lib/editorial-pilot";
 import { initialSearch } from "@/lib/initial-search";
 import {
   queryTopCities,
@@ -47,6 +48,8 @@ const CATEGORIES = [
 ];
 
 const SEO_GUIDES = [
+  { slug: "customer-supplied-parts-installation", title: "Bring Your Own Parts: Plan the Installation Before Ordering" },
+  { slug: "compare-installation-quotes", title: "Compare Installation Quotes: Scope and Worksheet" },
   {
     slug: "body-kit-installation-cost",
     title: "How Much Does Body Kit Installation Cost? (2026 Guide)",
@@ -90,7 +93,7 @@ const homepageOverview = unstable_cache(
       ),
       queryReviewedProfiles(),
     ]),
-  ["homepage-overview-v1"],
+  ["homepage-overview-pilot-20261027"],
   { revalidate: 300 },
 );
 
@@ -153,8 +156,8 @@ async function HomeDirectoryContent() {
         </h2>
         <p className="text-vicrez-muted mb-6">
           Compare recorded services and prepare questions for your project.
-          These shops have dealer-form records in the directory; inclusion is
-          not a ranking or workmanship guarantee.
+          Each profile below includes a source-attributed planning brief.
+          Confirm the current job scope and availability directly with the shop.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {reviewedProfiles.map(
@@ -175,10 +178,16 @@ async function HomeDirectoryContent() {
                 <p className="text-sm text-vicrez-muted mt-2">
                   {shop.city}, {shop.state}
                 </p>
+                <p className="text-sm text-gray-300 mt-2">{PILOT_PROFILES[shop.slug].focus}</p>
               </a>
             ),
           )}
         </div>
+        <nav aria-label="Local project planning" className="mt-6 flex flex-wrap gap-4">
+          {supportedPilotCities(reviewedProfiles).map(([slug, city]) => (
+            <a key={slug} href={`/installers/${slug}`} className="text-vicrez-red underline">Plan a project in {city.city}, {city.state}</a>
+          ))}
+        </nav>
         <p className="mt-5">
           <a
             href="/how-verification-works"
