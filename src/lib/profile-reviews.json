@@ -4,7 +4,7 @@
     "name": "B wraps",
     "city": "Las Vegas",
     "state": "NV",
-    "reviewed": "2026-09-21",
+    "reviewed": "2026-10-27",
     "decision": "index",
     "basis": "business-submission",
     "summary": "The business submission identifies Chargers and Challengers as a particular focus, with aero/body-kit and paint/bodywork services recorded. Use the exact model year and trim when discussing a project; a shared model name does not establish that a particular kit will fit.",
@@ -13,7 +13,10 @@
       "Can you show a completed project on the same generation and body style?",
       "Will you install the customer-supplied part numbers in my list, and who handles missing or damaged pieces?"
     ],
-    "expectedCapabilities": ["Aero/Body Kits", "Paint/Bodywork"],
+    "expectedCapabilities": [
+      "Aero/Body Kits",
+      "Paint/Bodywork"
+    ],
     "expectedSpecialty": "Muscle European Electric Vehicles Jeep Truck & Offroad General Repair Mainly Chargers And Challengers Is What We Get",
     "sourceLabel": "Business submission held by Vicrez",
     "sourceUrl": null
@@ -23,7 +26,7 @@
     "name": "Central Auto Customs Inc",
     "city": "Sacramento",
     "state": "CA",
-    "reviewed": "2026-09-21",
+    "reviewed": "2026-10-27",
     "decision": "index",
     "basis": "business-submission",
     "summary": "The submitted specialty description specifically mentions Mopar vehicles and widebody conversions. Widebody kits, aero/body kits and paint/bodywork are recorded services. For a conversion, ask for one coordinated scope covering the panels, finish and any separately required wheel or suspension work.",
@@ -46,7 +49,7 @@
     "name": "Atomic Wraps",
     "city": "Olympia",
     "state": "WA",
-    "reviewed": "2026-09-21",
+    "reviewed": "2026-10-27",
     "decision": "index",
     "basis": "business-submission",
     "summary": "The submitted record lists vinyl wrap and aero/body-kit work, with interests spanning cars, classics, exotics, boats, motorcycles and RVs. Those categories describe the submission; the shop needs to confirm whether it currently accepts the particular vehicle and surface you want covered.",
@@ -55,7 +58,10 @@
       "What preparation or existing-film removal should be included in the estimate?",
       "For a boat, motorcycle or RV, which surfaces and edges are included, and can you show a comparable example?"
     ],
-    "expectedCapabilities": ["Aero/Body Kits", "Vinyl Wrap"],
+    "expectedCapabilities": [
+      "Aero/Body Kits",
+      "Vinyl Wrap"
+    ],
     "expectedSpecialty": "Muscle European Electric Vehicles Jeep Truck & Offroad Classics, Exotics, Boats, Motorcycles, Rvs",
     "sourceLabel": "Business submission held by Vicrez",
     "sourceUrl": null
@@ -97,7 +103,10 @@
       "Does the written estimate separate repair work, part fitting and paint?",
       "Can you show the result of a similar job and confirm acceptance of my supplied parts?"
     ],
-    "expectedCapabilities": ["Aero/Body Kits", "Paint/Bodywork"],
+    "expectedCapabilities": [
+      "Aero/Body Kits",
+      "Paint/Bodywork"
+    ],
     "expectedSpecialty": "Muscle European Electric Vehicles Jeep Truck & Offroad General Repair Motorcycles/Atv/Exotic",
     "sourceLabel": "Business submission held by Vicrez",
     "sourceUrl": null
@@ -116,7 +125,10 @@
       "Which preparation, fitting and finish steps are included in the written scope?",
       "Can you document a similar aftermarket installation rather than only a dent-repair example?"
     ],
-    "expectedCapabilities": ["Aero/Body Kits", "Paint/Bodywork"],
+    "expectedCapabilities": [
+      "Aero/Body Kits",
+      "Paint/Bodywork"
+    ],
     "expectedSpecialty": "Muscle European Electric Vehicles Jeep Truck & Offroad General Repair Custom Aftermarket",
     "sourceLabel": "Business submission held by Vicrez",
     "sourceUrl": null
@@ -135,7 +147,10 @@
       "Does the quote include test fitting and finish work for the exact supplied kit?",
       "What photographs and part numbers should I send for an initial review?"
     ],
-    "expectedCapabilities": ["Aero/Body Kits", "Paint/Bodywork"],
+    "expectedCapabilities": [
+      "Aero/Body Kits",
+      "Paint/Bodywork"
+    ],
     "expectedSpecialty": "Muscle European Electric Vehicles Jeep Truck & Offroad General Repair Collision Repair",
     "sourceLabel": "Business submission held by Vicrez",
     "sourceUrl": null
@@ -154,7 +169,10 @@
       "Will the estimate separate fitting, bodywork and finishing?",
       "Do you accept my supplied parts and can you document a comparable job?"
     ],
-    "expectedCapabilities": ["Aero/Body Kits", "Paint/Bodywork"],
+    "expectedCapabilities": [
+      "Aero/Body Kits",
+      "Paint/Bodywork"
+    ],
     "expectedSpecialty": "Muscle European Electric Vehicles Jeep Truck & Offroad General Repair Accessories, All Vehicle Service And Repair",
     "sourceLabel": "Business submission held by Vicrez",
     "sourceUrl": null
@@ -227,7 +245,10 @@
       "Which fitting and finish tasks will appear in the written estimate?",
       "Can you show a comparable completed job and confirm acceptance of my part numbers?"
     ],
-    "expectedCapabilities": ["Aero/Body Kits", "Paint/Bodywork"],
+    "expectedCapabilities": [
+      "Aero/Body Kits",
+      "Paint/Bodywork"
+    ],
     "expectedSpecialty": "Muscle European Electric Vehicles Jeep Truck & Offroad General Repair Atv/Utv",
     "sourceLabel": "Business submission held by Vicrez",
     "sourceUrl": null
@@ -246,7 +267,9 @@
       "Which prep, fitting and finish work is included for my particular part?",
       "Can you document a comparable job on the same vehicle generation?"
     ],
-    "expectedCapabilities": ["Aero/Body Kits"],
+    "expectedCapabilities": [
+      "Aero/Body Kits"
+    ],
     "expectedSpecialty": "Muscle Truck & Offroad",
     "sourceLabel": "Business submission held by Vicrez",
     "sourceUrl": null
@@ -256,16 +279,19 @@
     "name": "Kustom Kreations Inc",
     "city": "Fitchburg",
     "state": "MA",
-    "reviewed": "2026-09-21",
+    "reviewed": "2026-10-27",
     "decision": "index",
     "basis": "shop-website",
-    "summary": "The shop’s own website describes custom paint and bodywork, body-kit installation, and design/prototyping. It also presents 3D scanning, reverse-engineered bumper work, CNC machining and rendering services. The published Fitchburg address matches the directory location. These are shop-published descriptions; they do not establish experience with a particular Vicrez kit.",
+    "summary": "The shop's own website describes custom paint and bodywork, body-kit installation, and design/prototyping. It also presents 3D scanning, reverse-engineered bumper work, CNC machining and rendering services. The published Fitchburg address matches the directory location. These are shop-published descriptions; they do not establish experience with a particular Vicrez kit. The website lists visits by appointment.",
     "questions": [
       "For my project, do I need installation of an existing kit or design and fabrication of a new part?",
       "Can you show a comparable finished installation, including the vehicle and parts used?",
       "Which design, fabrication, fitting and paint stages are included in the estimate?"
     ],
-    "expectedCapabilities": ["Body Kits", "Aero/Body Kits"],
+    "expectedCapabilities": [
+      "Body Kits",
+      "Aero/Body Kits"
+    ],
     "expectedSpecialty": "",
     "sourceLabel": "Shop website",
     "sourceUrl": "https://kustombodyworks.com/"
@@ -275,16 +301,18 @@
     "name": "SpeedPro Chicago Loop",
     "city": "Chicago",
     "state": "IL",
-    "reviewed": "2026-09-21",
+    "reviewed": "2026-10-27",
     "decision": "index",
     "basis": "approved-application",
-    "summary": "The approved directory application describes vehicle wraps and fleet graphics as part of a broader large-format printing business. The branch website confirms the Chicago Loop location and describes its printing operation. For an automotive job, specify whether you need commercial graphics or a color-change wrap and confirm the exact installation scope.",
+    "summary": "The approved directory application describes vehicle wraps and fleet graphics as part of a broader large-format printing business. The branch website confirms the Chicago Loop location and emphasizes commercial signage, window graphics and printing. Confirm that this branch accepts your automotive project; commercial graphics and a full color-change wrap can require different scopes.",
     "questions": [
       "Does this branch accept my vehicle-wrap or fleet-graphics project?",
       "Who supplies and approves the artwork, and are proofs and installation included?",
       "Which vehicle surfaces, removal work and future replacement needs should the estimate cover?"
     ],
-    "expectedCapabilities": ["vinyl-wrap"],
+    "expectedCapabilities": [
+      "vinyl-wrap"
+    ],
     "expectedSpecialty": "",
     "sourceLabel": "Approved directory application and branch website",
     "sourceUrl": "https://www.speedpro.com/chicago-loop/"

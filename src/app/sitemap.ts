@@ -1,3 +1,5 @@
+import { PILOT_PATHS, PILOT_UPDATED, supportedPilotCities } from "@/lib/editorial-pilot";
+import { queryReviewedProfiles } from "@/lib/db";
 import { PLANNING_GUIDES } from "@/lib/planning-guides";
 import { queryRecoveryServicePages } from "@/lib/db";
 export const dynamic = "force-dynamic";
@@ -98,9 +100,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   }
 
-  // 5. City pages — ONLY cities with unique city_seo content (~500)
+  // 5. Preserve the existing city cohort and add evidence-supported editorial city briefs.
   {
-    const seoCities = await queryCitySeoCities();
+    const [seoCities, pilotShops] = await Promise.all([queryCitySeoCities(), queryReviewedProfiles()]);
+    seoCities.push(...supportedPilotCities(pilotShops).map(([, city]) => ({ city: city.city, state: city.state })));
     for (const c of seoCities) {
       if (!c.city || !c.state) continue;
       urls.push({
@@ -157,5 +160,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
-  return [...new Map(urls.map((entry) => [entry.url, entry])).values()];
+  const updated = new Set(PILOT_PATHS.map((path) => BASE + path));
+  return [...new Map(urls.map((entry) => [entry.url, entry])).values()].map((entry) =>
+    updated.has(entry.url) ? { ...entry, lastModified: PILOT_UPDATED } : entry,
+  );
 }

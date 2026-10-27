@@ -18,7 +18,7 @@ import {
   generateBreadcrumbJsonLd,
   generateItemListJsonLd,
 } from "@/lib/seo";
-import { queryCitySeoContent } from "@/lib/db";
+import CityProjectBrief from "@/components/CityProjectBrief";
 import { Installer } from "@/lib/types";
 import { locationPage, locationCities } from "@/lib/location-query";
 import { pageNumber } from "@/lib/category-query";
@@ -106,13 +106,7 @@ export default async function LocationPage({
   const startIdx = (currentPage - 1) * INSTALLERS_PER_PAGE;
   const locationLabel =
     type === "city" && city ? `${city}, ${stateAbbr}` : stateName;
-  // These reads are independent; neither needs to wait for the other.
-  const [nearbyCities, citySeo] = await Promise.all([
-    locationCities(stateAbbr, city, type === "city" ? 12 : 20),
-    type === "city" && city
-      ? queryCitySeoContent(city, stateAbbr).catch(() => null)
-      : Promise.resolve(null),
-  ]);
+  const nearbyCities = await locationCities(stateAbbr, city, type === "city" ? 12 : 20);
 
   // Breadcrumbs
   const breadcrumbs = [
@@ -190,45 +184,18 @@ export default async function LocationPage({
               Installer Network
               {verifiedCount > 0 ? ` · ${verifiedCount} Vicrez-recorded` : ""}
             </p>
-            {citySeo?.intro && (
-              <p className="text-base text-gray-300 max-w-3xl leading-relaxed mb-4">
-                {citySeo.intro}
-              </p>
-            )}
             <p className="text-lg text-gray-300 max-w-3xl leading-relaxed">
-              Browse listed shops in {locationLabel} for Vicrez aftermarket
-              parts, OE replacement parts, body kits, aerodynamic upgrades,
-              wheels, tires, vinyl wraps, paint protection film, and exterior
-              styling accessories. Whether you need a bumper replacement,
-              spoiler install, front lip install, widebody kit installation,
-              wheel and tire package installation, or vehicle wrap service, the
-              Vicrez Installer Network helps connect you with local shops near
-              you.
-              {verifiedCount > 0 &&
-                ` ${verifiedCount} shops have business records held by Vicrez; this is not a workmanship certification.`}
+              Compare directory records in {locationLabel}, then contact a shop
+              about your exact vehicle and parts. Each profile shows the services
+              recorded for that business. Confirm the current scope, appointment
+              and customer-supplied-parts policy before ordering or travelling.
             </p>
             <p className="text-gray-400 mt-3 max-w-3xl">
-              Installers in {locationLabel} can assist with bumper installation,
-              hood and fender replacement, widebody kits, front lips, side
-              skirts, rear diffusers, spoilers, fender flares, wheel fitment,
-              tire mounting, balancing, TPMS programming, vinyl wrap
-              installation, window tint, and paint protection film. Compare
-              installers, request quotes, and find a shop for your Vicrez parts
-              and upgrades.
+              A Vicrez-recorded label means Vicrez holds a business record; it
+              does not certify workmanship. Online inquiries are available only
+              where the listing offers that option.
             </p>
           </div>
-
-          {/* Local scene (AI-generated unique content for top cities) */}
-          {citySeo?.local_scene && (
-            <section className="mb-8 bg-vicrez-card border border-vicrez-border rounded-xl p-6">
-              <h2 className="text-lg font-bold text-white mb-3">
-                The {locationLabel} Aftermarket Scene
-              </h2>
-              <p className="text-sm text-gray-300 leading-relaxed">
-                {citySeo.local_scene}
-              </p>
-            </section>
-          )}
 
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
@@ -255,7 +222,7 @@ export default async function LocationPage({
             <div className="bg-vicrez-card border border-vicrez-border rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-vicrez-red">Free</div>
               <div className="text-xs text-vicrez-muted mt-1">
-                Quotes Available
+                Directory Browsing
               </div>
             </div>
           </div>
@@ -276,8 +243,8 @@ export default async function LocationPage({
             </p>
             <p className="text-sm text-white/80 mt-1">
               OE replacement parts, widebody kits, aero parts, aftermarket
-              wheels, VCORSA tires, vinyl wrap, PPF & more — shipped to your
-              installer
+              wheels, VCORSA tires, vinyl wrap and PPF. Agree on installation
+              and delivery arrangements with the shop before ordering.
             </p>
           </a>
 
@@ -330,6 +297,10 @@ export default async function LocationPage({
             </nav>
           )}
 
+          {currentPage === 1 && type === "city" && (
+            <CityProjectBrief location={params.location} />
+          )}
+
           {/* Nearby cities / cross-linking */}
           {nearbyCities.length > 0 && (
             <section className="mb-12">
@@ -365,10 +336,10 @@ export default async function LocationPage({
             <ul className="space-y-2 text-sm">
               <li>
                 <a
-                  href="/guides/body-kit-installation-cost"
+                  href="/guides/customer-supplied-parts-installation"
                   className="text-vicrez-red hover:underline"
                 >
-                  How Much Does Body Kit Installation Cost? (2026 Guide)
+                  Bring Your Own Parts: Agree on Installation Before Ordering
                 </a>
               </li>
               <li>
@@ -381,10 +352,10 @@ export default async function LocationPage({
               </li>
               <li>
                 <a
-                  href="/guides/how-to-choose-body-kit-installer"
+                  href="/guides/compare-installation-quotes"
                   className="text-vicrez-red hover:underline"
                 >
-                  How to Choose a Body Kit Installer: 7 Things to Look For
+                  Compare Installation Quotes Using the Same Written Scope
                 </a>
               </li>
               <li>
@@ -406,99 +377,17 @@ export default async function LocationPage({
             </ul>
           </section>
 
-          {/* Services section */}
-          <section className="mb-12">
-            <h2 className="text-xl font-bold text-white mb-4">
-              Services Vicrez Installers May Offer in {locationLabel}
-            </h2>
-            <div className="bg-vicrez-card border border-vicrez-border rounded-xl p-6">
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-300">
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />
-                  OE replacement part installation
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />
-                  Body kit and widebody kit installation
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />
-                  Front lip, side skirt, and rear diffuser installation
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />
-                  Spoiler and aero part installation
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />
-                  Fender flare installation
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />
-                  Wheel and tire installation
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />
-                  Tire mounting and balancing
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />
-                  TPMS installation and programming
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />
-                  Vinyl wrap installation
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />
-                  Paint protection film (PPF) installation
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />
-                  Window tint installation
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-vicrez-red flex-shrink-0" />
-                  Exterior styling upgrades
-                </li>
-              </ul>
-            </div>
-          </section>
-
-          {/* Popular parts section */}
-          <section className="mb-12">
-            <h2 className="text-xl font-bold text-white mb-4">
-              Popular Vicrez Parts Installed in {locationLabel}
-            </h2>
-            <div className="bg-vicrez-card border border-vicrez-border rounded-xl p-6">
-              <div className="flex flex-wrap gap-2">
-                {[
-                  "Front Bumpers",
-                  "Rear Bumpers",
-                  "Hoods",
-                  "Fenders",
-                  "Front Lips",
-                  "Side Skirts",
-                  "Rear Diffusers",
-                  "Spoilers",
-                  "Fender Flares",
-                  "Widebody Kits",
-                  "Wheels",
-                  "Tires",
-                  "Wheel & Tire Packages",
-                  "Vinyl Wrap",
-                  "Paint Protection Film",
-                ].map((part) => (
-                  <span
-                    key={part}
-                    className="px-3 py-1.5 rounded-full text-sm bg-vicrez-dark text-gray-300 border border-vicrez-border"
-                  >
-                    {part}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </section>
+          {currentPage === 1 && (
+            <section className="mb-12 bg-vicrez-card border border-vicrez-border rounded-xl p-6">
+              <h2 className="text-xl font-bold text-white mb-3">Before requesting an installation estimate</h2>
+              <ol className="list-decimal pl-5 space-y-3 text-gray-300">
+                <li>Send your vehicle year, model and trim, exact part numbers, and photos of the current condition.</li>
+                <li>Ask which preparation, fitting, paint or wrap work is included and whether another business performs any stage.</li>
+                <li>Record exclusions, inspection requirements and how extra work will be approved. Ask for a written estimate for your job; this directory does not establish local labor rates.</li>
+              </ol>
+              <a className="inline-block mt-4 text-vicrez-red underline" href="/guides/customer-supplied-parts-installation#project-worksheet">Download a project worksheet</a>
+            </section>
+          )}
 
           {/* Shop Vicrez Parts */}
           <section className="mb-12 bg-vicrez-card border border-vicrez-border rounded-xl p-6">
@@ -568,30 +457,6 @@ export default async function LocationPage({
               ))}
             </div>
           </section>
-
-          {/* What to ask (AI-generated) */}
-          {citySeo?.what_to_ask && (
-            <section className="mb-12 bg-vicrez-card border border-vicrez-border rounded-xl p-6">
-              <h2 className="text-lg font-bold text-white mb-3">
-                What to Ask an Installer in {locationLabel}
-              </h2>
-              <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">
-                {citySeo.what_to_ask}
-              </p>
-            </section>
-          )}
-
-          {/* Cost context (AI-generated) */}
-          {citySeo?.cost_context && (
-            <section className="mb-12 bg-vicrez-card border border-vicrez-border rounded-xl p-6">
-              <h2 className="text-lg font-bold text-white mb-3">
-                Installation Cost in {locationLabel}
-              </h2>
-              <p className="text-sm text-gray-300 leading-relaxed">
-                {citySeo.cost_context}
-              </p>
-            </section>
-          )}
 
           <section className="mb-12">
             <h2 className="text-xl font-bold text-white mb-6">
