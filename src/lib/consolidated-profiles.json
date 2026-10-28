@@ -1,0 +1,26 @@
+[
+  {
+    "from": "socal-auto-paint-llc-downey-ca",
+    "to": "socal-autopaint-inc-downey-ca",
+    "duplicateId": "cmmmemlt70000l404tw831wpc",
+    "retainedId": "cmltwz55r000joqt47ed0f5nk",
+    "reviewed": "2026-10-28",
+    "basis": "Same Google place ID, address, phone and website; retain the original business-submission profile. Duplicate record and historical relationships retained in the database."
+  },
+  {
+    "from": "central-auto-customs-sacramento-california",
+    "to": "central-auto-customs-inc-sacramento-ca",
+    "duplicateId": "cmmdv6ykw0074l404rz4ggsax",
+    "retainedId": "cmltx02fb004doqt43g4cfhmv",
+    "reviewed": "2026-10-28",
+    "basis": "Same business name, exact street address and Google place ID; imported duplicate of the retained business submission. Conflicting phone numbers are not used to overwrite submitted contact details."
+  },
+  {
+    "from": "central-auto-customs-sacramento-ca",
+    "to": "central-auto-customs-inc-sacramento-ca",
+    "duplicateId": "cs6xtz38e7npmf6ec7okr391b",
+    "retainedId": "cmltx02fb004doqt43g4cfhmv",
+    "reviewed": "2026-10-28",
+    "basis": "Same business name, exact street address and Google place ID; imported duplicate of the retained business submission. Conflicting phone numbers are not used to overwrite submitted contact details."
+  }
+]

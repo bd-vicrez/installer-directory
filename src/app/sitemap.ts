@@ -1,6 +1,7 @@
 import { PILOT_PATHS, PILOT_UPDATED, supportedPilotCities } from "@/lib/editorial-pilot";
 import { queryReviewedProfiles } from "@/lib/db";
 import { PLANNING_GUIDES } from "@/lib/planning-guides";
+import { INSTALLATION_CASE_STUDIES } from "@/lib/installation-case-studies";
 import { queryRecoveryServicePages } from "@/lib/db";
 export const dynamic = "force-dynamic";
 // Sitemap admission is shared with profile metadata; failures must not silently publish a partial sitemap.
@@ -68,6 +69,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // 3. Category hub pages
+  for (const [slug, study] of Object.entries(INSTALLATION_CASE_STUDIES)) {
+    urls.push({ url: `${BASE}/guides/${slug}`, lastModified: study.updated, changeFrequency: "monthly", priority: 0.7 });
+  }
+
   for (const cat of CATEGORY_SLUGS) {
     urls.push({
       url: `${BASE}/installers/category/${cat}`,

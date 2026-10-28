@@ -1,4 +1,5 @@
 import { PLANNING_GUIDES } from "@/lib/planning-guides";
+import { INSTALLATION_CASE_STUDIES } from "@/lib/installation-case-studies";
 import { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -21,6 +22,9 @@ export const metadata: Metadata = {
 };
 
 const GUIDES = [
+  ...Object.entries(INSTALLATION_CASE_STUDIES).map(([slug, study]) => ({
+    slug, title: study.title, description: study.description, readTime: "Documented installation",
+  })),
   ...Object.entries(PLANNING_GUIDES).map(([slug, guide]) => ({
     slug,
     title: guide.title,

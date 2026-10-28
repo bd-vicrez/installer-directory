@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 export const metadata = {
   title: "How to find and contact an installer",
+  description: "Find a local installation shop, compare recorded services, send an inquiry and confirm the parts, labor, finish and schedule before booking.",
   alternates: { canonical: "/how-it-works" },
 };
 export default function Page() {

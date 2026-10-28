@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 export const metadata = {
   title: "For tire shops, body shops and installers",
+  description: "Apply for a Vicrez Installer Network listing, claim your business, manage reviewed owner access and choose whether to receive installation inquiries.",
   alternates: { canonical: "/for-shops" },
 };
 export default function Page() {
