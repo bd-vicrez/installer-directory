@@ -1,4 +1,6 @@
 import PlanningGuide from "@/components/PlanningGuide";
+import InstallationCaseStudy from "@/components/InstallationCaseStudy";
+import { INSTALLATION_CASE_STUDIES } from "@/lib/installation-case-studies";
 import { PLANNING_GUIDES } from "@/lib/planning-guides";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -29,6 +31,13 @@ const GUIDES: Record<
     component: React.ComponentType;
   }
 > = {
+  ...Object.fromEntries(Object.entries(INSTALLATION_CASE_STUDIES).map(([slug, study]) => [slug, {
+    title: study.title,
+    description: study.description,
+    datePublished: study.updated,
+    dateModified: study.updated,
+    component: () => <InstallationCaseStudy slug={slug} />,
+  }])),
   ...Object.fromEntries(
     Object.entries(PLANNING_GUIDES).map(([slug, guide]) => [
       slug,

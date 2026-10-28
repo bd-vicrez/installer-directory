@@ -1,4 +1,5 @@
 const { HTML_LIMITED_BOT_UA_RE } = require("next/dist/shared/lib/router/utils/html-bots");
+const consolidatedProfiles = require("./src/lib/consolidated-profiles.json");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -10,6 +11,11 @@ const nextConfig = {
   htmlLimitedBots: new RegExp(`${HTML_LIMITED_BOT_UA_RE.source}|Googlebot`, HTML_LIMITED_BOT_UA_RE.flags),
   async redirects() {
     return [
+      ...consolidatedProfiles.map(({ from, to }) => ({
+        source: `/installer/${from}`,
+        destination: `/installer/${to}`,
+        permanent: true,
+      })),
       {
         // Historical Google URL omitted the period in the recorded city name.
         source: "/installers/port-st-lucie-fl",
