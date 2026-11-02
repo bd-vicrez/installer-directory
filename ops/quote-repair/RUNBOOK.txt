@@ -12,10 +12,18 @@ Other historical rows are held. Never replay old notifications automatically.
 Production configuration (root-only, never commit keys)
 /root/vicrez-ai-agent/data/quote-safety.json:
   dispatch_enabled: boolean; false is the emergency pause.
-  sitekey and secret: existing Vicrez hCaptcha account credentials.
+  sitekey and secret: existing Vicrez Cloudflare Turnstile widget credentials.
+  provider: "turnstile" (required; other or absent providers stay in review mode).
 The registered hostname must include installers.vicrez.com. Test sitekeys are
 rejected. The browser sees only sitekey and mode; the secret stays on the server.
 With dispatch_enabled=true and no keys, new requests still require staff review.
+The browser loads challenges.cloudflare.com/turnstile/v0/api.js. The server
+validates through Cloudflare Siteverify and requires hostname installers.vicrez.com
+and action installer_quote. Turnstile tokens expire after five minutes and are
+single-use. Production rejects Cloudflare dummy sitekeys and secret keys.
+Widget management requires Account:Turnstile:Edit. Use an installers-only widget,
+managed mode, domain installers.vicrez.com, and no clearance cookie. Do not change
+DNS, WAF, zone security levels, or other widgets as part of this setup.
 Authenticated staff can release a current request after documenting the real
 project, customer permission and recipient scope. Legacy requests require a new
 form because the historical path did not record the current sharing consent.
@@ -49,7 +57,7 @@ Deployment and validation
 8. Test actual internal email delivery and reply-to routing, inspect Zendesk audits
    for duplicates or unexpected forwarding, and test the closure guard.
 9. Enable dispatch only when these checks pass. Without CAPTCHA keys, this enables
-   documented staff releases only. Validate a real browser CAPTCHA challenge before
+   documented staff releases only. Validate a real browser Turnstile challenge before
    claiming automatic verified intake works in production.
 10. Send the approved Alex follow-up once via the durable, recipient-scoped ledger.
 

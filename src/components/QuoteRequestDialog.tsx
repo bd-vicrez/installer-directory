@@ -272,7 +272,7 @@ export default function QuoteRequestDialog({
         body: JSON.stringify({
           ...content,
           request_id: requestId.current,
-          hcaptcha_token: captchaToken,
+          turnstile_token: captchaToken,
           session_id: quoteSession(),
           acquisition: sessionAcquisition(),
           measurement: measurementAllowed()

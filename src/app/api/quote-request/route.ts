@@ -56,8 +56,6 @@ export async function POST(request: NextRequest) {
         },
         { status: 400, headers },
       );
-    if (invalid)
-      return NextResponse.json({ error: invalid }, { status: 400, headers });
     const ip =
       request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
     if (!(await withinRateLimit(ip, "quote-submit", 12, 900)))
@@ -110,7 +108,7 @@ export async function POST(request: NextRequest) {
       consent_version: "directory-quote-2026-09-15",
       install_timeline: body.install_timeline || "",
       budget_range: body.budget_range || "",
-      hcaptcha_token: body.hcaptcha_token || "",
+      turnstile_token: body.turnstile_token || "",
     };
     const response = await rfqFetch("/webhook/rfq/directory", payload);
     if (response.status === 400 || response.status === 422 || response.status === 429) {

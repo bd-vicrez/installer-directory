@@ -10,7 +10,15 @@ import httpx
 from fastapi import HTTPException
 
 CONFIG_PATH = Path(os.getenv('QUOTE_SAFETY_CONFIG', '/app/data/quote-safety.json'))
-TEST_SITEKEYS = {'10000000-ffff-ffff-ffff-000000000001', '20000000-ffff-ffff-ffff-000000000002', '30000000-ffff-ffff-ffff-000000000003'}
+TURNSTILE_ACTION = 'installer_quote'
+SITEVERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
+
+
+def real_turnstile_key(value):
+    # Cloudflare's documented dummy keys must never enable production intake.
+    return (isinstance(value, str) and 20 <= len(value) <= 100
+            and re.fullmatch(r'[A-Za-z0-9_-]+', value) is not None
+            and re.match(r'^[123]x0+', value) is None)
 
 def config():
     try:
@@ -21,14 +29,14 @@ def config():
 
 def captcha_ready(cfg=None):
     cfg = config() if cfg is None else cfg
-    return (isinstance(cfg.get('sitekey'), str) and bool(cfg['sitekey'].strip())
-            and cfg['sitekey'] not in TEST_SITEKEYS
-            and isinstance(cfg.get('secret'), str) and len(cfg['secret']) >= 20)
+    return (cfg.get('provider') == 'turnstile'
+            and real_turnstile_key(cfg.get('sitekey'))
+            and real_turnstile_key(cfg.get('secret')))
 
 def public_config():
     cfg = config()
     ready = captcha_ready(cfg)
-    return {'sitekey': cfg['sitekey'] if ready else None,
+    return {'provider': 'turnstile', 'sitekey': cfg['sitekey'] if ready else None,
             'mode': 'verified' if ready and cfg.get('dispatch_enabled') is True else 'manual_review'}
 
 def init_db(conn):
@@ -75,18 +83,24 @@ async def verification(token):
     cfg = config()
     if not captcha_ready(cfg):
         return {'state': 'held', 'reason': 'verification_setup_pending'}
-    if not isinstance(token, str) or not token or len(token) > 4096:
+    if not isinstance(token, str) or not token or len(token) > 2048:
         raise HTTPException(400, 'Complete the verification before submitting.')
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.post('https://api.hcaptcha.com/siteverify', data={
-                'secret': cfg['secret'], 'sitekey': cfg['sitekey'], 'response': token})
+            response = await client.post(SITEVERIFY_URL, data={
+                'secret': cfg['secret'], 'response': token})
         result = response.json() if response.status_code == 200 else {}
     except (httpx.HTTPError, ValueError):
         return {'state': 'held', 'reason': 'verification_provider_unavailable'}
-    if response.status_code >= 500:
+    if response.status_code >= 500 or response.status_code == 429:
         return {'state': 'held', 'reason': 'verification_provider_unavailable'}
-    if result.get('success') is not True or result.get('hostname', '').lower() != 'installers.vicrez.com':
+    if not isinstance(result, dict):
+        return {'state': 'held', 'reason': 'verification_provider_unavailable'}
+    if isinstance(result.get('error-codes'), list) and 'internal-error' in result['error-codes']:
+        return {'state': 'held', 'reason': 'verification_provider_unavailable'}
+    if (result.get('success') is not True
+            or result.get('hostname') != 'installers.vicrez.com'
+            or result.get('action') != TURNSTILE_ACTION):
         raise HTTPException(400, 'Verification expired or failed. Please try again.')
     return {'state': 'verified' if cfg.get('dispatch_enabled') is True else 'held',
             'reason': 'captcha_verified' if cfg.get('dispatch_enabled') is True else 'dispatch_held',

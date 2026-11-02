@@ -96,9 +96,9 @@ export function validateQuoteInput(body: Record<string, any>) {
       return "Check your request details.";
   }
   if (
-    body.hcaptcha_token != null &&
-    (typeof body.hcaptcha_token !== "string" ||
-      body.hcaptcha_token.length > 4096)
+    body.turnstile_token != null &&
+    (typeof body.turnstile_token !== "string" ||
+      body.turnstile_token.length > 2048)
   )
     return "Invalid verification token.";
   return null;
