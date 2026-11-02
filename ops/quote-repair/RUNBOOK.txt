@@ -1,0 +1,74 @@
+Installer inquiry repair - 2026-11-02
+
+Scope
+The public form saves a receipt before dispatch. Missing CAPTCHA configuration
+or a CAPTCHA provider outage holds the request for staff review. Invalid tokens,
+reserved test addresses and injection-shaped identity fields are rejected.
+Legacy /webhook/rfq/submit accepts bounded, idempotent review records only: it
+does not send SMS, create a customer support ticket or notify installers.
+Historical rows are preserved. Probe-like records 19-26, 29 and 30 are quarantined.
+Other historical rows are held. Never replay old notifications automatically.
+
+Production configuration (root-only, never commit keys)
+/root/vicrez-ai-agent/data/quote-safety.json:
+  dispatch_enabled: boolean; false is the emergency pause.
+  sitekey and secret: existing Vicrez hCaptcha account credentials.
+The registered hostname must include installers.vicrez.com. Test sitekeys are
+rejected. The browser sees only sitekey and mode; the secret stays on the server.
+With dispatch_enabled=true and no keys, new requests still require staff review.
+Authenticated staff can release a current request after documenting the real
+project, customer permission and recipient scope. Legacy requests require a new
+form because the historical path did not record the current sharing consent.
+
+Support and provider routing
+From: b2bsupport@vicrez.com
+Reply-To and support links: b2bsupport@vicrezcom.zendesk.com
+Klaviyo flow VctBBY / action 110125396 / template WBrx54 is the single live path.
+Duplicate flow UgPUhW / action 109805854 was set to draft. Do not reactivate it
+as a routine rollback. Canonical flow has no transactional exemption. Suppressed
+recipients are held as delivery failures; do not override marketing preferences.
+API acceptance is not inbox delivery. Acceptance without a response after one
+hour is flagged for staff investigation; it does not prove an email bounced.
+Zendesk tag installer_quote_inquiry excludes the case from integration forwarding,
+surveys and inappropriate closing. Closure requires installer_quote_review_complete
+after a documented outcome. Incoming B2B installation-inquiry emails are classified
+before integrations (trigger 55239173165844); guard trigger 55238603912340 keeps
+unresolved inquiries open. Preserve installer_owner_confirmation safeguards.
+
+Deployment and validation
+1. Preserve current master and other operators' edits; use an isolated checkout.
+2. Back up the current database and touched files; verify a restore separately.
+3. Pause dispatch. Apply additive review/audit/limit tables; retain original rows.
+4. Hash-check and deploy backend modules, then restart the existing container.
+   The two zero-context patches here describe scoped edits to legacy server files.
+   Their full sources are deliberately absent because they contain existing secrets.
+5. Verify backend health, unchanged RFQ counts and isolated runtime tests.
+6. Deploy the matching Next.js commit through the existing master workflow.
+7. Verify production configuration endpoint, form, admin authorization, read-only
+   receipt/response pages and rejected submissions without external sends.
+8. Test actual internal email delivery and reply-to routing, inspect Zendesk audits
+   for duplicates or unexpected forwarding, and test the closure guard.
+9. Enable dispatch only when these checks pass. Without CAPTCHA keys, this enables
+   documented staff releases only. Validate a real browser CAPTCHA challenge before
+   claiming automatic verified intake works in production.
+10. Send the approved Alex follow-up once via the durable, recipient-scoped ledger.
+
+Rollback
+First atomically set dispatch_enabled=false in quote-safety.json. Verify health
+reports the pause. Keep original request rows, review tables and audit records.
+For a frontend regression, revert only the quote repair commit on current master
+or promote previous deployment dpl_2z262KFUNjtxvMHExzRY1k9bCb7R if no later unrelated
+release exists. Never reset shared master or restore a complete stale checkout.
+Backend backups and deployed hashes are under
+/root/installer-operations/quote-repair-20261102 (baseline and before-v2).
+Compare each current file against deployed-v2-hashes.json before restoring a file;
+reconcile any concurrent differences. Prefer a targeted correction or restore the
+first safe release from before-v2. Do not restore the unsafe legacy intake path.
+Restart the existing container and check all four health endpoints. Do not change
+the global development/shadow settings or unrelated VME/YouTube services.
+Provider and Zendesk before/after snapshots exist in that directory and under
+/root/installer-operations/agent/quote-repair-20261102. Undo only the matching scoped
+change after comparing current settings. Preserve other-chat safeguards and never
+restore quotes@vicrez.com, duplicate delivery, or automatic historical replay.
+Full database backup: /root/installer-operations/backups/20261102T223048Z, restore
+tested before deployment. Do not restore it over live data for a code regression.

@@ -1,0 +1,29 @@
+--- a/app/routes/zendesk_webhook.py
++++ b/app/routes/zendesk_webhook.py
+@@ -370 +370 @@
+-    skip_tags = {'auto-created', 'ai-agent', 'emily-phone-agent', 'ai_escalated',
++    skip_tags = {'installer_quote_inquiry', 'installer_owner_confirmation', 'auto-created', 'ai-agent', 'emily-phone-agent', 'ai_escalated',
+@@ -394,0 +395,2 @@
++        from app.routes.installer_ticket_policy import needs_installer_review
++        installer_inquiry = needs_installer_review(canonical['subject'], canonical['description'])
+@@ -396 +398,19 @@
+-        if is_b2b:
++        if installer_inquiry:
++            # Add tags without replacing concurrent staff changes. These tickets need
++            # a documented installation outcome, not wholesale/dealer onboarding.
++            await zendesk_client._make_request('PUT', f'/tickets/{ticket_id}/tags.json', json={
++                'tags':['installer_quote_inquiry','ai_escalated','installer_staff_review']})
++            await zendesk_client._make_request('DELETE', f'/tickets/{ticket_id}/tags.json', json={'tags':['ai_processing']})
++            fresh = await zendesk_client.get_ticket(ticket_id)
++            if fresh and fresh.get('status') != 'closed':
++                update = {'status':'open', 'safe_update':True, 'updated_stamp':fresh['updated_at'],
++                          'comment':{'public':False,'body':'Installation inquiry requires staff review. Confirm the request reference, actual customer project and next step. Do not send wholesale onboarding. Keep installer_quote_inquiry and add installer_quote_review_complete only after documenting the outcome.'}}
++                if not fresh.get('assignee_id'):
++                    from pathlib import Path
++                    owner_path=Path('/app/data/installer-quote-owner.json')
++                    if owner_path.exists():
++                        owner=json.loads(owner_path.read_text()).get('owner_zendesk_id')
++                        if isinstance(owner,int) and owner>0:update['assignee_id']=owner
++                await zendesk_client._make_request('PUT', f'/tickets/{ticket_id}.json', json={'ticket':update})
++            result={'status':'skip','reason':'installer_quote_staff_review'}
++        elif is_b2b:

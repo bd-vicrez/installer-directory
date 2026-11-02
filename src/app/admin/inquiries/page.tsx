@@ -4,8 +4,10 @@ import InquiryReminder from "@/components/InquiryReminder";
 import InquiryProject from "@/components/InquiryProject";
 import InquiryFollowup from "@/components/InquiryFollowup";
 import Link from "next/link";
+import InquiryIntakeReview, { type IntakeReview } from "@/components/InquiryIntakeReview";
 type Inquiry = {
   submission_id: number;
+  intake_review?: IntakeReview;
   customer_action?: { state: string; note: string; updated_at: string };
   acquisition?: { source: string; channel: string };
   created_at: string;
@@ -33,6 +35,7 @@ type Inquiry = {
     first_responded_at?: string;
     response_link_expires_at?: number;
     unanswered_over_48h?: number;
+    delivery_unconfirmed_over_1h?: number;
   }[];
 };
 type Dashboard = {
@@ -84,8 +87,8 @@ export default function InquiriesPage() {
       </div>
       <p className="text-gray-300">
         Saved directory installation requests. A provider-accepted notification
-        is not proof of inbox delivery or a shop response. Historical requests
-        remain in the existing RFQ records.
+        is not proof of inbox delivery or a shop response. Historical and held requests
+        are available for staff review; no historical notification is replayed.
       </p>
       <Link className="text-vicrez-red underline" href="/admin/contacts">
         Review shop contact permissions
@@ -163,7 +166,7 @@ export default function InquiriesPage() {
               <p>
                 {item.vehicle_year} {item.vehicle_make} {item.vehicle_model} ·{" "}
                 {item.service} ·{" "}
-                {item.flow === "selected" ? "Selected shop" : "Network match"}
+                {item.flow === "selected" ? "Selected shop" : item.flow === "legacy" ? "Legacy review" : "Network match"}
               </p>
               <p className="text-sm">
                 Source: {item.acquisition?.source || "unknown"} ·{" "}
@@ -189,7 +192,8 @@ export default function InquiriesPage() {
                     · {item.customer_action.note}
                   </p>
                 )}
-              <InquiryProject scope="staff" id={item.submission_id} />
+              {item.intake_review && <InquiryIntakeReview id={item.submission_id} review={item.intake_review} refresh={refresh} />}
+              {item.flow !== "legacy" && <InquiryProject scope="staff" id={item.submission_id} />}
               {item.deliveries.map((delivery) => (
                 <div key={delivery.target_id} className="text-sm">
                   Shop{" "}
@@ -210,6 +214,7 @@ export default function InquiriesPage() {
                   </strong>{" "}
                   · {delivery.attempts} attempt(s)
                   {delivery.last_error ? " · " + delivery.last_error : ""}
+                  {!!delivery.delivery_unconfirmed_over_1h && <p className="text-amber-800">Delivery is still unconfirmed after one hour. Review provider delivery or suppression evidence before assuming the shop received this request. Do not resend an accepted notification blindly.</p>}
                   <span className="block mt-1">
                     Shop response:{" "}
                     <strong>

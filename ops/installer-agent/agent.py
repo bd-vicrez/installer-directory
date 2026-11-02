@@ -11,6 +11,13 @@ from evidence import gather, EvidenceUnavailable
 import contact_health
 
 ROOT=Path(os.environ.get('INSTALLER_AGENT_HOME','/root/installer-operations/agent'))
+def safe_research_reason(error):
+ # Never serialize request URLs, headers, credentials or arbitrary provider bodies.
+ code=str(error)
+ allowed={'geocoding_unavailable','ai_incomplete_response','ai_invalid_response','ai_quote_validation_failed'}
+ if isinstance(error,EvidenceUnavailable) and (code in allowed or re.fullmatch(r'provider_http_[1-5][0-9]{2}',code)):return code
+ return type(error).__name__
+
 def now():return datetime.now(timezone.utc)
 def atomic(path,data):
  path.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
@@ -92,12 +99,13 @@ class Agent:
     self.report['applications'].append(item)
    except Exception as e:
     self.db.rollback();err='research_unavailable' if isinstance(e,(EvidenceUnavailable,requests.RequestException)) else type(e).__name__
-    self.report['errors'].append({'application':a['application_id'],'error':err})
+    reason=safe_research_reason(e)
+    self.report['errors'].append({'application':a['application_id'],'error':err,'reason':reason})
     if self.live:
      with self.db:
       with self.db.cursor(cursor_factory=RealDictCursor) as q:
        step='Business verification could not finish because an evidence source was unavailable. Retry in one hour; existing application status is preserved.'
-       self.save_case(q,'application',a['id'],'retry',step,now()+timedelta(hours=1),fp,{'error':err})
+       self.save_case(q,'application',a['id'],'retry',step,now()+timedelta(hours=1),fp,{'error':err,'reason':reason})
        self.assign(q,'application',a['id'],step,now()+timedelta(hours=1))
  def commit_application(self,a,fp,ev,d):
   with self.db:
@@ -174,27 +182,40 @@ class Agent:
     if self.human_owned(key) or (f and f['actor']!=ACTOR) or (c and c['paused']):continue
     active.append(r)
    if not active:continue
+   held=[r for r in active if r.get('intake_review',{}).get('state') not in ('verified','released')]
+   if held:
+    step='Intake verification or consent needs staff review. No automated customer messages, shop messages or reminders are permitted. Review evidence in the inquiry dashboard before releasing a directory request; legacy requests need a new customer form.'
+    self.report['inquiries'].append({'references':['VZ-'+str(r['submission_id']) for r in active],'state':'staff_attention','next_step':step,'reminders_queued':0,'customer_update':'held'})
+    if self.live:
+     with self.db:
+      with self.db.cursor(cursor_factory=RealDictCursor) as q:
+       for r in active:
+        self.save_case(q,'inquiry',r['submission_id'],'staff_attention',step,now()+timedelta(hours=24),ev={'intake_review':r.get('intake_review',{})})
+        self.assign(q,'inquiry',r['submission_id'],step,now()+timedelta(hours=24))
+    continue
    first=active[0];sid=group['rows'][0]['submission_id'];ids=[r['submission_id'] for r in active];key='inquiry:'+str(sid);prior=self.case(key)
    ticket=prior.get('zendesk_ticket_id') if prior else None
    human=bool(ticket and self.ticket_human_reply(ticket))
    responses=[d for r in active for d in r['deliveries'] if d.get('response_state')]
    alternative=any(r.get('customer_action',{}).get('state')=='alternative_requested' for r in active)
    unmatched=any(r.get('routing_state') in ('needs_review','failed') or not r['deliveries'] for r in active)
+   delivery_review=any(d.get('delivery_unconfirmed_over_1h') or d.get('state') in ('failed','cancelled','held') for r in active for d in r['deliveries'])
    age=(now()-min(utc(r['created_at']) for r in active)).total_seconds()/3600
    reminders=0
-   if worker_ok and not human and not alternative and not unmatched:
+   if worker_ok and not human and not alternative and not unmatched and not delivery_review:
     for r in active:
      for delivery in r['deliveries']:reminders+=int(self.reminder(r,delivery))
    missing_links=any(not d.get('response_link_expires_at') for r in active for d in r['deliveries'])
    step=('A customer or staff member replied, closed, or reassigned the support ticket; '+self.cfg['owner_name']+' must handle the reply.' if human else
+    'Notification delivery is unconfirmed or failed. '+self.cfg['owner_name']+' must check provider delivery and suppression evidence; do not resend accepted notifications blindly.' if delivery_review else
     'No eligible shop delivery exists for at least one request. '+self.cfg['owner_name']+' must confirm the project/service and review a permitted shop match; do not describe this as waiting for a shop response.' if unmatched else
     'Review the shop response and coordinate the next customer step; no appointment has been confirmed.' if responses else
     'Customer requested another shop. '+self.cfg['owner_name']+' must review the request and consent before any additional sharing.' if alternative else
     'Confirm the outcome directly with the customer; older shop notifications do not have response links.' if missing_links else
     'Await shop response; the agent checks once daily and sends one eligible reminder after 48 hours.')
    if age>=72 and not human:step+=' Escalated to '+self.cfg['owner_name']+' because more than 72 hours have elapsed.'
-   state='staff_attention' if human or unmatched or responses or alternative or age>=72 else 'monitoring'
-   stage='routing_review' if unmatched else 'shop_response' if responses else 'alternative' if alternative else 'waiting_72h' if age>=72 else 'initial'
+   state='staff_attention' if human or unmatched or delivery_review or responses or alternative or age>=72 else 'monitoring'
+   stage='delivery_review' if delivery_review else 'routing_review' if unmatched else 'shop_response' if responses else 'alternative' if alternative else 'waiting_72h' if age>=72 else 'initial'
    message_key='installer-inquiry-v1:'+str(sid)+':'+stage
    existing=self.query('SELECT state,ticket_id FROM directory_automation_messages WHERE event_key=%s',(message_key,))
    if not existing and not human and worker_ok:
@@ -229,6 +250,7 @@ class Agent:
   return 'Your inquiry is being monitored for a shop response. No appointment is confirmed.'
  def customer_message(self,refs,stage,legacy):
   text={'initial':'We have your installation inquiry and are checking for a response from the shop or shops selected for your request.',
+   'delivery_review':'Your installation inquiry is saved. Notification delivery needs staff review, and we have not confirmed that the shop received the request. Our team will review the next step. No quote or appointment is confirmed.',
    'routing_review':'Your inquiry is saved, but at least one request could not be matched to an eligible shop. Our support team needs to review the requested service and available options. Please reply with the exact part or product link and the installation work you need. No shop response, quote or appointment is confirmed for the unmatched request.',
    'waiting_72h':'We are following up on your installation inquiry. We have not recorded a shop response in our system yet. The shop may have contacted you directly.',
    'shop_response':'A shop has responded to your installation inquiry. Our support team is reviewing the response and the next step. This does not confirm a quote or appointment.',
@@ -243,6 +265,7 @@ class Agent:
    ids=m['record_ids'];eligible=True
    for sid in ids:
     r=self.rfq('requests?id='+str(sid))['requests']
+    if len(r)!=1 or r[0].get('intake_review',{}).get('state') not in ('verified','released'):eligible=False
     f=self.query('SELECT state,actor FROM directory_inquiry_followup WHERE submission_id=%s',(sid,))
     c=self.case('inquiry:'+str(sid))
     if len(r)!=1 or r[0]['email'].strip().lower()!=m['recipient'] or r[0].get('customer_action',{}).get('state') in ['closed','withdrawn'] or self.human_owned('inquiry:'+str(sid)) or (f and (f[0]['state'] in ['booked','declined'] or f[0]['actor']!=ACTOR)) or (c and c['paused']):eligible=False
@@ -267,12 +290,16 @@ class Agent:
    if not r.ok or r.json().get('next_page'):raise RuntimeError('requester_search_unavailable')
    users=[u for u in r.json()['users'] if (u.get('email') or '').lower()==m['recipient']]
    if len(users)>1 or any(u.get('suspended') or not u.get('active',True) for u in users):raise RuntimeError('requester_requires_review')
-   ticket={'external_id':m['event_key'],'subject':m['subject'],'comment':{'body':m['body'],'public':True},
+   ticket={'external_id':m['event_key'],'subject':m['subject'],'comment':{'body':'Vicrez Installer Assistant (automated): verified inquiry follow-up; prepare one customer message after this private tracking record. Staff owner: '+self.cfg['owner_name']+'. Record the outcome before adding installer_quote_review_complete and solving.','public':False},
     'brand_id':self.cfg['brand_id'],'group_id':self.cfg['group_id'],'assignee_id':self.cfg['owner_zendesk_id'],
     # Existing Zendesk webhook excludes ai-agent, preventing two automated writers.
-    'tags':['installer_agent_v1','ai-agent']+['installer_inquiry_'+str(x) for x in m['record_ids']], 'priority':'normal','status':'open'}
+    'recipient':'b2bsupport@vicrezcom.zendesk.com',
+    'tags':['installer_agent_v1','ai-agent','installer_quote_inquiry']+['installer_inquiry_'+str(x) for x in m['record_ids']], 'priority':'normal','status':'open'}
    if users:ticket['requester_id']=users[0]['id']
-   else:ticket['requester']={'name':'Installer inquiry customer','email':m['recipient']}
+   else:
+    u=self.zd('POST','users.json',json={'user':{'name':'Installer inquiry customer','email':m['recipient'],'role':'end-user','verified':False,'skip_verify_email':True}})
+    if u.status_code!=201:raise RuntimeError('requester_creation_unconfirmed')
+    ticket['requester_id']=u.json()['user']['id']
    method='POST';path='tickets.json'
   else:
    if self.ticket_human_reply(tid):
@@ -280,6 +307,8 @@ class Agent:
    r=self.zd('GET','tickets/'+str(tid)+'.json')
    if not r.ok:raise RuntimeError('ticket_check_unavailable')
    t=r.json()['ticket']
+   if 'installer_quote_inquiry' not in t.get('tags',[]) or t.get('recipient')!='b2bsupport@vicrezcom.zendesk.com':
+    self.query("UPDATE directory_automation_messages SET state='held',last_error='Existing support conversation requires quote routing safeguards' WHERE event_key=%s",(m['event_key'],));return
    if t.get('email_cc_ids') or t.get('collaborator_ids') or t.get('follower_ids'):raise RuntimeError('ticket_additional_recipients')
    u=self.zd('GET','users/'+str(t['requester_id'])+'.json')
    if not u.ok or u.json()['user']['email'].lower()!=m['recipient']:raise RuntimeError('ticket_recipient_changed')
@@ -289,8 +318,20 @@ class Agent:
   r=self.zd(method,path,json={'ticket':ticket})
   if r.status_code not in [200,201]:raise RuntimeError('ticket_send_unconfirmed')
   data=r.json();t=data['ticket'];events=data.get('audit',{}).get('events',[])
+  if method=='POST':
+   # Persist the ticket identity before attempting a public comment. A crash is
+   # reconciled as uncertain by dispatch(), never retried as another ticket.
+   self.query("UPDATE directory_automation_messages SET ticket_id=%s WHERE event_key=%s",(t['id'],m['event_key']))
+   if any(e.get('type') in ('Notification','NotificationWithCcs','WebhookEvent') for e in events):raise RuntimeError('private_ticket_external_effect')
+   fresh=self.zd('GET','tickets/'+str(t['id'])+'.json')
+   if not fresh.ok:raise RuntimeError('private_ticket_check_unavailable')
+   t=fresh.json()['ticket']
+   if t.get('email_cc_ids') or t.get('collaborator_ids') or t.get('follower_ids') or t['requester_id']!=ticket['requester_id'] or t['assignee_id']!=self.cfg['owner_zendesk_id']:raise RuntimeError('private_ticket_changed')
+   r=self.zd('PUT','tickets/'+str(t['id'])+'.json',json={'ticket':{'comment':{'body':m['body'],'public':True},'safe_update':True,'updated_stamp':t['updated_at']}})
+   if not r.ok:raise RuntimeError('ticket_send_unconfirmed')
+   data=r.json();t=data['ticket'];events=data.get('audit',{}).get('events',[])
   notices=[e for e in events if e.get('type')=='Notification']
-  clean=bool(len(notices)==1 and notices[0].get('recipients')==[t['requester_id']] and not t.get('email_cc_ids') and not t.get('collaborator_ids') and t.get('assignee_id')==self.cfg['owner_zendesk_id'])
+  clean=bool(len(notices)==1 and notices[0].get('recipients')==[t['requester_id']] and not t.get('email_cc_ids') and not t.get('collaborator_ids') and not t.get('follower_ids') and not any(e.get('type')=='WebhookEvent' for e in events) and t.get('assignee_id')==self.cfg['owner_zendesk_id'])
   state='sent' if clean else 'uncertain'
   with self.db:
    with self.db.cursor(cursor_factory=RealDictCursor) as q:

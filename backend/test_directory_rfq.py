@@ -24,6 +24,7 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         rfq.DB_PATH = str(Path(self.tmp.name)/'rfq.sqlite')
+        self.safety = patch.object(rfq.quote_safety,'config',return_value={'dispatch_enabled':True}); self.safety.start()
         self.secret = patch.object(rfq,'secret',return_value='isolated-test-secret-'*3); self.secret.start()
         with sqlite3.connect(rfq.DB_PATH) as conn:
             conn.execute('''CREATE TABLE rfq_submissions(id INTEGER PRIMARY KEY AUTOINCREMENT,full_name TEXT,email TEXT,phone TEXT,
@@ -32,24 +33,26 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
             conn.execute("INSERT INTO rfq_submissions(full_name,email,status) VALUES('Legacy','legacy@example.test','new')")
         conn.close()
         rfq.init_directory_db()
-        self.data = rfq.validate_submission(dict(request_id=str(uuid.uuid4()),full_name='Test Customer',email='customer@example.test',phone='2125550100',vehicle_year=2024,vehicle_make='Dodge',vehicle_model='Charger',what_needed='Install rear diffuser',service='body-kits',flow='network',zip_code='10001',sharing_consent=True,consent_version='directory-quote-2026-09-15'))
+        self.data = rfq.validate_submission(dict(request_id=str(uuid.uuid4()),full_name='Test Customer',email='customer@vicrez.com',phone='2125550100',vehicle_year=2024,vehicle_make='Dodge',vehicle_model='Charger',what_needed='Install rear diffuser',service='body-kits',flow='network',zip_code='10001',sharing_consent=True,consent_version='directory-quote-2026-09-15'))
         self.shop = dict(id='shop-one',business_name='Test Shop',email='shop@example.test',city='Test City',state='NY',zip_code='10001',lat=40.75,lng=-73.99,services=['body-kits'])
     def tearDown(self):
-        self.secret.stop()
+        self.secret.stop(); self.safety.stop()
         assert Path(self.tmp.name).resolve().parent == Path(tempfile.gettempdir()).resolve()
         self.tmp.cleanup()
+    def save_verified(self,data):
+        return rfq.save_submission(data,{'state':'verified','reason':'isolated_fixture'})
     def count(self,table):
         with rfq.connect() as conn:return conn.execute('SELECT count(*) FROM '+table).fetchone()[0]
     def ready(self):
         with rfq.connect() as conn:conn.execute("UPDATE directory_outbox SET next_attempt=0,lease_until=0 WHERE state IN ('pending','sending')")
     async def routed(self):
-        saved=rfq.save_submission(self.data)
+        saved=self.save_verified(self.data)
         with patch.object(rfq,'routing_targets',AsyncMock(return_value=[self.shop])):await rfq.run_one_job()
         return saved
 
     async def test_durable_measurement_reconciles_without_personal_data_or_duplicate_events(self):
         await self.routed()
-        rfq.save_submission(self.data)
+        self.save_verified(self.data)
         with patch.object(rfq,'fetch_candidates',AsyncMock(return_value=[self.shop])),patch.object(rfq,'send_installer_event',AsyncMock(return_value=202)):
             await rfq.run_one_job()
         with rfq.connect() as conn:
@@ -104,7 +107,7 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.count('directory_outbox'),outbox)
 
     async def test_private_photos_are_scoped_revocable_bounded_and_duplicate_safe(self):
-        saved,job,client=await self.customer_fixture();other=rfq.save_submission({**self.data,'request_id':str(uuid.uuid4())});photo_id=str(uuid.uuid4())
+        saved,job,client=await self.customer_fixture();other=self.save_verified({**self.data,'request_id':str(uuid.uuid4())});photo_id=str(uuid.uuid4())
         # The private service accepts only already-sanitized WebP from the Next image sanitizer.
         image=base64.b64encode(b'RIFF0000WEBPtest-only-prepared-by-trusted-service').decode()
         body={'scope':'customer','action':'upload','token':saved['receipt_token'],'photo_id':photo_id,'caption':'Rear bumper fitment','permission':True,'width':100,'height':100,'image':image}
@@ -137,7 +140,7 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
     async def test_action_items_are_private_minimal_and_exact_lookup_reaches_older_inquiry(self):
         saved=await self.routed()
         for _ in range(52):
-            rfq.save_submission({**self.data,'request_id':str(uuid.uuid4())})
+            self.save_verified({**self.data,'request_id':str(uuid.uuid4())})
         app=FastAPI();app.include_router(rfq.router)
         headers={'Authorization':'Bearer '+rfq.secret()}
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='https://example.test') as client:
@@ -156,7 +159,7 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual((await client.get('/internal/directory-rfq/requests',params={'id':value},headers=headers)).status_code,400)
 
     async def test_measurement_endpoint_is_private_aggregate_and_reconciles(self):
-        rfq.save_submission(self.data)
+        self.save_verified(self.data)
         app=FastAPI();app.include_router(rfq.router)
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='https://example.test') as client:
             self.assertEqual((await client.get('/internal/directory-rfq/measurement')).status_code,401)
@@ -169,18 +172,18 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.count('rfq_submissions'),1);self.assertEqual(self.count('directory_outbox'),0)
     def test_request_and_outbox_are_atomic(self):
         with rfq.connect() as conn:conn.execute("CREATE TRIGGER reject_job BEFORE INSERT ON directory_outbox BEGIN SELECT RAISE(ABORT,'fixture'); END")
-        with self.assertRaises(sqlite3.IntegrityError):rfq.save_submission(self.data)
+        with self.assertRaises(sqlite3.IntegrityError):self.save_verified(self.data)
         self.assertEqual(self.count('rfq_submissions'),1);self.assertEqual(self.count('directory_requests'),0)
     def test_same_payload_is_idempotent_but_edited_payload_conflicts(self):
-        first=rfq.save_submission(self.data);second=rfq.save_submission(self.data)
+        first=self.save_verified(self.data);second=self.save_verified(self.data)
         self.assertEqual(first['submission_id'],second['submission_id']);self.assertTrue(second['duplicate'])
-        with self.assertRaises(HTTPException) as caught:rfq.save_submission({**self.data,'notes':'Changed after uncertain receipt'})
+        with self.assertRaises(HTTPException) as caught:self.save_verified({**self.data,'notes':'Changed after uncertain receipt'})
         self.assertEqual(caught.exception.status_code,409);self.assertEqual(self.count('directory_outbox'),1)
     def test_concurrent_retries_create_one_submission(self):
-        with ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(rfq.save_submission,[self.data,self.data]))
+        with ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(self.save_verified,[self.data,self.data]))
         self.assertEqual(results[0]['submission_id'],results[1]['submission_id']);self.assertEqual(self.count('rfq_submissions'),2)
     def test_receipts_are_signed_and_scoped_to_request(self):
-        saved=rfq.save_submission(self.data)
+        saved=self.save_verified(self.data)
         self.assertEqual(rfq.verify_receipt(saved['receipt_token']),(saved['submission_id'],self.data['request_id']))
         with self.assertRaises(HTTPException):rfq.verify_receipt(saved['receipt_token'][:-6]+'tamper')
         with patch.object(rfq.time,'time',return_value=time.time()+8*86400):
@@ -202,11 +205,11 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(rfq,'fetch_candidates',AsyncMock()) as fetch:
             self.assertEqual(await rfq.routing_targets({**self.data,'service':'other'}),[]);fetch.assert_not_awaited()
     async def test_no_match_keeps_receipt_and_enters_review(self):
-        saved=rfq.save_submission(self.data)
+        saved=self.save_verified(self.data)
         with patch.object(rfq,'routing_targets',AsyncMock(return_value=[])):await rfq.run_one_job()
         self.assertEqual(rfq.status_for(saved['submission_id'])['status'],'routing_needed');self.assertEqual(self.count('directory_outbox'),1)
     async def test_feed_failure_retries_without_inventing_match(self):
-        saved=rfq.save_submission(self.data)
+        saved=self.save_verified(self.data)
         with patch.object(rfq,'routing_targets',AsyncMock(side_effect=TimeoutError)):await rfq.run_one_job()
         self.assertEqual(rfq.status_for(saved['submission_id'])['status'],'routing_pending')
         with rfq.connect() as conn:self.assertEqual(conn.execute('SELECT state FROM directory_outbox').fetchone()[0],'pending')
@@ -234,7 +237,7 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
                     await rfq.run_one_job();send.assert_not_awaited()
     async def test_one_failed_recipient_does_not_repeat_an_accepted_recipient(self):
         second={**self.shop,'id':'shop-two','email':'two@example.test'}
-        rfq.save_submission(self.data)
+        self.save_verified(self.data)
         with patch.object(rfq,'routing_targets',AsyncMock(return_value=[self.shop,second])):await rfq.run_one_job()
         async def candidates(**kw):return [self.shop] if kw.get('installer_id')=='shop-one' else [second]
         sent=[]
@@ -244,7 +247,7 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
             await rfq.run_one_job();await rfq.run_one_job();self.ready();await rfq.run_one_job()
         self.assertEqual(sorted(sent),['shop-one','shop-two'])
     def test_expired_lease_can_resume_and_stale_worker_cannot_finish(self):
-        rfq.save_submission(self.data);first=rfq.lease_job();self.assertIsNone(rfq.lease_job());self.ready();second=rfq.lease_job()
+        self.save_verified(self.data);first=rfq.lease_job();self.assertIsNone(rfq.lease_job());self.ready();second=rfq.lease_job()
         self.assertEqual(first['id'],second['id']);self.assertNotEqual(first['lease_token'],second['lease_token'])
         rfq.finish_job(first,'accepted')
         with rfq.connect() as conn:self.assertEqual(conn.execute('SELECT state FROM directory_outbox').fetchone()[0],'sending')
@@ -339,8 +342,8 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_acquisition_is_atomic_immutable_on_retry_and_absent_from_delivery_payload(self):
         data={**self.data,'acquisition':{'source':'google','channel':'paid','session_id':str(uuid.uuid4())}}
-        first=rfq.save_submission(data)
-        retry=rfq.save_submission({**data,'acquisition':{'source':'direct','channel':'direct'}})
+        first=self.save_verified(data)
+        retry=self.save_verified({**data,'acquisition':{'source':'direct','channel':'direct'}})
         self.assertEqual(first['submission_id'],retry['submission_id'])
         with rfq.connect() as conn:
             acquisition=dict(conn.execute('SELECT * FROM directory_acquisition').fetchone())
@@ -351,9 +354,9 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
 
     def test_legacy_payload_hash_retries_remain_compatible_with_new_attribution(self):
         old={k:v for k,v in self.data.items() if k!='acquisition'}
-        saved=rfq.save_submission(old)
+        saved=self.save_verified(old)
         with rfq.connect() as conn:conn.execute('DELETE FROM directory_acquisition')
-        self.assertTrue(rfq.save_submission(self.data)['duplicate'])
+        self.assertTrue(self.save_verified(self.data)['duplicate'])
         rfq.init_directory_db();self.assertEqual(self.count('directory_acquisition'),0)
 
     async def test_attribution_report_is_private_bounded_and_excludes_customer_data(self):

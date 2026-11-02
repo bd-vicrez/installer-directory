@@ -6,7 +6,7 @@ from agent import Agent
 class RoutingTests(unittest.TestCase):
     def test_unmatched_recent_inquiry_goes_to_staff_without_reminder(self):
         a=Agent.__new__(Agent);a.live=False;a.cfg={'owner_name':'Staff owner'};a.report={'inquiries':[]}
-        row={'submission_id':1,'created_at':datetime.now(timezone.utc).isoformat(),'email':'example@example.com','vehicle_year':2020,'vehicle_make':'Example','vehicle_model':'Car','service':'other','routing_state':'needs_review','deliveries':[]}
+        row={'submission_id':1,'intake_review':{'state':'verified'},'created_at':datetime.now(timezone.utc).isoformat(),'email':'example@example.com','vehicle_year':2020,'vehicle_make':'Example','vehicle_model':'Car','service':'other','routing_state':'needs_review','deliveries':[]}
         a.current_requests=lambda:([row],True);a.query=lambda *args:[];a.case=lambda *args:None;a.human_owned=lambda *args:False
         a.reminder=lambda *args:self.fail('Unmatched inquiries must not queue shop reminders')
         a.inquiries()
