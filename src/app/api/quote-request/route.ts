@@ -43,6 +43,8 @@ export async function POST(request: NextRequest) {
       );
     }
     const invalid = validateQuoteInput(body);
+    if (invalid)
+      return NextResponse.json({ error: invalid }, { status: 400, headers });
     if (
       body?.project_detail &&
       body.project_detail.length + (body?.additional_notes || "").length > 480
@@ -108,16 +110,19 @@ export async function POST(request: NextRequest) {
       consent_version: "directory-quote-2026-09-15",
       install_timeline: body.install_timeline || "",
       budget_range: body.budget_range || "",
+      hcaptcha_token: body.hcaptcha_token || "",
     };
     const response = await rfqFetch("/webhook/rfq/directory", payload);
-    if (response.status === 400 || response.status === 422)
+    if (response.status === 400 || response.status === 422 || response.status === 429) {
+      const rejected = await response.json().catch(() => ({}));
       return NextResponse.json(
         {
           error:
-            "Check your contact, vehicle, service and sharing details before trying again.",
+            typeof rejected.detail === "string" ? rejected.detail.slice(0,240) : "Check your contact, vehicle, service and sharing details before trying again.",
         },
-        { status: 400, headers },
+        { status: response.status === 429 ? 429 : 400, headers },
       );
+    }
     if (response.status === 409)
       return NextResponse.json(
         {

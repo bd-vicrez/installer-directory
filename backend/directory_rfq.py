@@ -24,6 +24,10 @@ from pathlib import Path
 import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
+try:
+    from app.routes import quote_safety
+except ModuleNotFoundError:
+    import quote_safety
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -54,6 +58,7 @@ def connect():
 def init_directory_db():
     # rfq_webhook.init_db creates the existing submissions table at app startup.
     with connect() as conn:
+        quote_safety.init_db(conn)
         conn.executescript('''
         CREATE TABLE IF NOT EXISTS directory_requests (
           submission_id INTEGER PRIMARY KEY REFERENCES rfq_submissions(id),
@@ -242,7 +247,8 @@ def verify_receipt(token):
         raise HTTPException(401, 'Invalid or expired receipt')
 
 
-def save_submission(data):
+def save_submission(data, verification=None):
+    verification = verification or {'state':'held','reason':'unverified'}
     acquisition = normalize_acquisition(data.get('acquisition'))
     # Attribution never changes the idempotency identity or leaves in notification payloads.
     data = {k:v for k,v in data.items() if k != 'acquisition'}
@@ -268,8 +274,13 @@ def save_submission(data):
             sid, duplicate = cursor.lastrowid, False
             conn.execute('''INSERT INTO directory_requests(submission_id,request_id,payload_hash,payload,flow,service,consent_version,consent_at)
               VALUES(?,?,?,?,?,?,?,?)''', (sid,data['request_id'],digest,encoded,data['flow'],data['service'],data['consent_version'],datetime.now(timezone.utc).isoformat()))
+            conn.execute('''INSERT INTO quote_intake_reviews(submission_id,source,state,reason,payload_hash,token_hash)
+              VALUES(?,'directory',?,?,?,?)''', (sid,verification['state'],verification['reason'],digest,verification.get('token_hash')))
             conn.execute('INSERT INTO directory_outbox(id,submission_id,kind,target_id,payload) VALUES(?,?,?,?,?)',
                          (str(uuid.uuid5(uuid.NAMESPACE_URL, f'vicrez-directory:{sid}:route')),sid,'route','',encoded))
+            if verification['state'] != 'verified':
+                conn.execute("UPDATE directory_requests SET routing_state='needs_review',routing_reason=? WHERE submission_id=?",(verification['reason'],sid))
+                conn.execute("UPDATE directory_outbox SET state='held',last_error=? WHERE submission_id=?",(verification['reason'],sid))
             conn.execute('INSERT INTO directory_acquisition(submission_id,source,channel,session_id) VALUES(?,?,?,?)', (sid,acquisition['source'],acquisition['channel'],acquisition['session_id']))
             measure(conn,sid,'quote_saved',f'{sid}:saved')
     return {'ok': True, 'submission_id': sid, 'duplicate': duplicate, 'receipt_token': receipt_token(sid, data['request_id'])}
@@ -288,8 +299,28 @@ def measure(conn,submission_id,event,key):
 @router.post('/webhook/rfq/directory')
 async def submit_directory(request: Request):
     require_service(request)
-    result = save_submission(validate_submission(await read_body(request)))
+    body = await read_body(request)
+    data = validate_submission(body)
+    quote_safety.reject_invalid_identity(data)
+    # A confirmed retry returns its original receipt even after the single-use CAPTCHA expires.
+    with connect() as conn:
+        old = conn.execute('SELECT 1 FROM directory_requests WHERE request_id=?',(data['request_id'],)).fetchone()
+    if old:
+        return JSONResponse(save_submission(data),headers={'Cache-Control':'private, no-store'})
+    with connect() as conn:
+        quote_safety.rate_limit(conn,data,secret())
+    decision = await quote_safety.verification(body.get('hcaptcha_token'))
+    try:
+        result = save_submission(data,decision)
+    except sqlite3.IntegrityError:
+        raise HTTPException(409,'Verification was already used. Please verify this request again.')
     return JSONResponse(result, headers={'Cache-Control':'private, no-store'})
+
+
+@router.get('/internal/directory-rfq/verification-config')
+async def verification_config(request:Request):
+    require_service(request)
+    return JSONResponse(quote_safety.public_config(),headers={'Cache-Control':'private, no-store'})
 
 
 def status_for(submission_id):
@@ -380,6 +411,8 @@ async def routing_targets(data):
 
 
 def lease_job():
+    if quote_safety.config().get('dispatch_enabled') is not True:
+        return None
     now = time.time()
     with connect() as conn:
         conn.execute('BEGIN IMMEDIATE')
@@ -416,6 +449,10 @@ def retry_job(job,error,permanent=False):
 
 
 async def run_route_job(job):
+    with connect() as conn:
+        allowed = quote_safety.may_dispatch(conn,job['submission_id'])
+    if not allowed:
+        finish_job(job,'held','intake_review_required');return
     if request_closed(job['submission_id']):
         finish_job(job,'cancelled','customer_closed_request');return
     data = json.loads(job['payload'])
@@ -472,6 +509,15 @@ async def send_installer_event(event):
     if not KLAVIYO_API_KEY:
         return 503
     async with httpx.AsyncClient(timeout=20) as client:
+        email=event['data']['attributes']['profile']['data']['attributes']['email']
+        profile=await client.get('https://a.klaviyo.com/api/profiles/',params={
+          'filter':'equals(email,'+json.dumps(email)+')','additional-fields[profile]':'subscriptions'},headers={
+          'Authorization':'Klaviyo-API-Key '+KLAVIYO_API_KEY,'revision':'2026-10-15','accept':'application/json'})
+        if profile.status_code!=200:return 503
+        for item in profile.json().get('data',[]):
+            marketing=item.get('attributes',{}).get('subscriptions',{}).get('email',{}).get('marketing',{})
+            if marketing.get('can_receive_email_marketing') is False or marketing.get('suppression'):
+                return 'recipient_suppressed'
         response = await client.post('https://a.klaviyo.com/api/events/',json=event,headers={
           'Authorization':'Klaviyo-API-Key '+KLAVIYO_API_KEY, 'revision':'2026-04-15',
           'Content-Type':'application/json', 'accept':'application/json'})
@@ -479,6 +525,10 @@ async def send_installer_event(event):
 
 
 async def run_notification_job(job):
+    with connect() as conn:
+        allowed = quote_safety.may_dispatch(conn,job['submission_id'])
+    if not allowed:
+        finish_job(job,'held','intake_review_required');return
     if request_closed(job['submission_id']):
         finish_job(job,'cancelled','customer_closed_request');return
     payload = json.loads(job['payload'])
@@ -491,7 +541,9 @@ async def run_notification_job(job):
     if request_closed(job['submission_id']):
         finish_job(job,'cancelled','customer_closed_request');return
     status = await send_installer_event(installer_event(job))
-    if status in (200,201,202):
+    if status=='recipient_suppressed':
+        finish_job(job,'failed','recipient_suppressed_no_automatic_override')
+    elif status in (200,201,202):
         finish_job(job,'accepted')
     else:
         retry_job(job,'provider_http_'+str(status),permanent=400<=status<500 and status not in (408,429))
@@ -532,6 +584,60 @@ async def directory_worker_loop():
             await asyncio.sleep(10)
 
 
+def legacy_requests(conn,selected=None,limit=50):
+    rows=conn.execute('''SELECT r.id AS submission_id,q.created_at,'legacy' AS flow,
+      'Unverified legacy service' AS service,'needs_review' AS routing_state,q.reason AS routing_reason,
+      r.full_name,r.email,r.phone,r.vehicle_year,r.vehicle_make,r.vehicle_model,r.notes,r.zip_code
+      FROM quote_intake_reviews q JOIN rfq_submissions r ON r.id=q.submission_id
+      LEFT JOIN directory_requests d ON d.submission_id=r.id
+      WHERE d.submission_id IS NULL AND (? IS NULL OR r.id=?) ORDER BY r.id DESC LIMIT ?''',(selected,selected,limit)).fetchall()
+    return [{**dict(r),'intake_review':quote_safety.review(conn,r['submission_id']),
+      'deliveries':[],'customer_action':{'state':'open'},'project_brief':{},
+      'acquisition':{'source':'unknown','channel':'unknown'}} for r in rows]
+
+
+@router.post('/internal/directory-rfq/intake-review')
+async def intake_review(request:Request):
+    require_service(request)
+    body=await read_body(request,4096)
+    sid=body.get('submission_id');action=body.get('action');actor=body.get('actor');note=body.get('note','')
+    action_id=body.get('action_id');version=body.get('version')
+    if (type(sid) is not int or sid<1 or action not in ('release','hold','quarantine')
+        or not isinstance(actor,str) or not 3<=len(actor)<=255 or type(version) is not int
+        or not isinstance(action_id,str) or not UUID_RE.fullmatch(action_id)
+        or not isinstance(note,str) or not 10<=len(note.strip())<=1000 or body.get('confirmed') is not True):
+        raise HTTPException(400,'Confirm the review and record the evidence.')
+    with connect() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        prior=conn.execute('SELECT * FROM quote_intake_audit WHERE action_id=?',(action_id,)).fetchone()
+        if prior:
+            if prior['submission_id']!=sid or prior['action']!=action or prior['actor']!=actor or prior['note']!=note.strip():
+                raise HTTPException(409,'Review reference already used.')
+            return {'ok':True,'duplicate':True}
+        current=conn.execute('SELECT * FROM quote_intake_reviews WHERE submission_id=?',(sid,)).fetchone()
+        if not current:raise HTTPException(404,'Inquiry review not found.')
+        if current['version']!=version:raise HTTPException(409,'Review changed. Refresh before continuing.')
+        if action=='release':
+            row=conn.execute('SELECT payload FROM directory_requests WHERE submission_id=?',(sid,)).fetchone()
+            if not row:raise HTTPException(409,'Legacy inquiries require a new customer request with recorded sharing consent. No automatic forwarding is permitted.')
+            validate_submission(json.loads(row['payload']))
+            quote_safety.reject_invalid_identity(json.loads(row['payload']))
+            if quote_safety.config().get('dispatch_enabled') is not True:
+                raise HTTPException(409,'Delivery is paused. Keep this request held until the release checks pass.')
+        state={'release':'released','hold':'held','quarantine':'quarantined'}[action]
+        conn.execute('UPDATE quote_intake_reviews SET state=?,reason=?,version=version+1,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP WHERE submission_id=?',
+                     (state,'staff_'+action,actor,sid))
+        conn.execute('INSERT INTO quote_intake_audit(action_id,submission_id,action,actor,note) VALUES(?,?,?,?,?)',(action_id,sid,action,actor,note.strip()))
+        if action=='release':
+            conn.execute("UPDATE directory_outbox SET state='pending',next_attempt=0,last_error=NULL WHERE submission_id=? AND state='held'",(sid,))
+            pending=conn.execute("SELECT 1 FROM directory_outbox WHERE submission_id=? AND kind='route' AND state='pending'",(sid,)).fetchone()
+            if pending:conn.execute("UPDATE directory_requests SET routing_state='pending',routing_reason=NULL WHERE submission_id=?",(sid,))
+        else:
+            conn.execute("UPDATE directory_outbox SET state='held',last_error='staff_review_hold' WHERE submission_id=? AND state='pending'",(sid,))
+            conn.execute("UPDATE directory_requests SET routing_state='needs_review',routing_reason=? WHERE submission_id=?",('staff_'+action,sid))
+    return {'ok':True,'state':state}
+
+
 @router.get('/internal/directory-rfq/requests')
 async def admin_requests(request: Request):
     require_service(request)
@@ -549,19 +655,23 @@ async def admin_requests(request: Request):
             deliveries = conn.execute('''SELECT o.id AS job_id,o.target_id,o.state,o.attempts,o.last_error,o.accepted_at,
               a.expires_at AS response_link_expires_at,r.state AS response_state,r.note AS response_note,
               r.first_responded_at,r.updated_at AS response_updated_at,
+              CASE WHEN o.state='accepted' AND r.job_id IS NULL AND julianday('now')-julianday(o.accepted_at)>1.0/24 THEN 1 ELSE 0 END AS delivery_unconfirmed_over_1h,
               CASE WHEN o.state='accepted' AND r.job_id IS NULL AND a.job_id IS NOT NULL
                 AND julianday('now')-julianday(o.accepted_at)>2 THEN 1 ELSE 0 END AS unanswered_over_48h
               FROM directory_outbox o LEFT JOIN directory_response_access a ON a.job_id=o.id
               LEFT JOIN directory_shop_responses r ON r.job_id=o.id
               WHERE o.submission_id=? AND o.kind='installer' ORDER BY o.id''',(row['submission_id'],)).fetchall()
             acquisition=conn.execute('SELECT source,channel FROM directory_acquisition WHERE submission_id=?',(row['submission_id'],)).fetchone()
-            requests.append({**dict(row),'acquisition':dict(acquisition) if acquisition else {'source':'unknown','channel':'unknown'},'customer_action':customer_action(conn,row['submission_id']),'project_brief':project_brief(conn,row['submission_id']),'deliveries':[dict(d) for d in deliveries]})
+            requests.append({**dict(row),'intake_review':quote_safety.review(conn,row['submission_id']),'acquisition':dict(acquisition) if acquisition else {'source':'unknown','channel':'unknown'},'customer_action':customer_action(conn,row['submission_id']),'project_brief':project_brief(conn,row['submission_id']),'deliveries':[dict(d) for d in deliveries]})
+        # Historical RFQs are visible without synthesizing sharing consent or delivery jobs.
+        legacy = legacy_requests(conn,selected)
+        requests = sorted(requests+legacy,key=lambda r:r['submission_id'],reverse=True)[:50]
         counts = {r['routing_state']:r['n'] for r in conn.execute('SELECT routing_state,COUNT(*) AS n FROM directory_requests GROUP BY routing_state')}
         delivery_counts = {r['state']:r['n'] for r in conn.execute("SELECT state,COUNT(*) AS n FROM directory_outbox WHERE kind='installer' GROUP BY state")}
         heartbeat = conn.execute('SELECT heartbeat FROM directory_worker_state WHERE id=1').fetchone()
         response_counts = {r['state']:r['n'] for r in conn.execute('SELECT state,COUNT(*) n FROM directory_shop_responses GROUP BY state')}
         unanswered = conn.execute("SELECT COUNT(*) FROM directory_outbox o JOIN directory_response_access a ON a.job_id=o.id LEFT JOIN directory_shop_responses r ON r.job_id=o.id WHERE o.state='accepted' AND r.job_id IS NULL AND julianday('now')-julianday(o.accepted_at)>2").fetchone()[0]
-    return JSONResponse({'requests':requests,'routing_counts':counts,'delivery_counts':delivery_counts,
+    return JSONResponse({'requests':requests,'legacy_review_count':len(legacy),'routing_counts':counts,'delivery_counts':delivery_counts,
       'shop_response_counts':response_counts,'unanswered_over_48h':unanswered,
       'worker_recent':bool(heartbeat and time.time()-heartbeat['heartbeat']<120),'version':'phase-a'},headers={'Cache-Control':'private, no-store'})
 
@@ -571,7 +681,7 @@ async def admin_action_items(request: Request):
     require_service(request)
     with connect() as conn:
         rows=conn.execute("""SELECT d.submission_id,d.created_at,d.service,d.routing_state,
-          COALESCE(SUM(CASE WHEN o.state IN ('failed','cancelled') THEN 1 ELSE 0 END),0) failed_deliveries,
+          COALESCE(SUM(CASE WHEN o.state IN ('failed','cancelled') OR (o.state='accepted' AND r.job_id IS NULL AND julianday('now')-julianday(o.accepted_at)>1.0/24) THEN 1 ELSE 0 END),0) failed_deliveries,
           COALESCE(SUM(CASE WHEN o.state IN ('pending','retry','sending') THEN 1 ELSE 0 END),0) pending_deliveries,
           COALESCE(SUM(CASE WHEN o.state='accepted' AND a.job_id IS NOT NULL AND r.job_id IS NULL
             AND julianday('now')-julianday(o.accepted_at)>2 THEN 1 ELSE 0 END),0) unanswered_over_48h,
@@ -580,8 +690,11 @@ async def admin_action_items(request: Request):
           FROM directory_requests d LEFT JOIN directory_customer_actions ca ON ca.submission_id=d.submission_id LEFT JOIN directory_outbox o ON o.submission_id=d.submission_id AND o.kind='installer'
           LEFT JOIN directory_response_access a ON a.job_id=o.id LEFT JOIN directory_shop_responses r ON r.job_id=o.id
           GROUP BY d.submission_id ORDER BY d.submission_id DESC LIMIT 5001""").fetchall()
+        items=[dict(r) for r in rows]
+        for r in legacy_requests(conn,None,5001):
+            items.append({k:r[k] for k in ('submission_id','created_at','service','routing_state')})
         heartbeat=conn.execute('SELECT heartbeat FROM directory_worker_state WHERE id=1').fetchone()
-    return JSONResponse({'items':[dict(r) for r in rows[:5000]],'limited':len(rows)>5000,
+    return JSONResponse({'items':items[:5000],'limited':len(items)>5000,
       'worker_recent':bool(heartbeat and time.time()-heartbeat['heartbeat']<120)},headers={'Cache-Control':'private, no-store'})
 
 
@@ -612,7 +725,7 @@ async def directory_health():
         with connect() as conn:
             row = conn.execute('SELECT heartbeat FROM directory_worker_state WHERE id=1').fetchone()
         ok = bool(row and time.time()-row['heartbeat']<120 and secret())
-        return JSONResponse({'ok':ok,'version':'phase-a'},status_code=200 if ok else 503,headers={'Cache-Control':'no-store'})
+        return JSONResponse({'ok':ok,'version':'quote-safety-20261102','verification_mode':quote_safety.public_config()['mode'],'dispatch_enabled':quote_safety.config().get('dispatch_enabled') is True},status_code=200 if ok else 503,headers={'Cache-Control':'no-store'})
     except Exception:
         return JSONResponse({'ok':False,'version':'phase-a'},status_code=503,headers={'Cache-Control':'no-store'})
 
@@ -856,7 +969,7 @@ async def reminder_check(request:Request):
     if not isinstance(job_id,str) or not UUID_RE.fullmatch(job_id):raise HTTPException(400,'Choose an inquiry notification')
     with connect() as conn:
         row=conn.execute("SELECT o.*,a.expires_at,a.revoked,r.job_id responded FROM directory_outbox o JOIN directory_response_access a ON a.job_id=o.id LEFT JOIN directory_shop_responses r ON r.job_id=o.id WHERE o.id=? AND o.kind='installer' AND o.state='accepted' AND julianday('now')-julianday(o.accepted_at)>=2",(job_id,)).fetchone()
-        if not row or row['responded'] or row['revoked'] or row['expires_at']<time.time() or customer_action(conn,row['submission_id'])['state'] in ('closed','withdrawn'):raise HTTPException(409,'A reminder is not eligible: check response, request state and elapsed time')
+        if not row or not quote_safety.may_dispatch(conn,row['submission_id']) or row['responded'] or row['revoked'] or row['expires_at']<time.time() or customer_action(conn,row['submission_id'])['state'] in ('closed','withdrawn'):raise HTTPException(409,'A reminder is not eligible: check verification, response, request state and elapsed time')
     job=dict(row);payload=json.loads(job['payload']);original=payload['installer'];current=await fetch_candidates(installer_id=str(original['id']))
     if not any(str(i['id'])==str(original['id']) and i['email'].strip().lower()==original['email'].strip().lower() for i in current):raise HTTPException(409,'The shop no longer accepts inquiries at this address')
     return JSONResponse({'submission_id':job['submission_id'],'recipient':original['email'].strip().lower(),'shop':original['business_name'],'reference':'VZ-'+str(job['submission_id']),'url':shop_response_link(job)},headers={'Cache-Control':'private, no-store'})

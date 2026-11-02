@@ -1,0 +1,172 @@
+--- a/app/routes/rfq_webhook.py
++++ b/app/routes/rfq_webhook.py
+@@ -0,0 +1 @@
++from fastapi.responses import JSONResponse
+@@ -33 +34 @@
+-DB_PATH = "/app/data/rfq_submissions.db"  # bind-mounted to host /root/vicrez-ai-agent/data
++DB_PATH = os.getenv("RFQ_DB_PATH", "/app/data/rfq_submissions.db")
+@@ -189,2 +190,2 @@
+-        logger.warning("HCAPTCHA_SECRET not set - skipping verification (DEV MODE)")
+-        return True
++        logger.warning("Legacy CAPTCHA configuration missing; verification denied")
++        return False
+@@ -270,20 +271 @@
+-    """Send SMS confirmation via Emily Twilio line."""
+-    body = (
+-        f"Hey {submission.full_name.split()[0]} - got your Vicrez quote request "
+-        f"for the {submission.vehicle_year} {submission.vehicle_make}. "
+-        f"We're matching you with a certified installer. "
+-        f"Expect a quote within 24 business hours. Reply STOP to opt out."
+-    )
+-    try:
+-        async with httpx.AsyncClient(timeout=15) as client:
+-            resp = await client.post(
+-                f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_SID}/Messages.json",
+-                auth=(TWILIO_SID, TWILIO_TOKEN),
+-                data={"To": submission.phone, "From": TWILIO_FROM, "Body": body},
+-            )
+-            if resp.status_code in (200, 201):
+-                logger.info(f"SMS sent to {submission.phone}")
+-                return True
+-            logger.error(f"Twilio SMS failed {resp.status_code}: {resp.text[:300]}")
+-    except Exception as e:
+-        logger.error(f"Twilio SMS exception: {e}")
++    """Retired: the legacy intake does not record permission for SMS updates."""
+@@ -291,3 +272,0 @@
+-
+-
+-# === Zendesk B2B Routing ===
+@@ -383,89 +362,42 @@
+-async def submit_rfq(submission: RFQSubmission, request: Request):
+-    """RFQ form submission endpoint."""
+-    ip = request.client.host if request.client else "unknown"
+-    user_agent = request.headers.get("user-agent", "")[:500]
+-
+-    # 1. hCaptcha verify
+-    captcha_ok = await verify_hcaptcha(submission.hcaptcha_token, ip)
+-    if not captcha_ok:
+-        raise HTTPException(status_code=400, detail="Captcha verification failed")
+-
+-    # 2. Detect B2B
+-    is_b2b, b2b_reason = detect_b2b(submission)
+-
+-    # Assign an original identity only for a new, captcha-verified request.
+-    # Clients must retain their own request_id for HTTP retry idempotency.
+-    if submission.request_id is None:
+-        from uuid import uuid4
+-        submission.request_id = str(uuid4())
+-
+-    # 3. Persist once before any notifications. The same form can safely retry.
+-    conn = sqlite3.connect(DB_PATH, timeout=10)
+-    conn.execute("BEGIN IMMEDIATE")
+-    if submission.request_id:
+-        existing = conn.execute("SELECT id, installer_emails_sent, is_b2b FROM rfq_submissions WHERE request_id=?", (submission.request_id,)).fetchone()
+-        if existing:
+-            conn.close()
+-            return {"ok": True, "submission_id": existing[0], "duplicate": True,
+-                    "installers_notified": len(json.loads(existing[1] or "[]")),
+-                    "routed_to": "b2b_support" if existing[2] else "installers"}
+-    cursor = conn.execute(
+-        """INSERT INTO rfq_submissions (
+-            full_name, email, phone, vehicle_year, vehicle_make, vehicle_model,
+-            kit_interest, install_timeline, zip_code, budget_range,
+-            preferred_installer_id, notes, source_page, ip_address, user_agent,
+-            is_b2b, b2b_reason, request_id
+-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+-        (
+-            submission.full_name, submission.email, submission.phone,
+-            submission.vehicle_year, submission.vehicle_make, submission.vehicle_model,
+-            json.dumps(submission.kit_interest), submission.install_timeline,
+-            submission.zip_code, submission.budget_range,
+-            submission.preferred_installer_id, submission.notes,
+-            submission.source_page, ip, user_agent,
+-            1 if is_b2b else 0, b2b_reason, submission.request_id,
+-        ),
+-    )
+-    submission_id = cursor.lastrowid
+-    conn.commit()
+-    conn.close()
+-
+-    # 4. Route based on B2B detection
+-    if is_b2b:
+-        ticket_id = await create_zendesk_b2b_ticket(submission, b2b_reason)
+-        conn = sqlite3.connect(DB_PATH)
+-        conn.execute(
+-            "UPDATE rfq_submissions SET zendesk_ticket_id=?, status='b2b_routed' WHERE id=?",
+-            (ticket_id, submission_id),
+-        )
+-        conn.commit()
+-        conn.close()
+-        # Still send SMS confirm to lead
+-        await send_sms_confirmation(submission)
+-        return {
+-            "ok": True,
+-            "submission_id": submission_id,
+-            "routed_to": "b2b_support",
+-            "zendesk_ticket_id": ticket_id,
+-        }
+-
+-    # 5. Standard flow: Klaviyo + SMS + Installer
+-    klaviyo_id = await fire_klaviyo_event(submission)
+-    sms_ok = await send_sms_confirmation(submission)
+-    installer_emails = await route_to_installer(submission, submission_id=submission_id)
+-
+-    conn = sqlite3.connect(DB_PATH)
+-    conn.execute(
+-        "UPDATE rfq_submissions SET klaviyo_profile_id=?, installer_emails_sent=? WHERE id=?",
+-        (klaviyo_id, json.dumps(installer_emails), submission_id),
+-    )
+-    conn.commit()
+-    conn.close()
+-
+-    return {
+-        "ok": True,
+-        "submission_id": submission_id,
+-        "klaviyo_fired": bool(klaviyo_id),
+-        "sms_sent": sms_ok,
+-        "installers_notified": len(installer_emails),
+-    }
++async def submit_rfq(request: Request):
++    """Compatibility intake only. Legacy clients cannot initiate external sends."""
++    from app.routes import directory_rfq, quote_safety
++    from pydantic import ValidationError
++    from uuid import uuid5, NAMESPACE_URL
++    import hashlib
++    raw = await directory_rfq.read_body(request)
++    try:
++        submission = RFQSubmission(**raw)
++    except ValidationError:
++        raise HTTPException(400, "Check your contact, vehicle and installation details.")
++    data = submission.dict(exclude={'hcaptcha_token', 'website_url', 'request_id'})
++    quote_safety.reject_invalid_identity(data)
++    if len(json.dumps(data)) > 12000 or len(submission.kit_interest) > 10 or any(not 1<=len(v)<=80 for v in submission.kit_interest):
++        raise HTTPException(400, "Check the requested work.")
++    encoded = json.dumps(data,sort_keys=True,separators=(',', ':'))
++    digest = hashlib.sha256(encoded.encode()).hexdigest()
++    rid = submission.request_id or str(uuid5(NAMESPACE_URL,'vicrez-legacy-held:'+digest+':'+datetime.utcnow().strftime('%Y-%m-%d')))
++    with directory_rfq.connect() as conn:
++        conn.execute('BEGIN IMMEDIATE')
++        old=conn.execute('SELECT r.id,q.payload_hash FROM rfq_submissions r LEFT JOIN quote_intake_reviews q ON q.submission_id=r.id WHERE r.request_id=?',(rid,)).fetchone()
++        if old:
++            if old['payload_hash']!=digest:raise HTTPException(409,'Request reference already belongs to different or historical details. Use the current directory form.')
++            sid=old['id'];duplicate=True
++        else:
++            quote_safety.rate_limit(conn,data,directory_rfq.secret())
++            cur=conn.execute("""INSERT INTO rfq_submissions
++                (full_name,email,phone,vehicle_year,vehicle_make,vehicle_model,kit_interest,install_timeline,zip_code,
++                 budget_range,preferred_installer_id,notes,source_page,request_id,status,is_b2b,ip_address,user_agent)
++                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,'legacy_review',0,?,?)""",
++                (submission.full_name,submission.email,submission.phone,submission.vehicle_year,submission.vehicle_make,submission.vehicle_model,
++                 json.dumps(submission.kit_interest),submission.install_timeline,submission.zip_code,submission.budget_range,
++                 submission.preferred_installer_id,submission.notes,submission.source_page,rid,
++                 request.client.host if request.client else 'unknown',request.headers.get('user-agent','')[:500]))
++            sid=cur.lastrowid;duplicate=False
++            conn.execute("""INSERT INTO quote_intake_reviews(submission_id,source,state,reason,payload_hash)
++                VALUES(?,'legacy','held','legacy_consent_and_service_review',?)""",(sid,digest))
++    return JSONResponse({'ok':True,'submission_id':sid,'reference':'VZ-'+str(sid),'request_id':rid,
++        'duplicate':duplicate,'status':'pending_review','routed_to':'staff_review','installers_notified':0,
++        'klaviyo_fired':False,'sms_sent':False,
++        'message':'Your request is saved for staff review. No shop has been notified and no appointment is confirmed. Use https://installers.vicrez.com/ for a current installation request or contact b2bsupport@vicrez.com.'},
++        status_code=202,headers={'Cache-Control':'no-store'})
+@@ -489,0 +422 @@
++            "legacy_mode": "manual_review_no_external_sends",

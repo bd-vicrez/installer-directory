@@ -3,6 +3,7 @@ import { sessionAcquisition } from "@/lib/acquisition-client";
 import { useEffect, useRef, useState } from "react";
 import ProjectBriefFields from "./ProjectBriefFields";
 import AccessibleDialog from "./AccessibleDialog";
+import QuoteVerification from "./QuoteVerification";
 import { quoteStepError } from "@/lib/quote-steps";
 import { QUOTE_SERVICES } from "@/lib/quote-services";
 import { quoteEvent, quoteSession } from "@/lib/quote-telemetry";
@@ -91,6 +92,8 @@ export default function QuoteRequestDialog({
   const [brief, setBrief] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [verificationAttempt, setVerificationAttempt] = useState(0);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [changed, setChanged] = useState(false);
   const requestId = useRef("");
@@ -269,6 +272,7 @@ export default function QuoteRequestDialog({
         body: JSON.stringify({
           ...content,
           request_id: requestId.current,
+          hcaptcha_token: captchaToken,
           session_id: quoteSession(),
           acquisition: sessionAcquisition(),
           measurement: measurementAllowed()
@@ -313,6 +317,8 @@ export default function QuoteRequestDialog({
       track("quote_error");
     } finally {
       setSubmitting(false);
+      setCaptchaToken("");
+      setVerificationAttempt(n => n + 1);
     }
   }
   const prefix = installer ? "shop-quote" : "network-quote";
@@ -381,7 +387,7 @@ export default function QuoteRequestDialog({
           </p>
           <a
             href={
-              "mailto:quotes@vicrez.com?subject=" +
+              "mailto:b2bsupport@vicrezcom.zendesk.com?subject=" +
               encodeURIComponent("Installation inquiry " + receipt.reference)
             }
             className="text-vicrez-red underline"
@@ -762,6 +768,7 @@ export default function QuoteRequestDialog({
                     )}
                   </span>
                 </label>
+                {isOpen && step === 2 && <QuoteVerification key={verificationAttempt} onToken={setCaptchaToken} />}
               </fieldset>
             </fieldset>
             {error && (
