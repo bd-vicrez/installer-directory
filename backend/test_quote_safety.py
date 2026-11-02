@@ -26,7 +26,7 @@ class SafetyTests(unittest.IsolatedAsyncioTestCase):
                 sid=r.json()['submission_id']
                 self.assertEqual(rfq.status_for(sid)['status'],'routing_needed')
                 self.assertFalse(await rfq.run_one_job())
-                self.assertEqual((await c.get('/internal/directory-rfq/verification-config')).json(),{'sitekey':None,'mode':'manual_review'})
+                self.assertEqual((await c.get('/internal/directory-rfq/verification-config')).json(),{'provider':'turnstile','sitekey':None,'mode':'manual_review'})
         with rfq.connect() as conn:
             self.assertEqual(conn.execute('SELECT state FROM directory_outbox').fetchone()[0],'held')
             self.assertEqual(conn.execute('SELECT state FROM quote_intake_reviews').fetchone()[0],'held')
@@ -35,7 +35,7 @@ class SafetyTests(unittest.IsolatedAsyncioTestCase):
         async with self.client() as c:
             with patch.object(rfq.quote_safety,'verification',AsyncMock(return_value={'state':'held','reason':'verification_setup_pending'})) as verify:
                 a=await c.post('/webhook/rfq/directory',json=self.data)
-                b=await c.post('/webhook/rfq/directory',json={**self.data,'hcaptcha_token':'changed-single-use-token'})
+                b=await c.post('/webhook/rfq/directory',json={**self.data,'turnstile_token':'changed-single-use-token'})
                 self.assertEqual(a.json()['submission_id'],b.json()['submission_id'])
                 self.assertTrue(b.json()['duplicate']);verify.assert_awaited_once()
                 changed=await c.post('/webhook/rfq/directory',json={**self.data,'notes':'different'})
@@ -49,26 +49,61 @@ class SafetyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.count('directory_requests'),0)
 
     async def test_token_checks_require_success_expected_hostname_and_real_configuration(self):
-        cfg={'sitekey':'real-account-site','secret':'isolated-test-value'*3,'dispatch_enabled':True}
-        for body in [{'success':False},{'success':True,'hostname':'attacker.example'},{'success':'true','hostname':'installers.vicrez.com'}]:
+        cfg={'provider':'turnstile','sitekey':'0x4-isolated-account-sitekey','secret':'isolated-test-value'*3,'dispatch_enabled':True}
+        for body in [{'success':False},{'success':True,'hostname':'attacker.example','action':'installer_quote'},
+                     {'success':'true','hostname':'installers.vicrez.com','action':'installer_quote'},
+                     {'success':True,'hostname':'installers.vicrez.com'},
+                     {'success':True,'hostname':'installers.vicrez.com','action':'different_form'}]:
             transport=httpx.MockTransport(lambda request:httpx.Response(200,json=body))
             real=httpx.AsyncClient
             with patch.object(rfq.quote_safety,'config',return_value=cfg),patch.object(rfq.quote_safety.httpx,'AsyncClient',lambda **kw:real(transport=transport,**kw)):
                 with self.assertRaises(HTTPException):await rfq.quote_safety.verification('bad-token')
         with patch.object(rfq.quote_safety,'config',return_value=cfg):
             with self.assertRaises(HTTPException):await rfq.quote_safety.verification(None)
-        self.assertFalse(rfq.quote_safety.captcha_ready({**cfg,'sitekey':'10000000-ffff-ffff-ffff-000000000001'}))
+        self.assertFalse(rfq.quote_safety.captcha_ready({**cfg,'sitekey':'1x00000000000000000000AA'}))
+
+    def test_production_rejects_dummy_keys_and_other_providers(self):
+        cfg={'provider':'turnstile','sitekey':'0x4-isolated-account-sitekey','secret':'isolated-test-value'*3}
+        self.assertTrue(rfq.quote_safety.captcha_ready(cfg))
+        for key in ['1x00000000000000000000AA','2x00000000000000000000AB','1x00000000000000000000BB','2x00000000000000000000BB','3x00000000000000000000FF']:
+            self.assertFalse(rfq.quote_safety.captcha_ready({**cfg,'sitekey':key}))
+        for key in ['1x0000000000000000000000000000000AA','2x0000000000000000000000000000000AA','3x0000000000000000000000000000000AA']:
+            self.assertFalse(rfq.quote_safety.captcha_ready({**cfg,'secret':key}))
+        for provider in ['hcaptcha',None,'']:
+            self.assertFalse(rfq.quote_safety.captcha_ready({**cfg,'provider':provider}))
+
+    async def test_provider_outages_hold_and_invalid_single_use_tokens_reject(self):
+        cfg={'provider':'turnstile','sitekey':'0x4-isolated-account-sitekey','secret':'isolated-test-value'*3,'dispatch_enabled':True}
+        real=httpx.AsyncClient
+        cases=[(429,{},'held'),(503,{},'held'),(200,[],'held'),(200,{'success':False,'error-codes':['internal-error']},'held'),
+               (200,{'success':False,'error-codes':['timeout-or-duplicate']},'reject')]
+        for status,body,expected in cases:
+            transport=httpx.MockTransport(lambda request:httpx.Response(status,json=body))
+            with patch.object(rfq.quote_safety,'config',return_value=cfg),patch.object(rfq.quote_safety.httpx,'AsyncClient',lambda **kw:real(transport=transport,**kw)):
+                if expected=='reject':
+                    with self.assertRaises(HTTPException):await rfq.quote_safety.verification('used-token')
+                else:self.assertEqual((await rfq.quote_safety.verification('token'))['state'],'held')
+
+    async def test_router_uses_only_turnstile_token_and_excludes_it_from_saved_payload(self):
+        async with self.client() as c:
+            decision={'state':'verified','reason':'captcha_verified','token_hash':'verified-test-token-hash'}
+            with patch.object(rfq.quote_safety,'verification',AsyncMock(return_value=decision)) as verify:
+                r=await c.post('/webhook/rfq/directory',json={**self.data,'turnstile_token':'private-turnstile-token','hcaptcha_token':'old-provider-token','verified':True})
+                self.assertEqual(r.status_code,200);verify.assert_awaited_once_with('private-turnstile-token')
+        with rfq.connect() as conn:
+            payload=conn.execute('SELECT payload FROM directory_requests').fetchone()[0]
+        self.assertNotIn('private-turnstile-token',payload);self.assertNotIn('old-provider-token',payload)
 
     async def test_provider_timeout_holds_and_success_hashes_token_without_storing_secret(self):
-        cfg={'sitekey':'real-account-site','secret':'isolated-test-value'*3,'dispatch_enabled':True}
+        cfg={'provider':'turnstile','sitekey':'0x4-isolated-account-sitekey','secret':'isolated-test-value'*3,'dispatch_enabled':True}
         real=httpx.AsyncClient
         def fail(request):raise httpx.ReadTimeout('isolated')
         with patch.object(rfq.quote_safety,'config',return_value=cfg),patch.object(rfq.quote_safety.httpx,'AsyncClient',lambda **kw:real(transport=httpx.MockTransport(fail),**kw)):
             self.assertEqual((await rfq.quote_safety.verification('token'))['state'],'held')
         def success(request):
-            self.assertEqual(str(request.url),'https://api.hcaptcha.com/siteverify')
-            self.assertIn(b'sitekey=real-account-site',request.content)
-            return httpx.Response(200,json={'success':True,'hostname':'installers.vicrez.com'})
+            self.assertEqual(str(request.url),'https://challenges.cloudflare.com/turnstile/v0/siteverify')
+            self.assertIn(b'response=private-response-token',request.content);self.assertNotIn(b'sitekey=',request.content)
+            return httpx.Response(200,json={'success':True,'hostname':'installers.vicrez.com','action':'installer_quote'})
         with patch.object(rfq.quote_safety,'config',return_value=cfg),patch.object(rfq.quote_safety.httpx,'AsyncClient',lambda **kw:real(transport=httpx.MockTransport(success),**kw)):
             decision=await rfq.quote_safety.verification('private-response-token')
         self.assertEqual(decision['state'],'verified');self.assertNotIn('private-response-token',json.dumps(decision));self.assertNotIn(cfg['secret'],json.dumps(decision))

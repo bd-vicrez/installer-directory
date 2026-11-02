@@ -309,7 +309,7 @@ async def submit_directory(request: Request):
         return JSONResponse(save_submission(data),headers={'Cache-Control':'private, no-store'})
     with connect() as conn:
         quote_safety.rate_limit(conn,data,secret())
-    decision = await quote_safety.verification(body.get('hcaptcha_token'))
+    decision = await quote_safety.verification(body.get('turnstile_token'))
     try:
         result = save_submission(data,decision)
     except sqlite3.IntegrityError:
