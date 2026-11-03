@@ -64,16 +64,20 @@ Deployment and validation
 Rollback
 First atomically set dispatch_enabled=false in quote-safety.json. Verify health
 reports the pause. Keep original request rows, review tables and audit records.
-For a frontend regression, revert only the quote repair commit on current master
-or promote previous deployment dpl_2z262KFUNjtxvMHExzRY1k9bCb7R if no later unrelated
-release exists. Never reset shared master or restore a complete stale checkout.
-Backend backups and deployed hashes are under
-/root/installer-operations/quote-repair-20261102 (baseline and before-v2).
-Compare each current file against deployed-v2-hashes.json before restoring a file;
-reconcile any concurrent differences. Prefer a targeted correction or restore the
-first safe release from before-v2. Do not restore the unsafe legacy intake path.
+For a frontend regression, revert only the affected change on current master.
+The tested Turnstile baseline is PR 28 / e056a87 and Vercel deployment
+ dpl_DfkyayrcEQxMr6FDGEcN4Um9dQAt. Do not reset shared master or restore a
+pre-quote-repair deployment. Preserve concurrent changes.
+Turnstile backend backups and deployed-hashes.json are under
+/root/installer-operations/quote-repair-20261102/turnstile.
+Compare current hashes before restoring directory_rfq.py or quote_safety.py from
+their .before files. If reverting provider code to hCaptcha, securely remove the
+Turnstile credentials first so intake returns to staff review. Preserve concurrent
+configuration edits, all review/audit rows and the dispatch pause during rollback.
 Restart the existing container and check all four health endpoints. Do not change
-the global development/shadow settings or unrelated VME/YouTube services.
+global development/shadow settings or unrelated VME/YouTube services.
+Activation backups and real-browser proof are in the turnstile/activation folder.
+The internal browser test VZ-40 is quarantined and must never be released.
 Provider and Zendesk before/after snapshots exist in that directory and under
 /root/installer-operations/agent/quote-repair-20261102. Undo only the matching scoped
 change after comparing current settings. Preserve other-chat safeguards and never
