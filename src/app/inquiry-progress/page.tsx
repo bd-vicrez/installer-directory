@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import InquiryProject from "@/components/InquiryProject";
 import ProjectBriefFields from "@/components/ProjectBriefFields";
+import { QUOTE_SUPPORT_EMAIL, quoteSupportHref } from "@/lib/quote-contact";
 const replyLabels: Record<string, string> = {
   awaiting_response: "Awaiting a shop response",
   interested: "Shop is interested — contact it to discuss the job",
@@ -47,7 +48,7 @@ export default function InquiryProgress() {
     token.current = window.location.hash.slice(1);
     if (!token.current) {
       setError(
-        "Open the private progress link saved with your inquiry receipt. Contact support@vicrez.com with your reference if it expired.",
+        "Open the private progress link saved with your inquiry receipt. Contact " + QUOTE_SUPPORT_EMAIL + " with your reference if it expired.",
       );
       return;
     }
@@ -267,8 +268,8 @@ export default function InquiryProgress() {
       )}
       <p>
         Need help?{" "}
-        <a className="underline" href="mailto:support@vicrez.com">
-          support@vicrez.com
+        <a className="underline" href={quoteSupportHref(data?.reference)}>
+          Contact Vicrez support
         </a>
       </p>
     </div>

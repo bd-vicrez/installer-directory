@@ -18,7 +18,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 from pathlib import Path
 
 import httpx
@@ -173,7 +173,7 @@ def validate_submission(data):
         if re.search(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', value) or (key != 'notes' and ('\n' in value or '\r' in value)):
             raise HTTPException(400, 'Check your request details')
         result[key] = value.strip()
-    if not re.fullmatch(r'[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+', result['email']):
+    if not quote_safety.valid_customer_email(result['email']):
         raise HTTPException(400, 'Invalid email')
     result['email'] = result['email'].lower()
     digits = re.sub(r'\D', '', result['phone'])
@@ -479,6 +479,8 @@ async def run_route_job(job):
 def installer_event(job):
     payload = json.loads(job['payload'])
     data, inst = payload['submission'], payload['installer']
+    if not quote_safety.valid_customer_email(data.get('email')):
+        raise ValueError('Invalid customer reply address')
     # Both the current flat email-template contract and the legacy lead object
     # remain available. Customer details are sent only to the chosen recipient.
     properties = {
@@ -492,6 +494,7 @@ def installer_event(job):
       'customer_zip':data['zip_code'] if data['flow']=='network' else 'Not supplied',
       'distance_miles':inst.get('distance_miles','n/a'), 'customer_name':data['full_name'],
       'customer_email':data['email'], 'customer_phone':data['phone'],
+      'customer_reply_url':'mailto:'+quote(data['email'],safe='@')+'?subject='+quote(f"Re: Vicrez installation inquiry VZ-{job['submission_id']}",safe=''),
       'lead':{'first_name':data['full_name'].split()[0], 'vehicle_ymm':f"{data['vehicle_year']} {data['vehicle_make']} {data['vehicle_model']}", 'kit_interest':[data['what_needed']], 'install_timeline':data['install_timeline'],'budget_range':data['budget_range'],'notes':data['notes']},
     }
     link = shop_response_link(job)
@@ -533,6 +536,8 @@ async def run_notification_job(job):
         finish_job(job,'cancelled','customer_closed_request');return
     payload = json.loads(job['payload'])
     data, original = payload['submission'], payload['installer']
+    if not quote_safety.valid_customer_email(data.get('email')):
+        finish_job(job,'failed','customer_reply_address_invalid');return
     current = await fetch_candidates(installer_id=str(original['id']))
     eligible = next((i for i in current if str(i['id'])==str(original['id']) and i['email'].strip().lower()==original['email'].strip().lower()),None)
     if not eligible or (data['flow']=='network' and data['service'] not in eligible.get('services',[])):

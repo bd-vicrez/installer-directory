@@ -14,6 +14,16 @@ TURNSTILE_ACTION = 'installer_quote'
 SITEVERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
 
 
+def valid_customer_email(value):
+    if not isinstance(value, str) or len(value) > 254 or value.count('@') != 1:
+        return False
+    local, domain = value.split('@')
+    return (len(local) <= 64
+            and all(re.fullmatch(r"[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+", part) for part in local.split('.'))
+            and len(domain.split('.')) >= 2
+            and all(re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?', part) for part in domain.split('.')))
+
+
 def real_turnstile_key(value):
     # Cloudflare's documented dummy keys must never enable production intake.
     return (isinstance(value, str) and 20 <= len(value) <= 100

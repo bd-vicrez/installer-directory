@@ -1,5 +1,6 @@
 "use client";
 import InquiryProject from "@/components/InquiryProject";
+import { customerReplyHref, QUOTE_SUPPORT_EMAIL, quoteSupportHref } from "@/lib/quote-contact";
 import { useEffect, useRef, useState } from "react";
 const labels: Record<string, string> = {
   interested: "Interested",
@@ -35,7 +36,7 @@ export default function ShopResponsePage() {
     token.current = window.location.hash.slice(1);
     if (!token.current) {
       setError(
-        "Open the private response link in your installation inquiry email. For help, contact support@vicrez.com with the inquiry reference.",
+        "Open the private response link in your installation inquiry email. For help, contact " + QUOTE_SUPPORT_EMAIL + " with the inquiry reference.",
       );
       return;
     }
@@ -129,10 +130,11 @@ export default function ShopResponsePage() {
             <p className="font-semibold">{data.work}</p>
             <p className="whitespace-pre-wrap">{data.notes}</p>
             <p>Customer: {data.customer_name}</p>
+            <p>Send your quote, questions and scheduling details directly to the customer by email or phone. Vicrez support is for help with the inquiry.</p>
             <p className="flex gap-4 flex-wrap">
               <a
-                className="underline"
-                href={"mailto:" + encodeURIComponent(data.customer_email)}
+                className="btn-primary inline-block"
+                href={customerReplyHref(data.customer_email, data.reference) || undefined}
               >
                 Email customer
               </a>
@@ -158,8 +160,9 @@ export default function ShopResponsePage() {
           >
             <fieldset disabled={busy || retry} className="space-y-3">
               <legend className="font-semibold mb-2">
-                Can your shop help with this request?
+                Optional: update the inquiry status
               </legend>
+              <p className="text-sm">This updates the private progress page. To contact the customer, use Email customer or Call customer above.</p>
               {Object.entries(labels).map(([value, label]) => (
                 <label className="flex gap-3 items-start" key={value}>
                   <input
@@ -226,8 +229,8 @@ export default function ShopResponsePage() {
       )}
       <p className="text-sm">
         Need help?{" "}
-        <a className="underline" href="mailto:support@vicrez.com">
-          Contact support@vicrez.com
+        <a className="underline" href={quoteSupportHref(data?.reference)}>
+          Contact Vicrez support for help
         </a>
         .
       </p>
