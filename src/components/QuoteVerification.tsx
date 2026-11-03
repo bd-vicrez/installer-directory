@@ -42,7 +42,7 @@ export default function QuoteVerification({ onToken }: { onToken: (token: string
   return <div className="space-y-2">
     {config?.provider === "turnstile" && config.sitekey && <><Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=vicrezQuoteTurnstileReady&render=explicit" onReady={render} onError={() => setError("Verification could not load. Please check your connection and retry.")} /><div ref={element} /></>}
     {config?.mode === "manual_review" && <p className="text-sm text-gray-600">Your request will be saved for staff review before it is shared with a shop.</p>}
-    {!config && !error && <p className="text-sm text-gray-600">Loading verificationâ€¦</p>}
+    {!config && !error && <p className="text-sm text-gray-600">Loading verification...</p>}
     {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
   </div>;
 }
