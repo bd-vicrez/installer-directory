@@ -30,7 +30,12 @@ form because the historical path did not record the current sharing consent.
 
 Support and provider routing
 From: b2bsupport@vicrez.com
-Reply-To and support links: b2bsupport@vicrezcom.zendesk.com
+Reply-To: the event's validated customer_email, never a mutable shop profile field.
+Email customer uses the per-request customer_reply_url including its VZ reference.
+Support/help only: b2bsupport@vicrezcom.zendesk.com. Missing customer details use
+this help fallback with explicit incomplete-inquiry copy; no normal quote is sent
+to Vicrez. Previously delivered emails retain their original headers.
+Shop status updates affect the private progress page; they do not send an email.
 Klaviyo flow VctBBY / action 110125396 / template WBrx54 is the single live path.
 Duplicate flow UgPUhW / action 109805854 was set to draft. Do not reactivate it
 as a routine rollback. Canonical flow has no transactional exemption. Suppressed

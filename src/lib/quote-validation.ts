@@ -1,6 +1,6 @@
 import { isQuoteService } from "./quote-services";
 import { UUID } from "./directory-rfq";
-import { validBusinessEmail } from "./installer-contact";
+import { validCustomerEmail } from "./quote-contact";
 export function validateQuoteInput(body: Record<string, any>) {
   if (!body || typeof body !== "object" || Array.isArray(body))
     return "Invalid request.";
@@ -32,7 +32,7 @@ export function validateQuoteInput(body: Record<string, any>) {
       return "Check your contact, vehicle and installation details.";
     body[key] = body[key].trim();
   }
-  if (!validBusinessEmail(body.customer_email))
+  if (!validCustomerEmail(body.customer_email))
     return "Enter a valid email address.";
   const digits = body.customer_phone.replace(/\D/g, "");
   if (digits.length < 10 || digits.length > 15)

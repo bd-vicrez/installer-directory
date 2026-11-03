@@ -10,6 +10,7 @@ import unittest
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from urllib.parse import urlsplit, unquote, parse_qs
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -49,6 +50,43 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
         saved=self.save_verified(self.data)
         with patch.object(rfq,'routing_targets',AsyncMock(return_value=[self.shop])):await rfq.run_one_job()
         return saved
+
+    async def test_each_request_keeps_its_own_customer_reply_address_for_same_shop(self):
+        events=[]
+        for address in ['customer+project-a@vicrez.com', 'customer+project-b@vicrez.com']:
+            self.data={**self.data,'request_id':str(uuid.uuid4()),'email':address}
+            saved=await self.routed()
+            with rfq.connect() as conn:
+                job=dict(conn.execute("SELECT * FROM directory_outbox WHERE submission_id=? AND kind='installer'",(saved['submission_id'],)).fetchone())
+            event=rfq.installer_event(job)['data']['attributes'];events.append(event)
+            props=event['properties'];link=urlsplit(props['customer_reply_url'])
+            self.assertEqual(props['customer_email'],address)
+            self.assertEqual(link.scheme,'mailto')
+            self.assertEqual(unquote(link.path),address)
+            self.assertEqual(parse_qs(link.query),{'subject':[f"Re: Vicrez installation inquiry VZ-{saved['submission_id']}"]})
+            self.assertEqual(event['profile']['data']['attributes']['email'],self.shop['email'])
+            self.assertNotIn('customer_email',event['profile']['data']['attributes'])
+        self.assertNotEqual(events[0]['unique_id'],events[1]['unique_id'])
+        self.assertNotEqual(events[0]['properties']['customer_email'],events[1]['properties']['customer_email'])
+
+    async def test_unsafe_stored_reply_address_cannot_reach_provider(self):
+        saved=await self.routed()
+        job=rfq.lease_job()
+        self.assertEqual(job['kind'],'installer')
+        payload=json.loads(job['payload']);payload['submission']['email']='one,two@example.test';job['payload']=json.dumps(payload)
+        with self.assertRaises(ValueError):rfq.installer_event(job)
+        with patch.object(rfq,'send_installer_event',AsyncMock()) as send,patch.object(rfq,'fetch_candidates',AsyncMock()) as fetch:
+            await rfq.run_notification_job(job)
+            send.assert_not_awaited();fetch.assert_not_awaited()
+        with rfq.connect() as conn:
+            row=conn.execute('SELECT state,last_error FROM directory_outbox WHERE id=?',(job['id'],)).fetchone()
+            self.assertEqual(tuple(row),('failed','customer_reply_address_invalid'))
+
+    def test_submission_requires_one_safe_reply_mailbox(self):
+        for email in ['a,b@example.test','a;b@example.test','a@example.test,b@example.test','a@example.test\r\nBcc: other@example.test','a@example.test?cc=other','a@example.test"','a..b@example.test','.a@example.test','a@-example.test','a@exam_ple.test','Display<a@example.test>']:
+            with self.subTest(email=email),self.assertRaises(HTTPException):rfq.validate_submission({**self.data,'email':email})
+        for email in ['customer+project@vicrez.com',"o'brien@example.test",'a&b@example.test']:
+            self.assertEqual(rfq.validate_submission({**self.data,'email':email})['email'],email)
 
     async def test_durable_measurement_reconciles_without_personal_data_or_duplicate_events(self):
         await self.routed()

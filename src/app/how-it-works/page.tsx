@@ -31,6 +31,8 @@ export default function Page() {
             look for up to three eligible matching shops within 100 miles of
             your ZIP. A saved request does not mean the shop has replied or
             accepted the project.
+            Shops can reply directly to your email or call you to discuss the
+            work. Contact Vicrez support for help with the inquiry.
           </li>
           <li>
             <strong>Confirm before scheduling.</strong> Agree on fitment, parts,

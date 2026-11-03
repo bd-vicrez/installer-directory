@@ -1,0 +1,50 @@
+Direct customer replies
+
+Canonical flow VctBBY / action 110125396 / template WBrx54:
+Reply-To = {{ event.customer_email|default:"b2bsupport@vicrezcom.zendesk.com"|safe }}
+From remains b2bsupport@vicrez.com. CC/BCC remain empty. Do not put a customer's
+reply address on the shop profile: one shop can receive requests from different
+customers. Suppression policy and the duplicate flow's draft status stay intact.
+
+Backend validates a single mailbox on intake and again before forwarding. Each
+event includes customer_email and a percent-encoded customer_reply_url with its
+reference. Missing/invalid stored customer addresses fail before provider sending.
+Template legacy fallback is for support help only. Never replay old requests.
+
+Release procedure
+1. Check current master and production file hashes; preserve other chat changes.
+2. Back up the provider action/template, affected modules, safety config and DB.
+3. Run website/API tests, backend tests in an isolated DB and production runtime,
+   and the production build. Ensure no pending/in-flight outbound jobs.
+4. Pause automatic dispatch by changing only dispatch_enabled=false. Requests
+   received in this period stay held for staff review; do not release them blindly.
+5. Deploy the two backend modules with hash preconditions. Patch only the canonical
+   Reply-To, preview and template. Render current, older flat and legacy events.
+6. Send unique internal-only canaries to the same owned shop inbox with different
+   per-event customer aliases. Inspect delivered MIME Reply-To, From, To, CC/BCC,
+   SPF/DKIM/DMARC and customer mailto. Send real replies to those observed addresses
+   and confirm arrival at the correct aliases. Provider 202 alone is insufficient.
+7. Deploy the small website changes, check health and private-link auth, confirm
+   historical/QA states unchanged, then restore dispatch_enabled=true.
+
+Backups and audit evidence (VPS, root-only)
+/root/installer-operations/quote-repair-20261102/direct-customer-replies/
+action-before.json, template-before.html, config-before.json, code-before-hashes.json,
+directory_rfq.py.before, quote_safety.py.before, rfq-at-pause.sqlite,
+deployed-hashes.json, canary-ledger.json, render-proof.json, inbox-proof.json.
+Do not copy configuration credentials or database customer records into git/logs.
+
+Rollback
+Pause dispatch first. Keep newly saved requests. Compare current hashes/settings
+against this release before touching anything; stop on a concurrent change.
+Restore only these two modules and the backed-up canonical action/template, then
+restart the backend and check all four health endpoints. Revert the website commit
+on top of current master, preserving later changes. Leave duplicate flow draft and
+CAPTCHA configured. Do not restore the database or reset another chat's files.
+The previous Reply-To goes to Vicrez support: keep automatic sending paused until
+that routing is explicitly acceptable or the direct-reply issue is repaired.
+
+Limits
+Emails already sent retain their original headers. Email/phone conversations do
+not automatically update the status portal. The optional status form updates the
+private progress page and does not itself send an email or confirm an appointment.
