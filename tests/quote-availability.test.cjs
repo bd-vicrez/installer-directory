@@ -13,7 +13,11 @@ function fixture(row, failure) {
       if(failure === 'query') throw Error('private query detail');
       return {rows:row?[row]:[]};
     },release(){calls.release++;}};
-  }})}});
+  }})},'@/lib/directory-rfq':{rfqFetch:async()=>{
+    assert.equal(calls.release,calls.query,'database connection released before provider lookup');
+    if(failure==='provider')return new Response('{}',{status:503});
+    return new Response(JSON.stringify({available:failure!=='suppressed'}));
+  }}});
   return {calls, get:(suffix='?id=shop-id')=>GET(new NextRequest('https://example.test/api/quote-availability'+suffix))};
 }
 test('availability rejects missing/oversized ids without acquiring a connection',async()=>{
@@ -45,4 +49,9 @@ test('connection and query failures give a safe retryable error',async()=>{
     assert.deepEqual(await r.json(),{error:'Contact availability could not be checked.'});
     assert.equal(calls.release,failure==='query'?1:0);
   }
+});
+
+test('suppressed shop is unavailable and provider errors remain retryable',async()=>{
+  const suppressed=await fixture(eligible,'suppressed').get();assert.equal(suppressed.status,200);assert.deepEqual(await suppressed.json(),{available:false});
+  const unknown=await fixture(eligible,'provider').get();assert.equal(unknown.status,503);assert.deepEqual(await unknown.json(),{error:'Contact availability could not be checked.'});
 });

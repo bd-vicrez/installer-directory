@@ -1,0 +1,48 @@
+Quote reliability release - November 6, 2026
+
+Selected inquiries check the current private routing record and Klaviyo recipient
+eligibility before saving. Provider uncertainty returns a retryable error.
+Network matching selects up to three eligible unique normalized inboxes while
+preserving every installer listing. All sends recheck suppression immediately.
+No provider subscription, suppression, consent or transactional settings change.
+
+Reminders retain one-per-job eligibility checks, recheck suppression, and set
+Reply-To to that request's customer. B2B support is for assistance only.
+
+Delivery evidence checks use a complete bounded profile event window, exact
+recipient, canonical flow/message, and one trigger/provider send. Ambiguous
+matches stay unconfirmed. Negative evidence overrides received evidence; API
+errors preserve earlier evidence and flag the monitor. No accepted message is
+automatically replayed. Checks currently cover the first seven days after send.
+Three due jobs are checked per two-minute run; larger queues take more cycles.
+
+The existing operations worker adds a separate ?quotes=1 call. This isolates
+Klaviyo checks from SendGrid send/reconciliation time limits. Missing checks over
+ten minutes, failed evidence lookups, and incomplete results appear in Operations.
+Verified open requests with failed delivery, no routing recipient, or unconfirmed
+delivery over ten minutes receive idempotent staff alerts. Held/quarantined and
+closed requests are excluded. Human assignments and follow-up are never replaced.
+
+Deployment:
+1. Run npm test/build and backend tests in the production image with isolated DBs.
+2. Read-only live batch/suppression/routing checks; owned-mailbox send and reminder
+   canaries; verify authentication, Reply-To, recipient, help address and evidence.
+3. Test staff SQL with production permissions in a rolled-back transaction.
+4. Check origin/master and backend/worker hashes against the saved baseline.
+5. Back up code/config/SQLite; pause dispatch briefly. New requests remain held.
+6. Install quote_delivery.py and directory_rfq.py; restart and check all health routes.
+7. Deploy the reviewed frontend commit, preserving all other chat changes.
+8. Install the additive operations worker patch and enable recipient_preflight_enabled,
+   delivery_monitor_enabled and the original dispatch setting. Preserve other config.
+9. Verify suppressed-shop availability, unchanged existing jobs/reviews, current
+   worker heartbeat, staff alert idempotency and delivery, and no historical replay.
+
+Rollback:
+Disable delivery_monitor_enabled and pause dispatch. Roll back only this frontend
+release to the immediately preceding deployment, after checking for newer changes.
+Restore directory_rfq.py and operations_worker.py from the release backup and restart.
+The unused additive quote_delivery.py/tables may remain. Restore only the three
+changed config flags after merging any concurrent configuration updates. Never
+restore the whole database: that would discard requests received since release.
+Retain VZ-41's human-owned follow-up and all existing suppressions. Any new requests
+held during maintenance require individual staff review before release.

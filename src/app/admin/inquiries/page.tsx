@@ -36,6 +36,7 @@ type Inquiry = {
     response_link_expires_at?: number;
     unanswered_over_48h?: number;
     delivery_unconfirmed_over_1h?: number;
+    provider_delivery?: {state:string; occurred_at?:string; last_error?:string};
   }[];
 };
 type Dashboard = {
@@ -214,6 +215,7 @@ export default function InquiriesPage() {
                   </strong>{" "}
                   · {delivery.attempts} attempt(s)
                   {delivery.last_error ? " · " + delivery.last_error : ""}
+                  <p>Delivery evidence: {delivery.provider_delivery?.state || 'unconfirmed'}{delivery.provider_delivery?.occurred_at ? ' · '+new Date(delivery.provider_delivery.occurred_at).toLocaleString() : ''}. Delivery does not confirm a shop reply or appointment.</p>
                   {!!delivery.delivery_unconfirmed_over_1h && <p className="text-amber-800">Delivery is still unconfirmed after one hour. Review provider delivery or suppression evidence before assuming the shop received this request. Do not resend an accepted notification blindly.</p>}
                   <span className="block mt-1">
                     Shop response:{" "}

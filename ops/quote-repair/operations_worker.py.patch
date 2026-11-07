@@ -1,0 +1,26 @@
+--- operations_worker.py
++++ operations_worker.py
+@@ -12,8 +12,8 @@
+ def record(name,ok,details):
+  with connection() as c:
+   with c.cursor() as q:q.execute("INSERT INTO directory_operation_runs(name,ok,details) VALUES(%s,%s,%s) ON CONFLICT(name) DO UPDATE SET checked_at=NOW(),ok=EXCLUDED.ok,details=EXCLUDED.details",(name,ok,json.dumps(details)))
+-def api(method='POST',daily=False,delivery=False):
+- c=config();r=requests.request(method,'https://installers.vicrez.com/api/internal/operations'+('?daily=1' if daily else '?delivery=1' if delivery else ''),headers={'Authorization':'Bearer '+c['DIRECTORY_OPERATIONS_SECRET']},timeout=65)
++def api(method='POST',daily=False,delivery=False,quotes=False):
++ c=config();r=requests.request(method,'https://installers.vicrez.com/api/internal/operations'+('?daily=1' if daily else '?delivery=1' if delivery else '?quotes=1' if quotes else ''),headers={'Authorization':'Bearer '+c['DIRECTORY_OPERATIONS_SECRET']},timeout=65)
+  if not r.ok:raise RuntimeError('Installer operations HTTP '+str(r.status_code))
+  return r.json()
+ def command(args,**kwargs):
+@@ -77,7 +77,12 @@
+   try:
+    if args.backup:backup(args.restore_test)
+    else:
++    quote_result=None
++    if not args.daily:
++     try:quote_result=api(quotes=True)
++     except Exception:record('quote-delivery',False,{'error':'monitor_request_failed'})
+     result=api(daily=args.daily)
++    if quote_result is not None:result['quote_delivery']=quote_result
+     if not args.daily and result.get('enabled'):result['delivery']=api(delivery=True)
+     print(json.dumps(result))
+   except Exception as e:

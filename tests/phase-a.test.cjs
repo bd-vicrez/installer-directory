@@ -38,7 +38,7 @@ test('quote validation enforces service, boolean consent, scalar values and boun
   for(const changes of [{service:'unknown'},{sharing_consent:'true'},{request_id:null},{vehicle_year:[2024]},{install_timeline:'Soon\nInjected'},{customer_email:'<customer>@example.test'},{installer_id:''}])assert.ok(validateQuoteInput({...quote(),...changes}));
 });
 test('availability endpoint returns only a safe boolean',async()=>{
-  const {GET}=load('app/api/quote-availability/route.ts',{'@/lib/db-pool':{getPool:()=>({connect:async()=>({query:async()=>({rows:[shop]}),release(){}})})}});
+  const {GET}=load('app/api/quote-availability/route.ts',{'@/lib/db-pool':{getPool:()=>({connect:async()=>({query:async()=>({rows:[shop]}),release(){}})})},'@/lib/directory-rfq':{rfqFetch:async()=>new Response('{"available":true}')}});
   const response=await GET(request('/api/quote-availability?id=shop'));assert.equal(response.status,200);assert.deepEqual(await response.json(),{available:true});assert.equal(response.headers.get('cache-control'),'no-store');
 });
 test('private recipient search blocks untrusted callers before reading records',async()=>{
@@ -62,6 +62,10 @@ test('selected shop request forwards an allowlist and preserves the exact select
 test('request conflict cannot be mistaken for a saved edited inquiry',async()=>{
   const {POST}=load('app/api/quote-request/route.ts',{'@/lib/directory-rfq':serviceMock({rfqFetch:async()=>new Response('{}',{status:409})})});
   const response=await POST(request('/api/quote-request',quote()));assert.equal(response.status,409);assert.equal((await response.json()).code,'request_changed');
+});
+test('provider suppression remains a shop-unavailable response rather than a saved receipt or changed request',async()=>{
+  const {POST}=load('app/api/quote-request/route.ts',{'@/lib/db':{getPool:()=>({query:async()=>({rows:[shop]})})},'@/lib/directory-rfq':serviceMock({rfqFetch:async()=>new Response(JSON.stringify({code:'shop_unavailable'}),{status:409})})});
+  const response=await POST(request('/api/quote-request',{...quote(),installer_id:'shop'}));assert.equal(response.status,409);const result=await response.json();assert.equal(result.code,'shop_unavailable');assert.equal(result.success,undefined);assert.match(result.error,/phone or website/);
 });
 test('rate limits and origin checks prevent forwarding',async()=>{
   for(const override of [{sameOrigin:()=>false},{withinRateLimit:async()=>false}]){

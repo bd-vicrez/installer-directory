@@ -26,6 +26,8 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
         self.tmp = tempfile.TemporaryDirectory()
         rfq.DB_PATH = str(Path(self.tmp.name)/'rfq.sqlite')
         self.safety = patch.object(rfq.quote_safety,'config',return_value={'dispatch_enabled':True}); self.safety.start()
+        async def allowed(emails,*args,**kwargs):return {e.strip().lower():{'state':'allowed','profile_id':'test-profile'} for e in emails}
+        self.eligibility=patch.object(rfq.quote_delivery,'recipient_states',side_effect=allowed);self.eligibility.start()
         self.secret = patch.object(rfq,'secret',return_value='isolated-test-secret-'*3); self.secret.start()
         with sqlite3.connect(rfq.DB_PATH) as conn:
             conn.execute('''CREATE TABLE rfq_submissions(id INTEGER PRIMARY KEY AUTOINCREMENT,full_name TEXT,email TEXT,phone TEXT,
@@ -37,7 +39,7 @@ class DirectoryTests(unittest.IsolatedAsyncioTestCase):
         self.data = rfq.validate_submission(dict(request_id=str(uuid.uuid4()),full_name='Test Customer',email='customer@vicrez.com',phone='2125550100',vehicle_year=2024,vehicle_make='Dodge',vehicle_model='Charger',what_needed='Install rear diffuser',service='body-kits',flow='network',zip_code='10001',sharing_consent=True,consent_version='directory-quote-2026-09-15'))
         self.shop = dict(id='shop-one',business_name='Test Shop',email='shop@example.test',city='Test City',state='NY',zip_code='10001',lat=40.75,lng=-73.99,services=['body-kits'])
     def tearDown(self):
-        self.secret.stop(); self.safety.stop()
+        self.secret.stop(); self.safety.stop(); self.eligibility.stop()
         assert Path(self.tmp.name).resolve().parent == Path(tempfile.gettempdir()).resolve()
         self.tmp.cleanup()
     def save_verified(self,data):

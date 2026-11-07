@@ -6,6 +6,7 @@ import {
 } from "@/lib/notifications";
 import { getPool } from "@/lib/db";
 import { operationHealth, queueStaffDigest } from "@/lib/operations-health";
+import { queueQuoteDeliveryAlerts } from '@/lib/quote-delivery-alerts';
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 export async function POST(request: Request) {
@@ -21,9 +22,10 @@ export async function POST(request: Request) {
           headers: { "Cache-Control": "no-store" },
         },
       );
-    const result = new URL(request.url).searchParams.get("delivery") === "1"
-      ? await reconcileNotificationDelivery(db)
-      : await processNotifications(db);
+    const delivery = new URL(request.url).searchParams.get("delivery") === "1";
+    if (new URL(request.url).searchParams.get('quotes') === '1')
+      return NextResponse.json(await queueQuoteDeliveryAlerts(db), {headers:{'Cache-Control':'no-store'}});
+    const result = delivery ? await reconcileNotificationDelivery(db) : await processNotifications(db);
     return NextResponse.json(result, {
       headers: { "Cache-Control": "no-store" },
     });

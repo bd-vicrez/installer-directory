@@ -177,7 +177,7 @@ export default function QuoteRequestDialog({
               current ? { ...current, ...status } : current,
             );
           if (
-            ["provider_accepted", "routing_needed", "needs_attention"].includes(
+            ["provider_accepted", "provider_delivered", "routing_needed", "needs_attention"].includes(
               status.status,
             )
           )

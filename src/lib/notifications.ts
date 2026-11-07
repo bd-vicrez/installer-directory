@@ -3,6 +3,7 @@ import { ownerLoginToken } from "./owner-access";
 import { statusToken } from "./onboarding";
 import { timingSafeEqual, createHash } from "node:crypto";
 import type { Pool } from "pg";
+import { validCustomerEmail, customerReplyHref, QUOTE_SUPPORT_EMAIL } from './quote-contact';
 
 export function operationsAuthorized(request: Request) {
   const expected = process.env.DIRECTORY_OPERATIONS_SECRET || "";
@@ -21,6 +22,9 @@ export function operationsAuthorized(request: Request) {
 export const PILOT_SUBJECT =
   "Invitation: confirm your shop for the Vicrez installer pilot";
 export function notificationMessage(row: Record<string, any>) {
+  const reminder = row.kind === 'inquiry-reminder';
+  const quoteAlert = row.kind === 'staff' && row.event_key?.startsWith('quote-delivery:');
+  if (reminder && !validCustomerEmail(row.customer_email)) throw new Error('Reminder customer address is unavailable');
   const labels: Record<string, string> = {
     owner_login: "Owner sign-in",
     received: "Request received",
@@ -70,8 +74,8 @@ export function notificationMessage(row: Record<string, any>) {
         custom_args: { directory_notice_id: String(row.id) },
       },
     ],
-    from: { email: "support@vicrez.com", name: "Vicrez Installer Network" },
-    reply_to: { email: "support@vicrez.com" },
+    from: { email: reminder || quoteAlert ? "b2bsupport@vicrez.com" : "support@vicrez.com", name: "Vicrez Installer Network" },
+    reply_to: { email: reminder ? row.customer_email : quoteAlert ? QUOTE_SUPPORT_EMAIL : "support@vicrez.com" },
     subject:
       row.kind === "inquiry-reminder"
         ? "Reminder: installation inquiry " + row.reference
@@ -83,16 +87,20 @@ export function notificationMessage(row: Record<string, any>) {
         type: "text/plain",
         value:
           row.kind === "inquiry-reminder"
-            ? `A customer is still awaiting a response to ${row.reference}. Please open the private link below to review the project and indicate whether you can help. This is the only reminder for this shop and inquiry.
+            ? `Reminder for ${row.reference}. If you have not contacted the customer yet, reply directly to this email to discuss the project, pricing and scheduling. Your reply goes to ${row.customer_email}.
+
+Email customer: ${row.customer_reply_url}
+
+If you have already contacted the customer, you can update the inquiry status using the private link below. Saving a status does not send an email. This is the only reminder for this shop and inquiry.
 
 ${row.reminder_url}
 
 Keep this shop link private. No appointment is confirmed.
 Vicrez Installer Network
-Reply to support@vicrez.com for assistance.`
+For help with the inquiry, contact ${QUOTE_SUPPORT_EMAIL}. Quotes and scheduling go directly to the customer.`
             : row.kind === "pilot"
               ? row.public_message
-              : text,
+            : quoteAlert ? text.replace('Reply to support@vicrez.com for assistance.', `For help, contact ${QUOTE_SUPPORT_EMAIL}.`) : text,
       },
     ],
     tracking_settings: {
@@ -116,7 +124,7 @@ export async function processNotifications(
   const rows = (
     await pool.query(`WITH candidates AS (
     SELECT id FROM directory_notifications WHERE state IN ('pending','retry') AND next_attempt_at<=NOW()
-    ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 2
+    ORDER BY CASE WHEN kind='staff' AND event_key LIKE 'quote-delivery:%' THEN 0 ELSE 1 END,created_at FOR UPDATE SKIP LOCKED LIMIT 2
   ) UPDATE directory_notifications n SET state='sending',attempts=attempts+1,lease_until=NOW()+INTERVAL '3 minutes',updated_at=NOW()
     FROM candidates c WHERE n.id=c.id RETURNING n.*`)
   ).rows;
@@ -149,6 +157,8 @@ export async function processNotifications(
         : null;
       if (
         detail.ineligible ||
+        !validCustomerEmail(detail.customer_email) ||
+        detail.reference !== row.reference ||
         detail.recipient !== row.recipient ||
         !detail.url?.startsWith(
           "https://installers.vicrez.com/shop-response#",
@@ -162,6 +172,8 @@ export async function processNotifications(
         continue;
       }
       row.reminder_url = detail.url;
+      row.customer_email = detail.customer_email;
+      row.customer_reply_url = customerReplyHref(detail.customer_email,row.reference);
     }
     if (row.kind === "pilot") {
       const current = (
