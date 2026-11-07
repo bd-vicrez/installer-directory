@@ -140,7 +140,12 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex">
+    <div
+      className={
+        "min-h-screen flex " +
+        (pathname === "/admin/inquiries" ? "inquiry-shell" : "bg-gray-950")
+      }
+    >
       <AccessibleDialog
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}

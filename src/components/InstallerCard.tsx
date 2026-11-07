@@ -23,7 +23,7 @@ export default function InstallerCard({
   return (
     <div
       data-installer-id={installer.id}
-      className={`card relative ${isVerified ? "border-green-500/30" : ""}`}
+      className={`card installer-shop-card relative ${isVerified ? "border-green-500/30" : ""}`}
     >
       {/* Tier badge */}
       <div
@@ -113,7 +113,7 @@ export default function InstallerCard({
           className={`text-xs font-medium ${installer.quote_available ? "text-green-800" : "text-gray-600"}`}
         >
           {installer.quote_available
-            ? "Online inquiry available"
+            ? "Online request option · availability checked before opening"
             : "Contact shop directly"}
         </p>
         {installer.location_note && (
@@ -215,9 +215,11 @@ export default function InstallerCard({
         {/* View Profile */}
         <a
           href={`/installer/${installer.slug || installer.id}`}
-          className="block w-full text-center text-xs font-medium py-2 rounded-lg bg-vicrez-red text-white hover:bg-red-700 transition-colors mb-2"
+          className="btn-secondary block w-full text-center text-sm mb-2"
         >
-          View Full Profile
+          {installer.quote_available
+            ? "Shop details & contact"
+            : "View shop contact options"}
         </a>
         {/* Directions & Website buttons */}
         <div className="flex gap-2">

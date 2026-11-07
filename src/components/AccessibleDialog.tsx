@@ -6,11 +6,13 @@ export default function AccessibleDialog({
   onClose,
   title,
   children,
+  className = "",
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
+  className?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -37,7 +39,7 @@ export default function AccessibleDialog({
       ref={dialog}
       aria-labelledby={id}
       aria-modal="true"
-      className="quote-dialog"
+      className={"quote-dialog " + className}
       onCancel={(event) => {
         event.preventDefault();
         onClose();

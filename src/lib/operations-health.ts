@@ -66,7 +66,7 @@ export async function operationHealth(db: Pool) {
     if (inquiry.unanswered_over_48h)
       issues.push(
         inquiry.unanswered_over_48h +
-          " inquiry notifications have no shop response after 48 elapsed hours; review follow-up",
+          " inquiry notifications have no recorded shop response after 48 elapsed hours; check direct conversations",
       );
     if (inquiry.delivery_attention)
       issues.push(

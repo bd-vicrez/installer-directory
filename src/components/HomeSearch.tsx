@@ -238,7 +238,7 @@ export default function HomeSearch({
     if (results || loading || error) runSearch(next);
   };
   return (
-    <>
+    <div className="installer-ui">
       <Hero
         onSearch={(q, coords) =>
           runSearch({ ...search, q, lat: coords?.lat, lng: coords?.lng })
@@ -252,22 +252,43 @@ export default function HomeSearch({
       />
       <section
         id="results"
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 min-h-[28rem]"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8"
         aria-label="Installer search results"
         aria-busy={loading || loadingMore}
       >
-        <Filters
-          capabilityFilter={search.service}
-          tierFilter={search.tier}
-          radiusFilter={search.radius}
-          sort={search.sort}
-          inquiry={search.inquiry}
-          onSortChange={(sort) => change({ sort })}
-          onInquiryChange={(inquiry) => change({ inquiry })}
-          onCapabilityChange={(service) => change({ service })}
-          onTierChange={(tier) => change({ tier })}
-          onRadiusChange={(radius) => change({ radius })}
-        />
+        {(results || loading || error) && (
+          <Filters
+            capabilityFilter={search.service}
+            tierFilter={search.tier}
+            radiusFilter={search.radius}
+            sort={search.sort}
+            inquiry={search.inquiry}
+            onSortChange={(sort) => change({ sort })}
+            onInquiryChange={(inquiry) => change({ inquiry })}
+            onCapabilityChange={(service) => change({ service })}
+            onTierChange={(tier) => change({ tier })}
+            onRadiusChange={(radius) => change({ radius })}
+          />
+        )}
+        {!results && !loading && !error && (
+          <div
+            className="installer-how"
+            aria-label="How installation requests work"
+          >
+            <div>
+              <strong>01 · Find your fit</strong>
+              <p>Choose a service and location for your project.</p>
+            </div>
+            <div>
+              <strong>02 · Share the details</strong>
+              <p>Review which shop receives your request before sharing.</p>
+            </div>
+            <div>
+              <strong>03 · Talk directly</strong>
+              <p>Confirm the work, pricing and appointment with the shop.</p>
+            </div>
+          </div>
+        )}
         {loading && (
           <p role="status" className="text-center py-10 text-gray-700">
             Finding nearby installers…
@@ -280,6 +301,11 @@ export default function HomeSearch({
         )}
         {results && !loading && (
           <>
+            <h2 className="text-xl font-bold mb-2">
+              {results.location?.label
+                ? "Shops near " + results.location.label
+                : "Matching shops"}
+            </h2>
             <p className="mb-6 text-sm text-gray-700" role="status">
               {results.total} results · {results.verified} Vicrez records ·{" "}
               {results.listed} listed
@@ -382,6 +408,6 @@ export default function HomeSearch({
           onClose={() => setRemoval(null)}
         />
       )}
-    </>
+    </div>
   );
 }

@@ -133,7 +133,7 @@ export function deriveActions(data: any, now = Date.now()): ActionItem[] {
             : unsent
               ? "Notification still pending after one hour"
               : unanswered
-                ? "Shop has not replied after 48 hours"
+                ? "No shop response recorded after 48 hours; check direct conversations"
                 : due
                   ? "Scheduled customer/shop follow-up"
                   : !f || f.state === "new"

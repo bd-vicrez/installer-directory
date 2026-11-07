@@ -1,0 +1,67 @@
+CUSTOMER AND STAFF EXPERIENCE RELEASE — 2026-11-07
+
+Scope
+Customer search, cards and the existing three-step quote dialog gain clearer
+labels, contrast, spacing and mobile layouts. The staff inquiry page gains full
+scope counts, bounded pagination, on-demand private details, ownership and paused
+case indicators, refresh failure handling and stale follow-up save protection.
+Verified intake describes verification only; it is not permission to send.
+
+Preserved
+No database migration or restore. No new quote routing policy, recipient replay,
+suppression changes, CAPTCHA credentials, provider settings or messages. Existing
+quote backend, worker, owner actions, intake review, SEO pages, metadata, schema,
+sitemaps and the original /requests API remain in place. The follow-up revision
+header is opt-in so existing automation clients keep their established contract.
+
+Release order
+1. Confirm latest master and SEO chat; run Node/backend tests, production build,
+   synthetic browser checks and read-only production SQL reconciliation.
+2. Stage backend/inquiry_workspace.py and inquiry_workspace_service.py under
+   /root/installer-operations/ui-ux-20261107/service on the existing host.
+   Run all backend tests in the pinned current production image, isolated from
+   production data and outbound networking. Validate the exact staged modules.
+3. Run ops/inquiry_workspace_release.py deploy on that host. It checks baseline
+   hashes and worker health, saves configuration/state fingerprints, starts an
+   authenticated read-only sidecar, inserts one exact nginx route, validates
+   nginx and gracefully reloads it. The quote backend is never restarted.
+   It verifies the mounted file and polls actual route readiness because nginx
+   returns from its reload command before new workers necessarily accept requests.
+   The database directory is mounted read-only to preserve journal visibility.
+   There is no published host port. Container privileges/resources are bounded.
+   Runtime DNS keeps nginx independent of sidecar startup/replacement ordering.
+4. Verify the new API rejects unauthenticated requests, counts all scopes and
+   preserves the old API. Reconcile unchanged RFQ/outbox fingerprints and config.
+5. Merge the reviewed frontend PR. GitHub runs the test/build gate, then requests
+   the exact commit from Vercel and waits for READY. Vercel Git integration is
+   currently absent; the workflow is the production deployment mechanism.
+6. Verify the production commit/alias, search and quote preflight, CAPTCHA public
+   configuration, authenticated staff summaries and private detail access,
+   no-store/unauthorized responses, SEO links/metadata, worker health and VZ-41.
+
+Rollback
+The immediate prior production deployment is dpl_EM5xJH2cNgZJ2c1kxWYWnj3UxARZ,
+commit a64064a89ae812fef648568fb3afb1e8372b8b38. Promote that deployment if this
+release alone regresses and no later work needs preserving. If newer work has
+shipped, revert only this PR and rebuild instead of replacing later changes.
+The read-only sidecar can remain for a frontend rollback. To remove it, first
+roll back the frontend, then run inquiry_workspace_release.py rollback. This
+removes only its exact nginx block, validates/reloads nginx and stops the
+sidecar. The original nginx copy is in the release directory for inspection;
+do not blindly overwrite later changes with it.
+Never restore a database, discard new requests, clear suppressions or replay
+messages as part of this UI rollback.
+
+Limits and monitoring
+Direct shop/customer email replies may not appear in the dashboard. Provider
+acceptance, delivery evidence, recorded responses and outcomes are separate.
+Pagination excludes newly arriving IDs until refresh; status changes can still
+move a record between scopes, so refresh before making operational decisions.
+The sidecar is an added read dependency; an outage produces a visible stale/error
+state and disables case controls rather than implying an empty queue.
+Synthetic browser tests cannot prove delivery to a real recipient or actual
+mobile Safari behavior. No real customer/shop canary is generated for this UI
+release. Existing email/captcha safety tests and production settings are retained.
+
+Runtime proxy reference
+https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass
