@@ -9,12 +9,13 @@ from psycopg2.extras import RealDictCursor, Json
 from rules import ACTOR, POLICY, fingerprint, phone, host, decide, group_inquiries, utc
 from evidence import gather, EvidenceUnavailable
 import contact_health
+import claims
 
 ROOT=Path(os.environ.get('INSTALLER_AGENT_HOME','/root/installer-operations/agent'))
 def safe_research_reason(error):
  # Never serialize request URLs, headers, credentials or arbitrary provider bodies.
  code=str(error)
- allowed={'geocoding_unavailable','ai_incomplete_response','ai_invalid_response','ai_quote_validation_failed'}
+ allowed={'geocoding_unavailable','ai_incomplete_response','ai_invalid_response','ai_quote_validation_failed','ai_insufficient_source_text'}
  if isinstance(error,EvidenceUnavailable) and (code in allowed or re.fullmatch(r'provider_http_[1-5][0-9]{2}',code)):return code
  return type(error).__name__
 
@@ -47,7 +48,7 @@ def public_decision(d):
 class Agent:
  def __init__(self,cfg,live=False):
   self.cfg=cfg;self.live=live;self.db=connect(cfg)
-  self.report={'started_at':now().isoformat(),'mode':'live' if live else 'dry_run','policy':POLICY,'owner':ACTOR,'escalation_owner':cfg['owner_name'],'applications':[],'inquiries':[],'messages':[],'errors':[]}
+  self.report={'started_at':now().isoformat(),'mode':'live' if live else 'dry_run','policy':POLICY,'owner':ACTOR,'escalation_owner':cfg['owner_name'],'applications':[],'claims':[],'inquiries':[],'messages':[],'errors':[]}
  def query(self,sql,args=()):
   with self.db:
    with self.db.cursor(cursor_factory=RealDictCursor) as q:q.execute(sql,args);return [dict(r) for r in q.fetchall()] if q.description else []
@@ -80,13 +81,17 @@ class Agent:
   q.execute("INSERT INTO directory_review_audit(kind,record_id,actor,action,note,after_data) VALUES('action-task',%s,%s,'automation-assignment',%s,%s)",(key,ACTOR,note,Json({'owner':ACTOR,'escalation_owner':self.cfg['owner_name'],'next_step':step,'due_at':str(due)})))
   return True
  def applications(self):
-  apps=self.query("SELECT * FROM applications WHERE status IN ('pending','needs_information') ORDER BY submitted_at LIMIT 500")
+  apps=self.query("""SELECT a.* FROM applications a LEFT JOIN directory_automation_cases c ON c.task_key='application:'||a.id
+   LEFT JOIN directory_action_assignments x ON x.task_key='application:'||a.id
+   WHERE a.status IN ('pending','needs_information') AND (a.reviewer='' OR a.reviewer=%s)
+    AND (x.actor IS NULL OR x.actor=%s) AND NOT COALESCE(c.paused,false)
+   ORDER BY (c.task_key IS NULL) DESC,c.updated_at NULLS FIRST,a.submitted_at LIMIT 500""",(ACTOR,ACTOR))
   used=self.query("SELECT count(*) AS n FROM directory_automation_attempts WHERE created_at>=date_trunc('day',NOW())")[0]['n'];reviewed=0
   for a in apps:
    key='application:'+a['id'];prior=self.case(key);fp=fingerprint(a)
    if self.human_owned(key) or (a['reviewer'] and a['reviewer']!=ACTOR) or (prior and prior['paused']):continue
    if prior and prior['fingerprint']==fp and prior['next_check_at']>now():continue
-   if reviewed>=self.cfg['max_applications_per_run'] or used>=self.cfg['max_ai_reviews_per_day']:break
+   if reviewed>=max(1,(self.cfg['max_applications_per_run']+1)//2) or used>=self.cfg['max_ai_reviews_per_day']:break
    reviewed+=1;used+=1
    if self.live:self.query('INSERT INTO directory_automation_attempts(application_id) VALUES(%s)',(a['id'],))
    with self.db:
@@ -104,12 +109,18 @@ class Agent:
     if self.live:
      with self.db:
       with self.db.cursor(cursor_factory=RealDictCursor) as q:
+       q.execute('SELECT pg_advisory_xact_lock(19313,hashtext(%s))',(key,))
+       q.execute('SELECT * FROM applications WHERE id=%s FOR UPDATE',(a['id'],));fresh=q.fetchone()
+       q.execute('SELECT * FROM directory_action_assignments WHERE task_key=%s FOR UPDATE',(key,));assigned=q.fetchone()
+       q.execute('SELECT * FROM directory_automation_cases WHERE task_key=%s FOR UPDATE',(key,));case=q.fetchone()
+       if not fresh or fingerprint(fresh)!=fp or fresh['status']!=a['status'] or (fresh['reviewer'] and fresh['reviewer']!=ACTOR) or (assigned and assigned['actor']!=ACTOR) or (case and case['paused']):continue
        step='Business verification could not finish because an evidence source was unavailable. Retry in one hour; existing application status is preserved.'
        self.save_case(q,'application',a['id'],'retry',step,now()+timedelta(hours=1),fp,{'error':err,'reason':reason})
        self.assign(q,'application',a['id'],step,now()+timedelta(hours=1))
  def commit_application(self,a,fp,ev,d):
   with self.db:
    with self.db.cursor(cursor_factory=RealDictCursor) as q:
+    q.execute('SELECT pg_advisory_xact_lock(19313,hashtext(%s))',('application:'+a['id'],))
     q.execute('SELECT * FROM applications WHERE id=%s FOR UPDATE',(a['id'],));fresh=q.fetchone()
     if not fresh or fresh['status']!=a['status'] or fingerprint(fresh)!=fp or (fresh['reviewer'] and fresh['reviewer']!=ACTOR):return 'changed_during_review'
     # Block concurrent listing inserts while rechecking identity and inserting.
@@ -117,6 +128,8 @@ class Agent:
     d=decide(fresh,ev,duplicate_rows(q,fresh));message=public_decision(d)
     q.execute('SELECT * FROM directory_action_assignments WHERE task_key=%s FOR UPDATE',('application:'+a['id'],));assignment=q.fetchone()
     if assignment and assignment['actor']!=ACTOR:return 'human_took_ownership'
+    q.execute('SELECT paused FROM directory_automation_cases WHERE task_key=%s FOR UPDATE',('application:'+a['id'],));case=q.fetchone()
+    if case and case['paused']:return 'automation_paused'
     q.execute('INSERT INTO directory_automation_reviews(application_id,input_fingerprint,decision,evidence) VALUES(%s,%s,%s,%s) RETURNING id',(a['id'],fp,Json(d),Json(ev)));review_id=str(q.fetchone()['id'])
     note=(f'{ACTOR}; policy {POLICY}; decision {d["reason"]}. Evidence review {review_id}. '+('Missing: '+', '.join(d.get('missing',[]))+'. ' if d.get('missing') else '')+'Sources: '+'; '.join(p['url'] for p in ev.get('pages',[]))+('. '+ev.get('place',{}).get('googleMapsUri','') if ev.get('place') else ''))[:1500]
     installer_id=fresh.get('installer_id');slug=None
@@ -132,7 +145,7 @@ class Agent:
     q.execute("""UPDATE applications SET status=%s,reviewer=%s,review_note=%s,public_message=%s,reviewed_at=CASE WHEN %s THEN NOW() ELSE reviewed_at END,installer_id=%s,location_evidence=COALESCE(%s,location_evidence),location_confirmed_at=CASE WHEN %s='approved' THEN NOW() ELSE location_confirmed_at END WHERE id=%s""",
      (d['status'],ACTOR,note,message,changed,installer_id,Json(ev['location']) if ev.get('location') else None,d['status'],a['id']))
     q.execute("INSERT INTO directory_review_audit(kind,record_id,actor,action,note,before_data,after_data) VALUES('application',%s,%s,%s,%s,%s,%s)",(a['id'],ACTOR,d['status'],note,Json({'status':fresh['status'],'installer_id':fresh['installer_id']}),Json({'status':d['status'],'installer_id':installer_id,'slug':slug,'evidence_review_id':review_id,'public_message':message})))
-    step='Review complete; applicant notification queued through the existing operations worker.' if d['status']!='needs_information' else 'Await the applicant response at support@vicrez.com; recheck public evidence in 24 hours. '+message
+    step='Review complete; applicant notification queued through the existing operations worker.' if d['status']!='needs_information' else 'Await the applicant response at b2bsupport@vicrezcom.zendesk.com; recheck public evidence in 24 hours. '+message
     self.save_case(q,'application',a['id'],d['status'],step,now()+timedelta(hours=24),fp,{'review_id':review_id,'decision':d})
     if d['status']=='needs_information':self.assign(q,'application',a['id'],step,now()+timedelta(hours=24))
     return {'status':d['status'],'installer_id':installer_id,'slug':slug,'notification_changed':changed}
@@ -350,29 +363,37 @@ class Agent:
   self.query("INSERT INTO directory_operation_runs(name,ok,details) VALUES('installer-agent',%s,%s) ON CONFLICT(name) DO UPDATE SET checked_at=NOW(),ok=EXCLUDED.ok,details=EXCLUDED.details",(ok,Json(details)))
   if not ok:
    day=now().date().isoformat();self.query("INSERT INTO directory_notifications(event_key,kind,record_id,recipient,reference,outcome,public_message) VALUES(%s,'staff',%s,%s,%s,'staff_alert',%s) ON CONFLICT(event_key) DO NOTHING",('installer-agent:'+day,day,self.cfg['owner_email'],'AGENT-'+day,'The installer agent needs attention. Review the installer operations page and VPS agent report. '+json.dumps(details)))
- def run(self):
+ def verification_health(self):
+  if not self.live:return
+  details={'applications_reviewed':len(self.report['applications']),'claims_reviewed':len(self.report['claims']),'errors':len(self.report['errors']),'policy':POLICY,'schedule':'Hourly; inquiries and contact health remain daily','max_reviews_per_day':self.cfg['max_ai_reviews_per_day']}
+  self.query("INSERT INTO directory_operation_runs(name,ok,details) VALUES('installer-verification',%s,%s) ON CONFLICT(name) DO UPDATE SET checked_at=NOW(),ok=EXCLUDED.ok,details=EXCLUDED.details",(not self.report['errors'],Json(details)))
+ def run(self,verification_only=False):
   # A PostgreSQL session lock protects against other hosts as well as overlapping timers.
   if not self.query('SELECT pg_try_advisory_lock(19327,1) AS locked')[0]['locked']:return {'skipped':'another_agent_is_running'}
   try:
-   try:self.report['contact_health']=contact_health.run(self,atomic,ROOT)
-   except Exception as e:
-    self.db.rollback();self.report['errors'].append({'check':'contact_health','error':type(e).__name__})
-    if self.live:self.query("INSERT INTO directory_operation_runs(name,ok,details) VALUES('contact-health',false,%s) ON CONFLICT(name) DO UPDATE SET checked_at=NOW(),ok=false,details=EXCLUDED.details",(Json({'error':type(e).__name__,'owner':self.cfg['owner_name']}),))
-   self.applications();self.inquiries();self.dispatch();self.health()
+   if not verification_only:
+    try:self.report['contact_health']=contact_health.run(self,atomic,ROOT)
+    except Exception as e:
+     self.db.rollback();self.report['errors'].append({'check':'contact_health','error':type(e).__name__})
+     if self.live:self.query("INSERT INTO directory_operation_runs(name,ok,details) VALUES('contact-health',false,%s) ON CONFLICT(name) DO UPDATE SET checked_at=NOW(),ok=false,details=EXCLUDED.details",(Json({'error':type(e).__name__,'owner':self.cfg['owner_name']}),))
+   self.applications();claims.run(self);self.verification_health()
+   if not verification_only:self.inquiries();self.dispatch();self.health()
   finally:self.query('SELECT pg_advisory_unlock(19327,1)')
-  self.report['finished_at']=now().isoformat();atomic(ROOT/'state'/('latest.json' if self.live else 'dry-run.json'),self.report)
+  self.report['finished_at']=now().isoformat();atomic(ROOT/'state'/(('verification-latest.json' if verification_only else 'latest.json') if self.live else 'dry-run.json'),self.report)
   return self.report
 
 def main():
- p=argparse.ArgumentParser();p.add_argument('--live',action='store_true');args=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('--live',action='store_true');p.add_argument('--verification-only',action='store_true');args=p.parse_args()
  cfg=json.loads((ROOT/'config.json').read_text())
  if args.live and cfg.get('enabled') is not True:raise SystemExit('Live actions are disabled in config.json')
  a=Agent(cfg,args.live)
  try:
-  result=a.run();print(json.dumps({k:result.get(k) for k in ['mode','started_at','finished_at','skipped']}|{'applications':len(result.get('applications',[])),'inquiry_groups':len(result.get('inquiries',[])),'messages':result.get('messages',[]),'errors':result.get('errors',[])}))
+  result=a.run(args.verification_only);print(json.dumps({k:result.get(k) for k in ['mode','started_at','finished_at','skipped']}|{'applications':len(result.get('applications',[])),'claims':len(result.get('claims',[])),'inquiry_groups':len(result.get('inquiries',[])),'messages':result.get('messages',[]),'errors':result.get('errors',[])}))
   if result.get('errors'):raise SystemExit(1)
  except Exception as e:
-  a.db.rollback();a.report['errors'].append({'error':type(e).__name__});a.health();atomic(ROOT/'state'/'failed.json',a.report)
+  a.db.rollback();a.report['errors'].append({'error':type(e).__name__});a.verification_health()
+  if not args.verification_only:a.health()
+  atomic(ROOT/'state'/'failed.json',a.report)
   print(json.dumps({'ok':False,'error':type(e).__name__}));raise SystemExit(1)
  finally:a.db.close()
 if __name__=='__main__':main()

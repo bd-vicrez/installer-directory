@@ -1,5 +1,6 @@
 """Integration tests only run against the explicitly named disposable local QA database."""
 import os,json,unittest,uuid
+from unittest.mock import patch
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 import psycopg2
@@ -9,7 +10,7 @@ from rules import ACTOR,fingerprint,decide
 from test_rules import fixture
 
 def db():
- cfg=json.loads(Path('/root/installer-operations/agent/state/qa-config.json').read_text())
+ cfg=json.loads(Path(os.environ.get('INSTALLER_QA_CONFIG','/root/installer-operations/agent/state/qa-config.json')).read_text())
  assert cfg['dbname']=='installer_agent_qa' and cfg['host']=='127.0.0.1'
  return psycopg2.connect(**cfg)
 def make_agent():
@@ -24,7 +25,28 @@ def seed():
 class DatabaseTest(unittest.TestCase):
  def setUp(self):
   with db() as c:
-   with c.cursor() as q:q.execute('TRUNCATE applications,installers,directory_review_audit,directory_notifications,directory_action_assignments,directory_automation_cases,directory_automation_reviews,directory_automation_messages,directory_inquiry_followup CASCADE')
+   with c.cursor() as q:q.execute('TRUNCATE applications,installers,directory_review_audit,directory_notifications,directory_action_assignments,directory_automation_cases,directory_automation_reviews,directory_automation_attempts,directory_automation_messages,directory_inquiry_followup CASCADE')
+ def test_new_application_precedes_old_retries_and_budget_is_shared(self):
+  x=make_agent();x.live=False;x.cfg.update(max_applications_per_run=5,max_ai_reviews_per_day=20);x.report.update(applications=[],claims=[])
+  try:
+   for n in range(6):
+    a,e=seed()
+    x.query("INSERT INTO directory_automation_cases(task_key,kind,record_id,owner_name,escalation_owner,state,next_step,next_check_at,updated_at) VALUES(%s,'application',%s,%s,'QA','needs_information','Retry',NOW()-INTERVAL '1 day',NOW()-INTERVAL '2 days')",('application:'+a['id'],a['id'],ACTOR))
+   newest,e=seed()
+   with patch('agent.gather',return_value=e):x.applications()
+   self.assertEqual(x.report['applications'][0]['reference'],'QA-'+newest['id']);self.assertEqual(len(x.report['applications']),3)
+   x.report['applications']=[]
+   for n in range(20):x.query('INSERT INTO directory_automation_attempts(application_id) VALUES(%s)',('claim:qa-'+str(n),))
+   with patch('agent.gather',side_effect=AssertionError('Daily budget must include ownership research')):x.applications()
+   self.assertEqual(x.report['applications'],[])
+  finally:x.db.close()
+ def test_pausing_during_application_research_stops_commit(self):
+  a,e=seed();x=make_agent()
+  try:
+   x.query("INSERT INTO directory_automation_cases(task_key,kind,record_id,owner_name,escalation_owner,state,next_step,next_check_at,paused) VALUES(%s,'application',%s,%s,'QA','paused','Manual hold',NOW(),true)",('application:'+a['id'],a['id'],ACTOR))
+   self.assertEqual(x.commit_application(a,fingerprint(a),e,decide(a,e,[])),'automation_paused')
+   self.assertEqual(x.query('SELECT count(*) n FROM installers')[0]['n'],0)
+  finally:x.db.close()
  def test_approval_atomic_and_idempotent(self):
   a,e=seed();x=make_agent();d=decide(a,e,[])
   try:

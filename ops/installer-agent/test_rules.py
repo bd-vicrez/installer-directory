@@ -11,6 +11,13 @@ def fixture():
  return app,ev
 
 class RulesTest(unittest.TestCase):
+ def test_paint_and_performance_require_actual_advertised_services(self):
+  for service,word in [('paint-bodywork','Collision repair'),('performance','ECU tuning')]:
+   a,e=fixture();a['install_capabilities']=[service];e['ai']['supported_services']=[service]
+   self.assertFalse(evidence_checks(a,e)['services_on_website']);e['pages'][0]['text']+=' '+word
+   self.assertEqual(decide(a,e,[])['status'],'approved')
+  a,e=fixture();a['install_capabilities']=['performance'];e['pages'][0]['text']+=' Excellent performance and general auto repair.'
+  self.assertFalse(evidence_checks(a,e)['services_on_website'])
  def test_agreement_qualifies(self):
   a,e=fixture();self.assertEqual(decide(a,e,[])['status'],'approved')
  def test_ai_cannot_override_missing_public_facts(self):

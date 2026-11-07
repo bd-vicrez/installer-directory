@@ -14,6 +14,8 @@ export async function operationHealth(db: Pool) {
  (SELECT checked_at FROM directory_operation_runs WHERE name='quote-delivery') AS last_quote_delivery,
  (SELECT ok FROM directory_operation_runs WHERE name='quote-delivery') AS quote_delivery_ok,
  (SELECT checked_at FROM directory_operation_runs WHERE name='installer-agent' AND ok=true) AS last_installer_agent,
+ (SELECT checked_at FROM directory_operation_runs WHERE name='installer-verification') AS last_installer_verification,
+ (SELECT ok FROM directory_operation_runs WHERE name='installer-verification') AS installer_verification_ok,
  (SELECT checked_at FROM directory_operation_runs WHERE name='contact-health') AS last_contact_health,
  (SELECT ok FROM directory_operation_runs WHERE name='contact-health') AS contact_health_ok`)
   ).rows[0];
@@ -38,6 +40,9 @@ export async function operationHealth(db: Pool) {
     /* Report unavailable. */
   }
   const issues: string[] = [];
+  if (!counts.last_installer_verification || Date.now()-new Date(counts.last_installer_verification).getTime()>2*3600000)
+    issues.push('Hourly shop and ownership verification has not checked in within two hours');
+  else if (!counts.installer_verification_ok) issues.push('Shop or ownership verification encountered an error; review the VPS report');
   if (!counts.last_quote_delivery || Date.now()-new Date(counts.last_quote_delivery).getTime()>10*60000)
     issues.push('Quote delivery monitoring has not checked in within ten minutes');
   else if (!counts.quote_delivery_ok) issues.push('Quote delivery monitoring needs review');

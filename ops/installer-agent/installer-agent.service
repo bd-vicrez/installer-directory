@@ -9,7 +9,7 @@ WorkingDirectory=/root/installer-operations/agent
 ExecStart=/usr/bin/python3 /root/installer-operations/agent/agent.py --live
 Environment=PYTHONUNBUFFERED=1
 UMask=0077
-TimeoutStartSec=540
+TimeoutStartSec=2400
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

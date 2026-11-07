@@ -1,5 +1,6 @@
 "use client";
 import ReviewHistory from "./ReviewHistory";
+import VerificationStatus from "./VerificationStatus";
 import { serviceLabels } from "@/lib/service-taxonomy";
 import { useEffect, useState } from "react";
 export default function ReviewQueue({
@@ -175,12 +176,13 @@ export default function ReviewQueue({
   return (
     <div className="max-w-5xl space-y-6">
       <h1 className="text-2xl font-bold capitalize">{kind} review queue</h1>
+      <VerificationStatus kind={kind}/>
       <p>
-        Vicrez installer operations · Review oldest requests first. Submission
+        Vicrez installer operations · Review held requests and verification evidence. Submission
         does not establish business ownership or certification. Status messages
         are visible through the requester’s private link; email notifications
         are queued when a request is submitted or its public review status
-        changes. The audit identifies the signed-in administrator.
+        changes. The audit identifies the administrator or automated reviewer.
       </p>
       <label>
         Queue{" "}
@@ -267,6 +269,7 @@ export default function ReviewQueue({
                 {row.email} · {row.phone || row.relationship}
               </p>
             </div>
+            {row.automation && <section className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm" aria-label="Automated review"><p className="font-semibold">Agent: {row.automation.state.replaceAll('_',' ')}</p><p>{row.automation.next_step}</p><p className="mt-1 text-slate-600">Last review: {new Date(row.automation.updated_at).toLocaleString()}{row.automation.paused?' · Waiting for staff review':' · Next check: '+new Date(row.automation.next_check_at).toLocaleString()}</p></section>}
             {kind === "applications" && (
               <>
                 {row.details?.applicant_update && (
@@ -575,6 +578,7 @@ export default function ReviewQueue({
                     <option value="business-domain-email">
                       Business domain email challenge, manually verified
                     </option>
+                      {row.verification_channel === 'verified-business-email' && <option value="verified-business-email">Completed business email verification (active owner access)</option>}
                     <option value="existing-business-phone">
                       Independently sourced business phone callback
                     </option>

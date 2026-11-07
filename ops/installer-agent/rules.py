@@ -5,7 +5,7 @@ from html.parser import HTMLParser
 from urllib.parse import urlsplit, urlunsplit, urljoin
 
 ACTOR = 'Vicrez Installer Agent (AI)'
-POLICY = 'installer-review-v1'
+POLICY = 'installer-review-v2'
 APP_FIELDS = ('id','business_name','street_address','city','state','zip_code','phone',
               'email','website','install_capabilities','details','consent_at','consent_version')
 BLOCKED_HOSTS = {'localhost','example.com','example.org','example.net','vicrez.com',
@@ -17,6 +17,8 @@ SERVICES = {
  'window-tint': r'\b(?:window tint|window film|automotive tint|ceramic tint)',
  'body-kits': r'\b(?:body kits?|widebody|body panel|bumper installation)\b',
  'wheels-tires': r'\b(?:tire mounting|wheel installation|tires and wheels|wheels and tires|tire installation)\b',
+ 'paint-bodywork': r'\b(?:collision repair|auto body repair|bodywork|automotive paint|auto painting|paintless dent repair|paintless dent removal)\b',
+ 'performance': r'\b(?:performance (?:upgrades|modifications|tuning|parts|installation)|ecu tuning|engine tuning|dyno tuning|turbo(?:charger)? installation|supercharger installation|exhaust installation|suspension upgrades)\b',
  'other': r'\b(?:detailing|automotive|vehicle|car|truck|window tint)\b',
 }
 def norm(v): return ' '.join(re.findall(r'[a-z0-9]+',str(v or '').lower()))
