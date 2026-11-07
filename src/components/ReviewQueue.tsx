@@ -174,7 +174,7 @@ export default function ReviewQueue({
       ["pending", "needs_information", "verified"].includes(r.status),
   );
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="max-w-5xl space-y-6 text-gray-100">
       <h1 className="text-2xl font-bold capitalize">{kind} review queue</h1>
       <VerificationStatus kind={kind}/>
       <p>
@@ -187,7 +187,7 @@ export default function ReviewQueue({
       <label>
         Queue{" "}
         <select
-          className="input-field ml-2"
+          className="input-field ml-2 text-gray-900"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         >
