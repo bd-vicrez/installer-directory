@@ -11,6 +11,8 @@ export async function operationHealth(db: Pool) {
  (SELECT checked_at FROM directory_operation_runs WHERE name='backup' AND ok=true) AS last_backup,
  (SELECT checked_at FROM directory_operation_runs WHERE name='notifications' AND ok=true) AS last_notification_worker,
  (SELECT checked_at FROM directory_operation_runs WHERE name='notification-delivery' AND ok=true) AS last_delivery_worker,
+ (SELECT checked_at FROM directory_operation_runs WHERE name='quote-delivery') AS last_quote_delivery,
+ (SELECT ok FROM directory_operation_runs WHERE name='quote-delivery') AS quote_delivery_ok,
  (SELECT checked_at FROM directory_operation_runs WHERE name='installer-agent' AND ok=true) AS last_installer_agent,
  (SELECT checked_at FROM directory_operation_runs WHERE name='contact-health') AS last_contact_health,
  (SELECT ok FROM directory_operation_runs WHERE name='contact-health') AS contact_health_ok`)
@@ -36,6 +38,9 @@ export async function operationHealth(db: Pool) {
     /* Report unavailable. */
   }
   const issues: string[] = [];
+  if (!counts.last_quote_delivery || Date.now()-new Date(counts.last_quote_delivery).getTime()>10*60000)
+    issues.push('Quote delivery monitoring has not checked in within ten minutes');
+  else if (!counts.quote_delivery_ok) issues.push('Quote delivery monitoring needs review');
   if (!counts.last_contact_health || Date.now() - new Date(counts.last_contact_health).getTime() >= 30 * 3600000)
     issues.push("Daily shop contact health check is missing or older than 30 hours");
   else if (!counts.contact_health_ok)

@@ -121,7 +121,10 @@ export async function POST(request: NextRequest) {
         { status: response.status === 429 ? 429 : 400, headers },
       );
     }
-    if (response.status === 409)
+    if (response.status === 409) {
+      const rejected = await response.json().catch(() => ({}));
+      if (rejected.code === 'shop_unavailable')
+        return NextResponse.json({error:'This shop cannot currently receive online inquiries. Use its listed phone or website, or choose another installer.',code:'shop_unavailable'}, {status:409,headers});
       return NextResponse.json(
         {
           error:
@@ -130,6 +133,7 @@ export async function POST(request: NextRequest) {
         },
         { status: 409, headers },
       );
+    }
     if (!response.ok) throw new Error("Receipt unavailable");
     const saved = await response.json();
     const receipt = quoteReceipt(saved);

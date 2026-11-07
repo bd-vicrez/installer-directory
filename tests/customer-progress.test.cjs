@@ -175,6 +175,8 @@ test("reminder delivery rechecks response eligibility and final staff outcomes b
                           ? "different@example.test"
                           : "shop@example.test",
                       submission_id: 1,
+                      customer_email: 'customer+one@example.test',
+                      reference: 'VZ-1',
                       url: "https://installers.vicrez.com/shop-response#private-fixture",
                     },
               ),
@@ -216,6 +218,9 @@ test("reminder delivery rechecks response eligibility and final staff outcomes b
       sends++;
       const msg = JSON.parse(o.body);
       assert.match(msg.subject, /Reminder/);
+      assert.equal(msg.reply_to.email,'customer+one@example.test');
+      assert.equal(msg.from.email,'b2bsupport@vicrez.com');
+      assert.match(msg.content[0].value,/b2bsupport@vicrezcom.zendesk.com/);
       assert.match(msg.content[0].value, /shop-response#private-fixture/);
       assert.equal(msg.tracking_settings.click_tracking.enable, false);
       return new Response(null, { status: 202 });

@@ -25,9 +25,9 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 try:
-    from app.routes import quote_safety
+    from app.routes import quote_safety, quote_delivery
 except ModuleNotFoundError:
-    import quote_safety
+    import quote_safety, quote_delivery
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -125,6 +125,7 @@ def init_directory_db():
         );
         CREATE INDEX IF NOT EXISTS directory_private_photos_request ON directory_private_photos(submission_id);
         """)
+        quote_delivery.init_db(conn)
         for table in ['directory_shop_responses','directory_shop_response_audit']:
             if 'customer_message' not in {r['name'] for r in conn.execute('PRAGMA table_info('+table+')')}:
                 conn.execute("ALTER TABLE "+table+" ADD COLUMN customer_message TEXT NOT NULL DEFAULT ''")
@@ -309,6 +310,10 @@ async def submit_directory(request: Request):
         return JSONResponse(save_submission(data),headers={'Cache-Control':'private, no-store'})
     with connect() as conn:
         quote_safety.rate_limit(conn,data,secret())
+    if data['flow']=='selected' and quote_safety.config().get('recipient_preflight_enabled') is True:
+        available=await selected_shop_available(data['preferred_installer_id'])
+        if not available:
+            return JSONResponse({'detail':'This shop cannot currently receive online inquiries. Use its listed phone or website, or choose another installer.','code':'shop_unavailable'},status_code=409,headers={'Cache-Control':'no-store'})
     decision = await quote_safety.verification(body.get('turnstile_token'))
     try:
         result = save_submission(data,decision)
@@ -323,18 +328,52 @@ async def verification_config(request:Request):
     return JSONResponse(quote_safety.public_config(),headers={'Cache-Control':'private, no-store'})
 
 
+async def selected_shop_available(installer_id):
+    shops=await fetch_candidates(installer_id=installer_id)
+    shop=next((s for s in shops if str(s['id'])==installer_id),None)
+    if not shop:return False
+    email=shop['email'].strip().lower()
+    states=await quote_delivery.recipient_states([email],connect)
+    if states[email]['state']=='unknown':raise HTTPException(503,'Shop email availability could not be confirmed. Please try again shortly.')
+    return states[email]['state']=='allowed'
+
+
+@router.post('/internal/directory-rfq/recipient-availability')
+async def recipient_availability(request:Request):
+    require_service(request);body=await read_body(request,1024)
+    iid=body.get('installer_id')
+    if not isinstance(iid,str) or not 1<=len(iid)<=80:raise HTTPException(400,'Choose a shop')
+    return JSONResponse({'available':await selected_shop_available(iid)},headers={'Cache-Control':'private, no-store'})
+
+
+@router.post('/internal/directory-rfq/delivery-monitor')
+async def delivery_monitor(request:Request):
+    require_service(request)
+    if quote_safety.config().get('delivery_monitor_enabled') is not True:
+        return JSONResponse({'enabled':False,'alerts':[]},headers={'Cache-Control':'private, no-store'})
+    try:
+        result=await asyncio.wait_for(quote_delivery.reconcile(connect),timeout=16)
+    except asyncio.TimeoutError:
+        result={'checked':0,'provider_evidence_ok':False}
+        with connect() as conn:
+            conn.execute('INSERT INTO directory_delivery_monitor(id,checked_at,ok,error) VALUES(1,?,0,?) ON CONFLICT(id) DO UPDATE SET checked_at=excluded.checked_at,ok=0,error=excluded.error',(time.time(),'provider_check_timed_out'))
+    return JSONResponse({'enabled':True,**result,**quote_delivery.alerts(connect)},headers={'Cache-Control':'private, no-store'})
+
+
 def status_for(submission_id):
     with connect() as conn:
         row = conn.execute('SELECT routing_state,routing_reason FROM directory_requests WHERE submission_id=?', (submission_id,)).fetchone()
         if not row:
             raise HTTPException(404, 'Receipt not found')
-        jobs = conn.execute("SELECT state FROM directory_outbox WHERE submission_id=? AND kind='installer'", (submission_id,)).fetchall()
+        jobs = conn.execute("SELECT o.state,d.state provider_state FROM directory_outbox o LEFT JOIN directory_delivery_checks d ON d.job_id=o.id WHERE o.submission_id=? AND o.kind='installer'", (submission_id,)).fetchall()
     if request_closed(submission_id):return {'reference':f'VZ-{submission_id}','status':'closed','message':'This request is closed for further follow-up through Vicrez. Contact the shop directly about any agreed appointment.'}
-    states = [j['state'] for j in jobs]
+    states = ['failed' if j['provider_state'] in ('bounced','dropped','spam') else j['state'] for j in jobs]
     if row['routing_state'] == 'needs_review':
         state, message = 'routing_needed', 'Your request is saved, but an eligible recipient has not been confirmed. Vicrez can review it using your reference. No appointment is confirmed.'
     elif any(s in ('failed','cancelled') for s in states) or row['routing_state'] == 'failed':
         state, message = 'needs_attention', 'Your request is saved, but a notification needs attention. Keep your reference; delivery to every intended recipient is not confirmed.'
+    elif states and all(s=='accepted' for s in states) and all(j['provider_state']=='delivered' for j in jobs):
+        state,message='provider_delivered','The email provider reports delivery to the intended recipient(s). A shop response, quote and appointment are not yet confirmed.'
     elif states and all(s == 'accepted' for s in states):
         state, message = 'provider_accepted', 'The email provider accepted the notification for the selected recipient(s). This does not confirm inbox delivery, a response, pricing or an appointment.'
     elif row['routing_state'] == 'matched':
@@ -387,7 +426,8 @@ async def routing_targets(data):
     if data['flow'] == 'selected':
         # Coordinates and proximity never replace a specifically chosen shop.
         candidates = await fetch_candidates(installer_id=data['preferred_installer_id'])
-        return [i for i in candidates if str(i['id']) == data['preferred_installer_id']][:1]
+        selected=[i for i in candidates if str(i['id']) == data['preferred_installer_id']][:1]
+        return await eligible_unique_recipients(selected)
     if data['service'] == 'other':
         return []
     candidates = await fetch_candidates(service=data['service'])
@@ -407,7 +447,24 @@ async def routing_targets(data):
                 scored.append({**inst,'distance_miles':round(distance,1)})
         except (KeyError,TypeError,ValueError):
             continue
-    return sorted(scored,key=lambda i:(i['distance_miles'],str(i['id'])))[:3]
+    return await eligible_unique_recipients(sorted(scored,key=lambda i:(i['distance_miles'],str(i['id']))))
+
+
+async def eligible_unique_recipients(candidates):
+    # Keep branch records intact, but only one notification per mailbox/request.
+    unique=[];seen=set()
+    for shop in candidates:
+        email=shop['email'].strip().lower()
+        if email not in seen:unique.append(shop);seen.add(email)
+    selected=[]
+    for offset in range(0,len(unique),40):
+        batch=unique[offset:offset+40]
+        states=await quote_delivery.recipient_states([s['email'] for s in batch],connect)
+        if any(v['state']=='unknown' for v in states.values()):
+            raise RuntimeError('recipient_eligibility_unavailable')
+        selected.extend(s for s in batch if states[s['email'].strip().lower()]['state']=='allowed')
+        if len(selected)>=3:return selected[:3]
+    return selected
 
 
 def lease_job():
@@ -511,16 +568,11 @@ async def send_installer_event(event):
     from app.routes.rfq_webhook import KLAVIYO_API_KEY
     if not KLAVIYO_API_KEY:
         return 503
+    email=event['data']['attributes']['profile']['data']['attributes']['email'].strip().lower()
+    checked=(await quote_delivery.recipient_states([email],connect,force=True))[email]
+    if checked['state']=='suppressed':return 'recipient_suppressed'
+    if checked['state']!='allowed':return 503
     async with httpx.AsyncClient(timeout=20) as client:
-        email=event['data']['attributes']['profile']['data']['attributes']['email']
-        profile=await client.get('https://a.klaviyo.com/api/profiles/',params={
-          'filter':'equals(email,'+json.dumps(email)+')','additional-fields[profile]':'subscriptions'},headers={
-          'Authorization':'Klaviyo-API-Key '+KLAVIYO_API_KEY,'revision':'2026-10-15','accept':'application/json'})
-        if profile.status_code!=200:return 503
-        for item in profile.json().get('data',[]):
-            marketing=item.get('attributes',{}).get('subscriptions',{}).get('email',{}).get('marketing',{})
-            if marketing.get('can_receive_email_marketing') is False or marketing.get('suppression'):
-                return 'recipient_suppressed'
         response = await client.post('https://a.klaviyo.com/api/events/',json=event,headers={
           'Authorization':'Klaviyo-API-Key '+KLAVIYO_API_KEY, 'revision':'2026-04-15',
           'Content-Type':'application/json', 'accept':'application/json'})
@@ -667,15 +719,23 @@ async def admin_requests(request: Request):
               LEFT JOIN directory_shop_responses r ON r.job_id=o.id
               WHERE o.submission_id=? AND o.kind='installer' ORDER BY o.id''',(row['submission_id'],)).fetchall()
             acquisition=conn.execute('SELECT source,channel FROM directory_acquisition WHERE submission_id=?',(row['submission_id'],)).fetchone()
-            requests.append({**dict(row),'intake_review':quote_safety.review(conn,row['submission_id']),'acquisition':dict(acquisition) if acquisition else {'source':'unknown','channel':'unknown'},'customer_action':customer_action(conn,row['submission_id']),'project_brief':project_brief(conn,row['submission_id']),'deliveries':[dict(d) for d in deliveries]})
+            enriched=[]
+            for d in deliveries:
+                value=dict(d);e=conn.execute('SELECT state,occurred_at,checked_at,last_error FROM directory_delivery_checks WHERE job_id=?',(value['job_id'],)).fetchone()
+                value['provider_delivery']=dict(e) if e else {'state':'unconfirmed'}
+                if e and e['state']=='delivered':value['delivery_unconfirmed_over_1h']=0
+                elif e and e['state'] in ('bounced','dropped','spam'):
+                    value['state']='failed';value['last_error']='provider_'+e['state'];value['unanswered_over_48h']=0
+                enriched.append(value)
+            requests.append({**dict(row),'intake_review':quote_safety.review(conn,row['submission_id']),'acquisition':dict(acquisition) if acquisition else {'source':'unknown','channel':'unknown'},'customer_action':customer_action(conn,row['submission_id']),'project_brief':project_brief(conn,row['submission_id']),'deliveries':enriched})
         # Historical RFQs are visible without synthesizing sharing consent or delivery jobs.
         legacy = legacy_requests(conn,selected)
         requests = sorted(requests+legacy,key=lambda r:r['submission_id'],reverse=True)[:50]
         counts = {r['routing_state']:r['n'] for r in conn.execute('SELECT routing_state,COUNT(*) AS n FROM directory_requests GROUP BY routing_state')}
-        delivery_counts = {r['state']:r['n'] for r in conn.execute("SELECT state,COUNT(*) AS n FROM directory_outbox WHERE kind='installer' GROUP BY state")}
+        delivery_counts = {r['state']:r['n'] for r in conn.execute("SELECT CASE WHEN e.state IN ('bounced','dropped','spam') THEN 'failed' ELSE o.state END state,COUNT(*) AS n FROM directory_outbox o LEFT JOIN directory_delivery_checks e ON e.job_id=o.id WHERE o.kind='installer' GROUP BY CASE WHEN e.state IN ('bounced','dropped','spam') THEN 'failed' ELSE o.state END")}
         heartbeat = conn.execute('SELECT heartbeat FROM directory_worker_state WHERE id=1').fetchone()
         response_counts = {r['state']:r['n'] for r in conn.execute('SELECT state,COUNT(*) n FROM directory_shop_responses GROUP BY state')}
-        unanswered = conn.execute("SELECT COUNT(*) FROM directory_outbox o JOIN directory_response_access a ON a.job_id=o.id LEFT JOIN directory_shop_responses r ON r.job_id=o.id WHERE o.state='accepted' AND r.job_id IS NULL AND julianday('now')-julianday(o.accepted_at)>2").fetchone()[0]
+        unanswered = conn.execute("SELECT COUNT(*) FROM directory_outbox o JOIN directory_response_access a ON a.job_id=o.id LEFT JOIN directory_shop_responses r ON r.job_id=o.id LEFT JOIN directory_delivery_checks e ON e.job_id=o.id WHERE o.state='accepted' AND COALESCE(e.state,'unconfirmed') NOT IN ('bounced','dropped','spam','ambiguous') AND r.job_id IS NULL AND julianday('now')-julianday(o.accepted_at)>2").fetchone()[0]
     return JSONResponse({'requests':requests,'legacy_review_count':len(legacy),'routing_counts':counts,'delivery_counts':delivery_counts,
       'shop_response_counts':response_counts,'unanswered_over_48h':unanswered,
       'worker_recent':bool(heartbeat and time.time()-heartbeat['heartbeat']<120),'version':'phase-a'},headers={'Cache-Control':'private, no-store'})
@@ -686,14 +746,14 @@ async def admin_action_items(request: Request):
     require_service(request)
     with connect() as conn:
         rows=conn.execute("""SELECT d.submission_id,d.created_at,d.service,d.routing_state,
-          COALESCE(SUM(CASE WHEN o.state IN ('failed','cancelled') OR (o.state='accepted' AND r.job_id IS NULL AND julianday('now')-julianday(o.accepted_at)>1.0/24) THEN 1 ELSE 0 END),0) failed_deliveries,
+          COALESCE(SUM(CASE WHEN o.state IN ('failed','cancelled') OR e.state IN ('bounced','dropped','spam') OR (o.state='accepted' AND COALESCE(e.state,'unconfirmed')!='delivered' AND r.job_id IS NULL AND julianday('now')-julianday(o.accepted_at)>1.0/24) THEN 1 ELSE 0 END),0) failed_deliveries,
           COALESCE(SUM(CASE WHEN o.state IN ('pending','retry','sending') THEN 1 ELSE 0 END),0) pending_deliveries,
-          COALESCE(SUM(CASE WHEN o.state='accepted' AND a.job_id IS NOT NULL AND r.job_id IS NULL
+          COALESCE(SUM(CASE WHEN o.state='accepted' AND COALESCE(e.state,'unconfirmed') NOT IN ('bounced','dropped','spam','ambiguous') AND a.job_id IS NOT NULL AND r.job_id IS NULL
             AND julianday('now')-julianday(o.accepted_at)>2 THEN 1 ELSE 0 END),0) unanswered_over_48h,
           MAX(r.updated_at) last_response_at,ca.state customer_state,ca.updated_at customer_action_at,
           CASE WHEN julianday('now')-julianday(d.created_at)>3 AND COUNT(r.job_id)=0 THEN 1 ELSE 0 END escalation_due
           FROM directory_requests d LEFT JOIN directory_customer_actions ca ON ca.submission_id=d.submission_id LEFT JOIN directory_outbox o ON o.submission_id=d.submission_id AND o.kind='installer'
-          LEFT JOIN directory_response_access a ON a.job_id=o.id LEFT JOIN directory_shop_responses r ON r.job_id=o.id
+          LEFT JOIN directory_response_access a ON a.job_id=o.id LEFT JOIN directory_shop_responses r ON r.job_id=o.id LEFT JOIN directory_delivery_checks e ON e.job_id=o.id
           GROUP BY d.submission_id ORDER BY d.submission_id DESC LIMIT 5001""").fetchall()
         items=[dict(r) for r in rows]
         for r in legacy_requests(conn,None,5001):
@@ -976,5 +1036,14 @@ async def reminder_check(request:Request):
         row=conn.execute("SELECT o.*,a.expires_at,a.revoked,r.job_id responded FROM directory_outbox o JOIN directory_response_access a ON a.job_id=o.id LEFT JOIN directory_shop_responses r ON r.job_id=o.id WHERE o.id=? AND o.kind='installer' AND o.state='accepted' AND julianday('now')-julianday(o.accepted_at)>=2",(job_id,)).fetchone()
         if not row or not quote_safety.may_dispatch(conn,row['submission_id']) or row['responded'] or row['revoked'] or row['expires_at']<time.time() or customer_action(conn,row['submission_id'])['state'] in ('closed','withdrawn'):raise HTTPException(409,'A reminder is not eligible: check verification, response, request state and elapsed time')
     job=dict(row);payload=json.loads(job['payload']);original=payload['installer'];current=await fetch_candidates(installer_id=str(original['id']))
+    with connect() as conn:
+        evidence=conn.execute('SELECT state FROM directory_delivery_checks WHERE job_id=?',(job_id,)).fetchone()
+        if evidence and evidence['state'] in ('bounced','dropped','spam','ambiguous'):raise HTTPException(409,'Delivery needs review before a reminder')
     if not any(str(i['id'])==str(original['id']) and i['email'].strip().lower()==original['email'].strip().lower() for i in current):raise HTTPException(409,'The shop no longer accepts inquiries at this address')
-    return JSONResponse({'submission_id':job['submission_id'],'recipient':original['email'].strip().lower(),'shop':original['business_name'],'reference':'VZ-'+str(job['submission_id']),'url':shop_response_link(job)},headers={'Cache-Control':'private, no-store'})
+    email=original['email'].strip().lower()
+    state=(await quote_delivery.recipient_states([email],connect,force=True))[email]['state']
+    if state=='unknown':raise HTTPException(503,'Reminder eligibility temporarily unavailable')
+    if state!='allowed':raise HTTPException(409,'The shop cannot receive this reminder')
+    customer=payload['submission']['email']
+    if not quote_safety.valid_customer_email(customer):raise HTTPException(409,'The customer reply address needs review')
+    return JSONResponse({'submission_id':job['submission_id'],'recipient':email,'customer_email':customer,'customer_reply_url':installer_event(job)['data']['attributes']['properties']['customer_reply_url'],'shop':original['business_name'],'reference':'VZ-'+str(job['submission_id']),'url':shop_response_link(job)},headers={'Cache-Control':'private, no-store'})
