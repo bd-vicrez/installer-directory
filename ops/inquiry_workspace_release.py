@@ -10,6 +10,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -105,6 +106,8 @@ def replace_nginx(previous, revised):
     # the previous file. Validate before graceful reload; restore on any failure.
     NGINX.write_bytes(revised)
     try:
+        mounted = subprocess.check_output(['docker', 'exec', NGINX_CONTAINER, 'cat', '/etc/nginx/conf.d/default.conf'], timeout=15)
+        assert mounted == revised, 'Nginx bind mount does not match the reviewed file'
         run('docker', 'exec', NGINX_CONTAINER, 'nginx', '-t')
         run('docker', 'exec', NGINX_CONTAINER, 'nginx', '-s', 'reload')
     except Exception:
@@ -112,6 +115,18 @@ def replace_nginx(previous, revised):
         run('docker', 'exec', NGINX_CONTAINER, 'nginx', '-t')
         run('docker', 'exec', NGINX_CONTAINER, 'nginx', '-s', 'reload')
         raise
+
+
+def wait_for_api():
+    # nginx -s reload returns after signalling the master, before replacement
+    # workers necessarily accept requests. Treat readiness as an observed state.
+    for attempt in range(15):
+        try:
+            return check_api()
+        except (AssertionError, urllib.error.HTTPError, urllib.error.URLError):
+            if attempt == 14:
+                raise
+            time.sleep(1)
 
 
 def main():
@@ -149,7 +164,7 @@ def main():
                     if attempt == 14: raise
                     time.sleep(1)
             replace_nginx(original, revised)
-            proof = check_api()
+            proof = wait_for_api()
             after = baseline()
             assert before['quote_config_sha'] == after['quote_config_sha']
             assert before['backend_started_at'] == after['backend_started_at']

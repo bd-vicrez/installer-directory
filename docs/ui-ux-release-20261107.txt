@@ -25,6 +25,8 @@ Release order
    hashes and worker health, saves configuration/state fingerprints, starts an
    authenticated read-only sidecar, inserts one exact nginx route, validates
    nginx and gracefully reloads it. The quote backend is never restarted.
+   It verifies the mounted file and polls actual route readiness because nginx
+   returns from its reload command before new workers necessarily accept requests.
    The database directory is mounted read-only to preserve journal visibility.
    There is no published host port. Container privileges/resources are bounded.
    Runtime DNS keeps nginx independent of sidecar startup/replacement ordering.
