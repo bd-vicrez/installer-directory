@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./installer-ui.css";
 import { generateOrganizationJsonLd } from "@/lib/seo";
 import WebVitals from "@/components/WebVitals";
 import UtmLinkAppender from "@/components/UtmLinkAppender";

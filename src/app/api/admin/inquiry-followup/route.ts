@@ -3,6 +3,7 @@ import { requireAdmin, adminIdentity } from "@/lib/admin-auth";
 import { getPool } from "@/lib/db";
 import { sameOrigin, rfqFetch } from "@/lib/directory-rfq";
 import { readSmallJson, textField, InputError } from "@/lib/onboarding";
+import { followupRevision } from "@/lib/followup-revision";
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin(request);
   if (auth) return auth;
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
             "SELECT * FROM directory_inquiry_followup WHERE ($1::bigint IS NULL OR submission_id=$1) ORDER BY updated_at DESC LIMIT 200",
             [selected],
           )
-        ).rows,
+        ).rows.map((row: any) => ({ ...row, revision: followupRevision(row) })),
       },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -39,6 +40,14 @@ export async function POST(request: NextRequest) {
     if (!sameOrigin(request)) throw new InputError("Invalid origin", 403);
     const b = await readSmallJson(request, 2500),
       id = b.submission_id;
+    // The new UI opts into conditional saves. Keep older clients compatible.
+    const guarded = request.headers.get("x-followup-version") === "1";
+    if (
+      guarded &&
+      (typeof b.revision !== "string" ||
+        !/^(absent|[a-f0-9]{64})$/.test(b.revision))
+    )
+      throw new InputError("Load the latest follow-up before saving.", 409);
     if (
       !Number.isSafeInteger(id) ||
       id < 1 ||
@@ -88,6 +97,11 @@ export async function POST(request: NextRequest) {
         [id],
       )
     ).rows[0];
+    if (guarded && b.revision !== followupRevision(prior))
+      throw new InputError(
+        "This follow-up changed while you were editing. Copy your draft, refresh, and review the latest version before saving.",
+        409,
+      );
     await client.query(
       `INSERT INTO directory_inquiry_followup(submission_id,state,note,actor,next_followup_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT(submission_id) DO UPDATE SET state=EXCLUDED.state,note=EXCLUDED.note,actor=EXCLUDED.actor,next_followup_at=EXCLUDED.next_followup_at,updated_at=NOW()`,
       [id, b.state, note, actor, due],

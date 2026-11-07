@@ -15,8 +15,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
   deploy:
+    needs: checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Trigger Vercel production deployment
         env:
@@ -27,16 +31,22 @@ jobs:
             echo "VERCEL_TOKEN secret is not set" >&2
             exit 1
           fi
-          RESP=$(curl -s -X POST \
+          RESP=$(curl -fsS -X POST \
             "https://api.vercel.com/v13/deployments?teamId=team_Bw8q7W0VyM7AkJwKaIrk1CMh&forceNew=1" \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"name\":\"vicrez-installers-v2\",\"project\":\"prj_BGV7hvlbx3yCFEDVBTiJlN4J7jU4\",\"target\":\"production\",\"gitSource\":{\"type\":\"github\",\"org\":\"bd-vicrez\",\"repo\":\"installer-directory\",\"ref\":\"master\",\"sha\":\"$GITHUB_SHA\"}}")
-          echo "$RESP" | head -c 1500
-          echo
-          STATE=$(echo "$RESP" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('readyState') or d.get('state') or d.get('error',{}).get('code','unknown'))")
-          echo "Deployment state: $STATE"
-          case "$STATE" in
-            QUEUED|BUILDING|INITIALIZING|READY) exit 0 ;;
-            *) echo "Unexpected deployment state" >&2; exit 1 ;;
-          esac
+          DEPLOYMENT=$(echo "$RESP" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('id') or d.get('uid') or '')")
+          test -n "$DEPLOYMENT"
+          echo "Waiting for deployment $DEPLOYMENT"
+          for attempt in $(seq 1 75); do
+            STATUS=$(curl -fsS "https://api.vercel.com/v13/deployments/$DEPLOYMENT?teamId=team_Bw8q7W0VyM7AkJwKaIrk1CMh" -H "Authorization: Bearer $VERCEL_TOKEN")
+            STATE=$(echo "$STATUS" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('readyState') or d.get('state') or 'unknown')")
+            case "$STATE" in
+              READY) echo "Production deployment READY"; exit 0 ;;
+              QUEUED|BUILDING|INITIALIZING) sleep 8 ;;
+              *) echo "Deployment failed: $STATE" >&2; exit 1 ;;
+            esac
+          done
+          echo "Timed out waiting for production readiness" >&2
+          exit 1

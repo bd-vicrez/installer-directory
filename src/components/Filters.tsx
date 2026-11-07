@@ -22,7 +22,7 @@ export default function Filters({
   onRadiusChange,
 }: Props) {
   return (
-    <div className="bg-white border rounded-xl p-4 mb-5">
+    <div className="installer-filters">
       <label className="flex items-center gap-2 text-sm min-h-10">
         <input
           type="checkbox"
@@ -30,7 +30,7 @@ export default function Filters({
           checked={inquiry === "1"}
           onChange={(e) => onInquiryChange(e.target.checked ? "1" : "")}
         />
-        Online inquiry available
+        Shops with an online request option
       </label>
       <details className="mt-2">
         <summary className="cursor-pointer text-sm font-medium py-2">
@@ -61,7 +61,7 @@ export default function Filters({
               onChange={(e) => onSortChange(e.target.value)}
             >
               <option value="recommended">
-                Nearby, inquiry available first
+                Nearby, online request options first
               </option>
               <option value="nearest">Nearest first</option>
             </select>
@@ -80,10 +80,11 @@ export default function Filters({
         </div>
         <p className="text-xs text-gray-600 mt-3">
           Service filters use recorded capabilities. Default results group
-          nearby shops in 10-mile bands, with online inquiry availability first
+          nearby shops in 10-mile bands, with online request options first
           within each band. Distances are straight-line estimates. City-only
-          listings appear afterward with no claimed distance. Inquiry
-          availability does not guarantee a response or appointment.
+          listings appear afterward with no claimed distance. We check current
+          request availability before opening the form. A listing does not
+          guarantee a response or appointment.
         </p>
       </details>
     </div>

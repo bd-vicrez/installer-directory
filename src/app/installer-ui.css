@@ -1,0 +1,340 @@
+/* Scoped customer/inquiry surfaces. Existing SEO and other admin pages retain their styles. */
+.installer-ui {
+  --ui-ink: #16191f;
+  --ui-muted: #59616f;
+  --ui-line: #dfe3e9;
+  --ui-red: #bd1730;
+  color: var(--ui-ink);
+}
+.installer-ui .ui-muted,
+.installer-ui .text-gray-600,
+.installer-ui .text-gray-400 {
+  color: var(--ui-muted) !important;
+}
+.installer-ui .ui-eyebrow {
+  color: var(--ui-red);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 750;
+  font-size: 0.7rem;
+  margin-bottom: 0.6rem;
+}
+.installer-ui .btn-primary {
+  background: #bd1730;
+  border-radius: 0.5rem;
+  min-height: 44px;
+}
+.installer-ui .btn-primary:hover {
+  background: #9f1228;
+}
+.installer-ui .btn-secondary {
+  min-height: 44px;
+  border-radius: 0.5rem;
+}
+.installer-ui .input-field {
+  font-size: 16px;
+  border-radius: 0.5rem;
+}
+.installer-ui button:disabled,
+.installer-ui fieldset:disabled {
+  opacity: 0.6;
+}
+.installer-ui :focus-visible {
+  outline: 2px solid #a9182f;
+  outline-offset: 3px;
+}
+.installer-hero {
+  background: #fff;
+  border-bottom: 1px solid #dfe3e9;
+}
+.installer-hero h1 {
+  font-size: clamp(2rem, 4.4vw, 3.4rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+}
+.installer-hero h1 span {
+  color: #bd1730;
+}
+.installer-how {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2rem;
+  padding: 0.5rem 0 1rem;
+}
+.installer-how strong {
+  font-size: 0.9rem;
+}
+.installer-how p {
+  color: #59616f;
+  font-size: 0.875rem;
+  margin-top: 0.4rem;
+}
+.installer-filters {
+  background: #fff;
+  border: 1px solid #dfe3e9;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+.installer-shop-card {
+  border-radius: 0.8rem;
+  box-shadow: 0 2px 5px #16191f04;
+}
+.installer-shop-card .text-gray-600 {
+  color: #59616f !important;
+}
+.installer-shop-card .quote-launcher summary {
+  font-size: 0.875rem;
+}
+.quote-request-dialog {
+  width: min(44rem, calc(100vw - 2rem));
+}
+.quote-recipient-banner {
+  background: #f2f4f7;
+  border-left: 3px solid #bd1730;
+  padding: 1rem;
+  font-size: 0.875rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+  margin-bottom: 0.75rem;
+}
+.quote-stepper {
+  display: flex;
+  list-style: none;
+  gap: 0.6rem;
+  margin: 1.5rem 0;
+  padding: 0;
+}
+.quote-stepper li {
+  flex: 1;
+  border-top: 3px solid #dfe3e9;
+  padding-top: 0.6rem;
+  display: flex;
+  gap: 0.4rem;
+  color: #59616f;
+  font-size: 0.8rem;
+}
+.quote-stepper li[aria-current="step"] {
+  border-color: #bd1730;
+  color: #a6112a;
+  font-weight: 700;
+}
+.inquiry-shell {
+  background: #f4f5f7;
+  color: #16191f;
+}
+.inquiry-shell > aside {
+  background: #fff;
+  border-color: #dfe3e9;
+  width: 15rem;
+}
+.inquiry-shell > aside nav a {
+  color: #59616f !important;
+}
+.inquiry-shell > aside nav a:hover {
+  background: #f2f4f7;
+}
+.inquiry-shell > aside nav a[href="/admin/inquiries"] {
+  color: #a6112a !important;
+  background: #fff0f2;
+}
+.inquiry-shell > aside > div {
+  border-color: #dfe3e9;
+}
+.inquiry-shell > aside > div > a > span {
+  color: #16191f !important;
+}
+.inquiry-shell > div > header {
+  background: #fff;
+  border-color: #dfe3e9;
+}
+.inquiry-shell > div > header strong,
+.inquiry-shell > div > header button,
+.inquiry-shell > div > header svg {
+  color: #59616f !important;
+}
+.inquiry-workspace {
+  max-width: 1160px;
+  margin: 0 auto;
+}
+.inquiry-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.inquiry-heading h1 {
+  font-size: clamp(1.7rem, 3vw, 2.2rem);
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+  margin-bottom: 0.65rem;
+}
+.inquiry-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.3rem;
+  margin: 1.3rem 0;
+  font-size: 0.85rem;
+}
+.inquiry-toolbar a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.inquiry-scopes {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 1.4rem 0 0.9rem;
+}
+.inquiry-scopes button {
+  border: 1px solid #dfe3e9;
+  background: white;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  min-height: 44px;
+}
+.inquiry-scopes button[aria-pressed="true"] {
+  color: white;
+  background: #16191f;
+  border-color: #16191f;
+}
+.inquiry-scopes span {
+  margin-left: 0.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.inquiry-status {
+  font-size: 0.8rem;
+  color: #59616f;
+  margin: 1.1rem 0;
+}
+.inquiry-list {
+  display: grid;
+  gap: 1rem;
+}
+.inquiry-case,
+.inquiry-empty {
+  padding: 1.35rem;
+  border: 1px solid #dfe3e9;
+  border-radius: 0.8rem;
+  background: #fff;
+  min-width: 0;
+}
+.inquiry-case-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+.inquiry-case h2 {
+  font-size: 1.15rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.inquiry-case h3 {
+  font-weight: 700;
+}
+.inquiry-badge {
+  background: #eef1f4;
+  color: #475161;
+  border-radius: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.inquiry-paused {
+  color: #805306;
+  background: #fff4df;
+}
+.inquiry-tags {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin: 0.85rem 0;
+}
+.inquiry-case-footer {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+.inquiry-case-footer > span {
+  font-size: 0.8rem;
+  color: #59616f;
+}
+.inquiry-detail {
+  margin-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1.1rem;
+  display: grid;
+  gap: 1rem;
+}
+.inquiry-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+.inquiry-facts dt {
+  color: #59616f;
+  margin-bottom: 0.25rem;
+}
+.inquiry-facts dd {
+  overflow-wrap: anywhere;
+}
+.inquiry-delivery {
+  padding: 1rem;
+  background: #f5f6f8;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  display: grid;
+  gap: 0.5rem;
+}
+.ui-notice {
+  padding: 1rem;
+  background: #fff4df;
+  color: #805306;
+  border-radius: 0.5rem;
+  margin: 0.75rem 0;
+  font-size: 0.875rem;
+}
+.ui-error {
+  color: #a6112a;
+}
+.inquiry-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.5rem;
+}
+@media (max-width: 640px) {
+  .installer-how,
+  .inquiry-facts {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .inquiry-heading {
+    flex-wrap: wrap;
+  }
+  .inquiry-case {
+    padding: 1rem;
+  }
+  .quote-request-dialog {
+    width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .installer-ui .animate-pulse-red {
+    animation: none;
+  }
+}

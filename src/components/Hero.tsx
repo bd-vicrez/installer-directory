@@ -46,13 +46,17 @@ export default function Hero({
     );
   }
   return (
-    <section className="bg-gradient-to-br from-gray-50 to-red-50 border-b">
-      <div className="max-w-5xl mx-auto px-4 py-7 sm:py-12">
-        <h1 className="text-3xl sm:text-5xl font-bold text-center">
-          Find an <span className="text-vicrez-red">Installer</span> Near You
+    <section className="installer-hero">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <p className="ui-eyebrow">Your build. Your local shop.</p>
+        <h1>
+          Find the right installer
+          <br />
+          <span>for your next upgrade.</span>
         </h1>
-        <p className="text-gray-600 text-center mt-3 mb-5">
-          Find local shops for your vehicle, parts and installation project.
+        <p className="ui-muted mt-4 mb-6 max-w-2xl">
+          Find local installation services, share your project, and work
+          directly with the shop.
         </p>
         <form
           onSubmit={(e) => {
@@ -94,7 +98,10 @@ export default function Hero({
             {isLoading ? "Searching…" : "Find shops"}
           </button>
         </form>
-        <div className="text-center mt-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
+          <p className="ui-muted text-sm">
+            Shop replies go directly to you. Vicrez support is here for help.
+          </p>
           <button
             className="underline text-sm min-h-10"
             disabled={locating || isLoading}
@@ -108,7 +115,7 @@ export default function Hero({
             {error}
           </p>
         )}
-        <p role="status" className="text-sm text-center mt-2 min-h-10">
+        <p role="status" className="text-sm mt-3 ui-muted">
           {resultCount !== null ? (
             <>
               {resultCount.toLocaleString()} matching listings

@@ -177,9 +177,12 @@ export default function QuoteRequestDialog({
               current ? { ...current, ...status } : current,
             );
           if (
-            ["provider_accepted", "provider_delivered", "routing_needed", "needs_attention"].includes(
-              status.status,
-            )
+            [
+              "provider_accepted",
+              "provider_delivered",
+              "routing_needed",
+              "needs_attention",
+            ].includes(status.status)
           )
             return;
         }
@@ -318,7 +321,7 @@ export default function QuoteRequestDialog({
     } finally {
       setSubmitting(false);
       setCaptchaToken("");
-      setVerificationAttempt(n => n + 1);
+      setVerificationAttempt((n) => n + 1);
     }
   }
   const prefix = installer ? "shop-quote" : "network-quote";
@@ -354,6 +357,7 @@ export default function QuoteRequestDialog({
   );
   return (
     <AccessibleDialog
+      className="installer-ui quote-request-dialog"
       open={isOpen}
       onClose={close}
       title={
@@ -392,7 +396,7 @@ export default function QuoteRequestDialog({
             }
             className="text-vicrez-red underline"
           >
-            Contact Vicrez about this request
+            Get help from Vicrez support
           </a>
           <div className="flex flex-wrap gap-3">
             <button onClick={onClose} className="btn-primary">
@@ -405,7 +409,7 @@ export default function QuoteRequestDialog({
         </div>
       ) : (
         <>
-          <p className="text-sm text-gray-700 mb-5">
+          <p className="quote-recipient-banner">
             {installer ? (
               <>
                 Your contact and project details will be shared with{" "}
@@ -421,6 +425,10 @@ export default function QuoteRequestDialog({
               </>
             )}
           </p>
+          <p className="ui-muted text-sm mb-5">
+            The shop replies directly to your email. Vicrez support is available
+            if you need help.
+          </p>
           <form
             ref={formRef}
             onSubmit={submit}
@@ -433,8 +441,19 @@ export default function QuoteRequestDialog({
             }}
             onInvalidCapture={() => validation()}
           >
-            <p className="text-sm text-gray-600">
-              Step {step + 1} of 3 · Project → Contact → Review
+            <ol className="quote-stepper" aria-label="Request progress">
+              {["Project", "Contact", "Review"].map((label, index) => (
+                <li
+                  key={label}
+                  aria-current={step === index ? "step" : undefined}
+                >
+                  <span>{index + 1}</span>
+                  {label}
+                </li>
+              ))}
+            </ol>
+            <p className="sr-only" role="status">
+              Step {step + 1} of 3
             </p>
             <h3
               ref={stepHeading}
@@ -768,7 +787,12 @@ export default function QuoteRequestDialog({
                     )}
                   </span>
                 </label>
-                {isOpen && step === 2 && <QuoteVerification key={verificationAttempt} onToken={setCaptchaToken} />}
+                {isOpen && step === 2 && (
+                  <QuoteVerification
+                    key={verificationAttempt}
+                    onToken={setCaptchaToken}
+                  />
+                )}
               </fieldset>
             </fieldset>
             {error && (

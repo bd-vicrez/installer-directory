@@ -1,268 +1,379 @@
 "use client";
-import { useEffect, useState } from "react";
-import InquiryReminder from "@/components/InquiryReminder";
-import InquiryProject from "@/components/InquiryProject";
-import InquiryFollowup from "@/components/InquiryFollowup";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import InquiryIntakeReview, { type IntakeReview } from "@/components/InquiryIntakeReview";
-type Inquiry = {
+import InquiryDetail from "@/components/InquiryDetail";
+
+type Scope = "verified" | "held" | "quarantined" | "all";
+type Item = {
   submission_id: number;
-  intake_review?: IntakeReview;
-  customer_action?: { state: string; note: string; updated_at: string };
-  acquisition?: { source: string; channel: string };
-  created_at: string;
-  flow: string;
-  service: string;
-  routing_state: string;
-  routing_reason: string | null;
-  full_name: string;
-  email: string;
-  phone: string;
   vehicle_year: number;
   vehicle_make: string;
   vehicle_model: string;
-  notes: string;
+  service: string;
+  flow: string;
+  created_at: string;
+  review_state: string;
+  intake_scope: string;
+  customer_state: string;
+  routing_state: string;
   deliveries: {
-    job_id: string;
-    reminder_state?: string;
     target_id: string;
     state: string;
-    attempts: number;
-    last_error: string | null;
-    response_state?: string;
-    response_note?: string;
-    response_updated_at?: string;
-    first_responded_at?: string;
-    response_link_expires_at?: number;
-    unanswered_over_48h?: number;
-    delivery_unconfirmed_over_1h?: number;
-    provider_delivery?: {state:string; occurred_at?:string; last_error?:string};
+    evidence: string | null;
+    response_state: string | null;
+    business_name: string;
   }[];
+  followup: { state: string; next_followup_at: string | null } | null;
+  ownership: {
+    display_name: string | null;
+    owner_name: string | null;
+    actor: string;
+    paused: boolean;
+    zendesk_ticket_id: number | null;
+  } | null;
 };
-type Dashboard = {
-  requests: Inquiry[];
-  routing_counts: Record<string, number>;
-  delivery_counts: Record<string, number>;
+type Workspace = {
+  items: Item[];
+  counts: Record<Scope, number>;
+  scope: Scope;
+  snapshot: number;
+  next_cursor: number | null;
+  selected_id: number | null;
   worker_recent: boolean;
-  shop_response_counts?: Record<string, number>;
-  unanswered_over_48h?: number;
+  as_of: string;
 };
+const scopes: Scope[] = ["verified", "held", "quarantined", "all"];
+const labels: Record<Scope, string> = {
+  verified: "Verified intake",
+  held: "Held",
+  quarantined: "Quarantined",
+  all: "All records",
+};
+function deliveryLabel(item: Item) {
+  if (
+    item.deliveries.some(
+      (d) =>
+        d.state === "failed" ||
+        ["bounced", "dropped", "spam"].includes(d.evidence || ""),
+    )
+  )
+    return "Delivery blocked";
+  if (item.deliveries.some((d) => d.response_state)) return "Response recorded";
+  if (
+    item.deliveries.length &&
+    item.deliveries.every((d) => d.evidence === "delivered")
+  )
+    return "Delivery confirmed";
+  if (item.deliveries.some((d) => d.state === "accepted"))
+    return "Delivery unconfirmed";
+  if (item.intake_scope !== "verified") return "Intake held";
+  return item.deliveries.length ? "Delivery pending" : "Routing needs review";
+}
 export default function InquiriesPage() {
-  const [data, setData] = useState<Dashboard | null>(null),
+  const [data, setData] = useState<Workspace | null>(null),
+    [loading, setLoading] = useState(false),
     [error, setError] = useState(""),
-    [loading, setLoading] = useState(false);
-  async function refresh() {
-    setLoading(true);
-    setError("");
-    try {
-      const response = await fetch(
-        "/api/admin/inquiries" +
-          (new URLSearchParams(window.location.search).get("request")
-            ? "?id=" +
-              encodeURIComponent(
-                new URLSearchParams(window.location.search).get("request")!,
-              )
-            : ""),
-        {
+    [expanded, setExpanded] = useState<number | null>(null);
+  const pending = useRef<AbortController | null>(null);
+  const load = useCallback(
+    async (params: URLSearchParams, updateUrl = false) => {
+      pending.current?.abort();
+      const controller = new AbortController();
+      pending.current = controller;
+      setLoading(true);
+      setError("");
+      if (updateUrl) {
+        const url = new URLSearchParams(params);
+        if (url.has("id")) {
+          url.set("request", url.get("id")!);
+          url.delete("id");
+        }
+        window.history.pushState(
+          null,
+          "",
+          "/admin/inquiries" + (url.size ? "?" + url : ""),
+        );
+      }
+      try {
+        const r = await fetch("/api/admin/inquiry-workspace?" + params, {
           cache: "no-store",
-        },
-      );
-      if (!response.ok) throw new Error();
-      setData(await response.json());
-    } catch {
-      setError("Could not load inquiry status. Please retry.");
-    } finally {
-      setLoading(false);
+          signal: controller.signal,
+        });
+        if (!r.ok) throw Error();
+        const next = await r.json();
+        if (controller.signal.aborted) return;
+        setData(next);
+        if (next.selected_id) setExpanded(next.selected_id);
+      } catch {
+        if (!controller.signal.aborted)
+          setError(
+            "Refresh failed. The information below may be out of date. Actions are paused until a successful refresh.",
+          );
+      } finally {
+        if (pending.current === controller) setLoading(false);
+      }
+    },
+    [],
+  );
+  const restore = useCallback(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.has("request")) {
+      p.set("id", p.get("request")!);
+      p.delete("request");
     }
-  }
+    void load(p);
+  }, [load]);
   useEffect(() => {
-    void refresh();
-  }, []);
+    restore();
+    window.addEventListener("popstate", restore);
+    return () => {
+      pending.current?.abort();
+      window.removeEventListener("popstate", restore);
+    };
+  }, [restore]);
+  const refresh = () => {
+    const p = new URLSearchParams();
+    if (data?.selected_id) p.set("id", String(data.selected_id));
+    else p.set("scope", data?.scope || "verified");
+    void load(p, true);
+  };
+  const choose = (scope: Scope) => {
+    setExpanded(null);
+    void load(new URLSearchParams({ scope }), true);
+  };
   return (
-    <div className="space-y-6 max-w-6xl text-gray-100 [&_.card]:text-gray-900">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Installation inquiries</h1>
-        <button onClick={refresh} disabled={loading} className="btn-secondary">
-          {loading ? "Loading…" : "Refresh status"}
+    <div className="installer-ui inquiry-workspace">
+      <div className="inquiry-heading">
+        <div>
+          <p className="ui-eyebrow">Installer operations</p>
+          <h1>Inquiry workspace</h1>
+          <p className="ui-muted">
+            Review delivery, keep ownership clear, and record the next step.
+          </p>
+        </div>
+        <button className="btn-secondary" disabled={loading} onClick={refresh}>
+          {loading ? "Refreshing…" : "Refresh status"}
         </button>
       </div>
-      <p className="text-gray-300">
-        Saved directory installation requests. A provider-accepted notification
-        is not proof of inbox delivery or a shop response. Historical and held requests
-        are available for staff review; no historical notification is replayed.
-      </p>
-      <Link className="text-vicrez-red underline" href="/admin/contacts">
-        Review shop contact permissions
-      </Link>
+      <div className="inquiry-toolbar">
+        <Link href="/admin/actions">Staff action queue →</Link>
+        <Link href="/admin/contacts">Shop contact permissions →</Link>
+      </div>
       {error && (
-        <p role="alert" className="text-red-700">
+        <p role="alert" className="ui-notice">
           {error}
+          <button
+            className="underline ml-3"
+            onClick={restore}
+            disabled={loading}
+          >
+            Retry
+          </button>
         </p>
       )}
-      {data && (
-        <>
-          <div
-            role="status"
-            className={
-              "p-4 rounded-xl border " +
-              (data.worker_recent
-                ? "bg-green-50 border-green-200 text-green-900"
-                : "bg-amber-50 border-amber-300 text-amber-900")
+      <nav className="inquiry-scopes" aria-label="Intake verification scope">
+        {scopes.map((scope) => (
+          <button
+            key={scope}
+            aria-pressed={
+              !data?.selected_id && (data?.scope || "verified") === scope
             }
+            onClick={() => choose(scope)}
+            disabled={loading}
           >
+            {labels[scope]}
+            {data && <span>{data.counts[scope]}</span>}
+          </button>
+        ))}
+      </nav>
+      <p className="ui-muted text-sm">
+        Scopes describe intake verification, not permission to send. Paused
+        cases and recorded outcomes remain separate.
+      </p>
+      <div className="inquiry-status" role="status">
+        {loading ? (
+          "Loading inquiry records…"
+        ) : data ? (
+          <>
+            Last refreshed {new Date(data.as_of).toLocaleString()}.{" "}
             {data.worker_recent
               ? "Delivery worker checked in recently."
-              : "The delivery worker has not checked in recently. Escalate to engineering."}
-          </div>
-          <div className="grid sm:grid-cols-3 gap-3">
-            <div className="card p-4">
-              Saved requests:{" "}
-              <strong>
-                {Object.values(data.routing_counts).reduce((a, b) => a + b, 0)}
-              </strong>
+              : "Delivery worker check-in is overdue; review operations."}
+          </>
+        ) : (
+          "Loading workspace…"
+        )}
+      </div>
+      {data && (
+        <div aria-busy={loading}>
+          {data.selected_id && (
+            <div className="ui-notice">
+              Showing VZ-{data.selected_id} across all scopes.{" "}
+              <button className="underline" onClick={() => choose("verified")}>
+                Return to verified intake
+              </button>
             </div>
-            <div className="card p-4">
-              Routing needs review:{" "}
-              <strong>
-                {(data.routing_counts.needs_review || 0) +
-                  (data.routing_counts.failed || 0)}
-              </strong>
-            </div>
-            <div className="card p-4">
-              Failed/cancelled notifications:{" "}
-              <strong>
-                {(data.delivery_counts.failed || 0) +
-                  (data.delivery_counts.cancelled || 0)}
-              </strong>
-            </div>
-          </div>
-          <div className="card p-4 space-y-2">
-            <p>
-              <strong>Shop responses:</strong>{" "}
-              {Object.entries(data.shop_response_counts || {})
-                .map(([k, v]) => `${k.replaceAll("_", " ")}: ${v}`)
-                .join(" · ") || "No recorded responses yet"}
-            </p>
-            <p>
-              <strong>{data.unanswered_over_48h || 0}</strong> response-enabled
-              notifications have no shop reply after 48 elapsed hours. This is a
-              staff review threshold, not a promised shop response time.
-            </p>
-          </div>
-          {!data.requests.length && (
-            <p className="card p-6">
-              No requests have been saved through the new directory flow yet.
-            </p>
           )}
-          {data.requests.map((item) => (
-            <article key={item.submission_id} className="card p-5 space-y-3">
-              <div className="flex flex-wrap justify-between gap-2">
-                <h2 className="font-semibold">
-                  VZ-{item.submission_id} · {item.full_name}
-                </h2>
-                <span className="text-sm text-gray-600">
-                  {item.created_at} UTC
-                </span>
-              </div>
-              <p>
-                {item.vehicle_year} {item.vehicle_make} {item.vehicle_model} ·{" "}
-                {item.service} ·{" "}
-                {item.flow === "selected" ? "Selected shop" : item.flow === "legacy" ? "Legacy review" : "Network match"}
-              </p>
-              <p className="text-sm">
-                Source: {item.acquisition?.source || "unknown"} ·{" "}
-                {item.acquisition?.channel || "unknown"}
-              </p>
-              <p className="text-sm">
-                Routing: <strong>{item.routing_state}</strong>
-                {item.routing_reason ? " — " + item.routing_reason : ""}
-              </p>
-              <p className="text-sm break-words">
-                Customer: {item.email} · {item.phone}
-              </p>
-              {item.notes && (
-                <p className="text-sm whitespace-pre-wrap">{item.notes}</p>
-              )}
-              {item.customer_action &&
-                item.customer_action.state !== "open" && (
-                  <p className="border rounded p-3 bg-amber-50">
-                    Customer action:{" "}
+          {!data.items.length && (
+            <div className="inquiry-empty">
+              <h2>
+                {data.selected_id
+                  ? "Inquiry not found"
+                  : "No records in this view"}
+              </h2>
+              <p>Change the scope or refresh to check for new requests.</p>
+            </div>
+          )}
+          <div className="inquiry-list">
+            {data.items.map((item) => (
+              <article className="inquiry-case" key={item.submission_id}>
+                <div className="inquiry-case-heading">
+                  <div>
+                    <p className="ui-eyebrow">VZ-{item.submission_id}</p>
+                    <h2>
+                      {item.vehicle_year} {item.vehicle_make}{" "}
+                      {item.vehicle_model}
+                    </h2>
+                    <p className="ui-muted text-sm">
+                      {item.service.replaceAll("-", " ")} ·{" "}
+                      {item.flow === "selected"
+                        ? "Selected shop"
+                        : item.flow === "legacy"
+                          ? "Legacy review"
+                          : "Network match"}
+                    </p>
+                  </div>
+                  <span className="inquiry-badge">{deliveryLabel(item)}</span>
+                </div>
+                <div className="inquiry-tags">
+                  {item.deliveries.map((d) => (
+                    <Link
+                      href={
+                        "/admin/contacts?shop=" +
+                        encodeURIComponent(d.target_id)
+                      }
+                      key={d.target_id}
+                      className="inquiry-badge"
+                    >
+                      {d.business_name}
+                    </Link>
+                  ))}
+                  <span className="inquiry-badge">
+                    {item.followup?.state
+                      ? "Outcome: " + item.followup.state
+                      : "No outcome recorded"}
+                  </span>
+                  {item.ownership?.paused && (
+                    <span className="inquiry-badge inquiry-paused">
+                      Automation paused
+                    </span>
+                  )}
+                  {["closed", "withdrawn"].includes(item.customer_state) && (
+                    <span className="inquiry-badge">
+                      Customer {item.customer_state}
+                    </span>
+                  )}
+                </div>
+                <p className="ui-muted text-sm">
+                  {item.intake_scope === "verified"
+                    ? "Shop replies go directly to the customer; direct email activity may not be recorded here."
+                    : "Held and quarantined requests are excluded from automatic delivery. Opening this record does not release it."}
+                </p>
+                <div className="inquiry-case-footer">
+                  <span>
+                    Owner:{" "}
                     <strong>
-                      {item.customer_action.state.replaceAll("_", " ")}
-                    </strong>{" "}
-                    · {item.customer_action.note}
-                  </p>
-                )}
-              {item.intake_review && <InquiryIntakeReview id={item.submission_id} review={item.intake_review} refresh={refresh} />}
-              {item.flow !== "legacy" && <InquiryProject scope="staff" id={item.submission_id} />}
-              {item.deliveries.map((delivery) => (
-                <div key={delivery.target_id} className="text-sm">
-                  Shop{" "}
-                  <Link
-                    className="text-vicrez-red underline"
-                    href={
-                      "/admin/contacts?shop=" +
-                      encodeURIComponent(delivery.target_id)
+                      {item.ownership?.display_name ||
+                        item.ownership?.owner_name ||
+                        "Unassigned"}
+                    </strong>
+                    {item.ownership?.zendesk_ticket_id && (
+                      <>
+                        {" "}
+                        ·{" "}
+                        <a
+                          className="underline"
+                          href={
+                            "https://vicrezcom.zendesk.com/agent/tickets/" +
+                            item.ownership.zendesk_ticket_id
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Ticket #{item.ownership.zendesk_ticket_id}
+                        </a>
+                      </>
+                    )}
+                    {item.followup?.next_followup_at && (
+                      <>
+                        {" "}
+                        · Follow-up{" "}
+                        {new Date(
+                          item.followup.next_followup_at,
+                        ).toLocaleString()}
+                      </>
+                    )}
+                  </span>
+                  <button
+                    className="btn-secondary"
+                    aria-expanded={expanded === item.submission_id}
+                    onClick={() =>
+                      setExpanded(
+                        expanded === item.submission_id
+                          ? null
+                          : item.submission_id,
+                      )
                     }
                   >
-                    {delivery.target_id}
-                  </Link>
-                  :{" "}
-                  <strong>
-                    {delivery.state === "accepted"
-                      ? "Provider accepted"
-                      : delivery.state}
-                  </strong>{" "}
-                  · {delivery.attempts} attempt(s)
-                  {delivery.last_error ? " · " + delivery.last_error : ""}
-                  <p>Delivery evidence: {delivery.provider_delivery?.state || 'unconfirmed'}{delivery.provider_delivery?.occurred_at ? ' · '+new Date(delivery.provider_delivery.occurred_at).toLocaleString() : ''}. Delivery does not confirm a shop reply or appointment.</p>
-                  {!!delivery.delivery_unconfirmed_over_1h && <p className="text-amber-800">Delivery is still unconfirmed after one hour. Review provider delivery or suppression evidence before assuming the shop received this request. Do not resend an accepted notification blindly.</p>}
-                  <span className="block mt-1">
-                    Shop response:{" "}
-                    <strong>
-                      {delivery.response_state?.replaceAll("_", " ") ||
-                        (delivery.response_link_expires_at
-                          ? "Awaiting response"
-                          : "No response link in this historical notice")}
-                    </strong>
-                    {delivery.response_updated_at &&
-                      " · " +
-                        new Date(delivery.response_updated_at).toLocaleString()}
-                  </span>
-                  {delivery.response_note && (
-                    <span className="block whitespace-pre-wrap">
-                      Shop note: {delivery.response_note}
-                    </span>
-                  )}
-                  {!!delivery.unanswered_over_48h && (
-                    <span className="block text-amber-800 font-semibold">
-                      Staff follow-up needed: no shop response after 48 elapsed
-                      hours.
-                    </span>
-                  )}
-                  {delivery.job_id &&
-                    !!delivery.unanswered_over_48h &&
-                    !["closed", "withdrawn"].includes(
-                      item.customer_action?.state || " ",
-                    ) && (
-                      <InquiryReminder
-                        job={delivery.job_id}
-                        state={delivery.reminder_state}
-                      />
-                    )}
+                    {expanded === item.submission_id
+                      ? "Close details"
+                      : "View case →"}
+                  </button>
                 </div>
-              ))}
-              {item.routing_state === "needs_review" && (
-                <p className="text-sm text-amber-800">
-                  Review service/contact eligibility before arranging any new
-                  recipient. A selected-shop request must not be reassigned
-                  without the customer’s permission.
-                </p>
-              )}
-              <InquiryFollowup id={item.submission_id} />
-            </article>
-          ))}
-        </>
+                {expanded === item.submission_id && (
+                  <InquiryDetail
+                    key={item.submission_id}
+                    id={item.submission_id}
+                    stale={!!error || loading}
+                    onChanged={refresh}
+                  />
+                )}
+              </article>
+            ))}
+          </div>
+          <div className="inquiry-pagination">
+            <p className="ui-muted text-sm">
+              {data.items.length} records on this page · newest first. Refresh
+              to include new arrivals.
+            </p>
+            {data.next_cursor && (
+              <button
+                disabled={loading}
+                className="btn-secondary"
+                onClick={() => {
+                  setExpanded(null);
+                  void load(
+                    new URLSearchParams({
+                      scope: data.scope,
+                      before: String(data.next_cursor),
+                      snapshot: String(data.snapshot),
+                    }),
+                    true,
+                  );
+                }}
+              >
+                Next page →
+              </button>
+            )}
+            <button
+              disabled={loading}
+              className="btn-secondary"
+              onClick={refresh}
+            >
+              First page / refresh
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
