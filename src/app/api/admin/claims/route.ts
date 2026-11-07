@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   try {
     const rows = (
       await getPool().query(
-        `SELECT c.*,(SELECT COALESCE(jsonb_agg(jsonb_build_object('id',p.id,'caption',p.caption)),'[]'::jsonb) FROM directory_shop_photos p WHERE p.installer_id=c.installer_id AND (c.details->'photo_ids') ? p.id::text) AS proposed_photos,i.business_name,i.slug,EXTRACT(EPOCH FROM NOW()-c.submitted_at)/86400 AS age_days FROM directory_claims c JOIN installers i ON i.id=c.installer_id WHERE ($1::text IS NULL OR c.id::text=$1) ORDER BY c.submitted_at LIMIT 200`,
+        `SELECT c.*,(SELECT json_build_object('state',v.state,'next_step',v.next_step,'next_check_at',v.next_check_at,'updated_at',v.updated_at,'paused',v.paused) FROM directory_automation_cases v WHERE v.task_key='claim:'||c.id) AS automation,(SELECT COALESCE(jsonb_agg(jsonb_build_object('id',p.id,'caption',p.caption)),'[]'::jsonb) FROM directory_shop_photos p WHERE p.installer_id=c.installer_id AND (c.details->'photo_ids') ? p.id::text) AS proposed_photos,i.business_name,i.slug,EXTRACT(EPOCH FROM NOW()-c.submitted_at)/86400 AS age_days FROM directory_claims c JOIN installers i ON i.id=c.installer_id WHERE ($1::text IS NULL OR c.id::text=$1) ORDER BY c.submitted_at LIMIT 200`,
         [id],
       )
     ).rows;
@@ -98,7 +98,7 @@ export async function PATCH(request: NextRequest) {
           "existing-business-phone",
           "business-document-review",
         ].includes(channel) ||
-        (channel === "owner-portal" && ownerVerified)
+        ((channel === "owner-portal" || channel === "verified-business-email") && ownerVerified)
       ) ||
         evidence.length < 20 ||
         b.confirm_identity !== true)

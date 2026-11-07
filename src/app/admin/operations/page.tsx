@@ -51,7 +51,7 @@ export default function OperationsPage() {
                 {!r.ok
                   ? "Needs attention"
                   : Date.now() - new Date(r.checked_at).getTime() >
-                      (["backup", "installer-agent", "contact-health"].includes(r.name) ? 30 * 3600000 : 15 * 60000)
+                      (r.name === 'installer-verification' ? 2 * 3600000 : ["backup", "installer-agent", "contact-health"].includes(r.name) ? 30 * 3600000 : 15 * 60000)
                     ? "Check-in overdue"
                     : "Last check passed"}{" "}
                 · {new Date(r.checked_at).toLocaleString()}

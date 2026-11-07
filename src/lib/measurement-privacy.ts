@@ -1,6 +1,7 @@
 export function privateMeasurementPath(path: string) {
   return [
     "/owner",
+    "/claim/verify",
     "/inquiry-progress",
     "/shop-response",
     "/admin",

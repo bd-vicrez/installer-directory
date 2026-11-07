@@ -1,0 +1,9 @@
+[Unit]
+Description=Hourly installer application and ownership verification
+[Timer]
+OnCalendar=*-*-* *:15:00
+AccuracySec=1s
+Persistent=true
+Unit=installer-verification.service
+[Install]
+WantedBy=timers.target

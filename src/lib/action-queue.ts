@@ -222,7 +222,7 @@ export function deriveActions(data: any, now = Date.now()): ActionItem[] {
   for (const r of data.runs || []) {
     const age = now - new Date(r.checked_at).getTime();
     const maxAge = r.name === "backup" ? 36 * 3600000
-      : ["installer-agent", "contact-health"].includes(r.name) ? 30 * 3600000 : 15 * 60000;
+      : r.name === 'installer-verification' ? 2 * 3600000 : ["installer-agent", "contact-health"].includes(r.name) ? 30 * 3600000 : 15 * 60000;
     if (r.ok && age < maxAge)
       continue;
     add(
@@ -308,7 +308,7 @@ export async function loadActionQueue(pool: Pool) {
       "SELECT id,kind,reference,state,last_error,created_at FROM directory_notifications WHERE state IN ('failed','not_delivered','uncertain','held') ORDER BY created_at LIMIT 1001",
     ),
     pool.query(
-      "SELECT name,checked_at,ok FROM directory_operation_runs WHERE name IN ('backup','notifications','notification-delivery','operations-client','installer-agent','contact-health')",
+      "SELECT name,checked_at,ok FROM directory_operation_runs WHERE name IN ('backup','notifications','notification-delivery','operations-client','installer-agent','installer-verification','contact-health')",
     ),
     pool.query(
       "SELECT a.*,s.display_name,s.active AS assignee_active,c.owner_name AS automation_owner,c.escalation_owner,c.state AS automation_state,c.paused AS automation_paused,c.zendesk_ticket_id FROM directory_action_assignments a LEFT JOIN directory_staff_users s ON s.id=a.assigned_to LEFT JOIN directory_automation_cases c ON c.task_key=a.task_key",

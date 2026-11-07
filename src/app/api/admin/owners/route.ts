@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const evidence = (
       await getPool()
         .query(`SELECT 'application' AS kind,a.id::text AS id,a.installer_id,a.email,a.business_name AS name,i.business_name,a.application_id AS reference FROM applications a JOIN installers i ON i.id=a.installer_id WHERE a.status='approved' AND a.reviewed_at IS NOT NULL AND i.status NOT IN ('removed','non_us_excluded')
-      UNION ALL SELECT 'claim',c.id,c.installer_id,c.email,c.name,i.business_name,'CLM-'||upper(left(c.id,8)) FROM directory_claims c JOIN installers i ON i.id=c.installer_id WHERE c.status IN ('verified','resolved') AND c.verification_channel IN ('business-domain-email','existing-business-phone','business-document-review') AND length(c.verification_evidence)>=20 AND i.status NOT IN ('removed','non_us_excluded') LIMIT 300`)
+      UNION ALL SELECT 'claim',c.id,c.installer_id,c.email,c.name,i.business_name,'CLM-'||upper(left(c.id,8)) FROM directory_claims c JOIN installers i ON i.id=c.installer_id WHERE c.status IN ('verified','resolved') AND c.verification_channel IN ('business-domain-email','verified-business-email','existing-business-phone','business-document-review') AND length(c.verification_evidence)>=20 AND i.status NOT IN ('removed','non_us_excluded') LIMIT 300`)
     ).rows;
     const listings = (
       await getPool().query(
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       else if (b.evidence_kind === "claim")
         evidence = (
           await client.query(
-            `SELECT c.installer_id,c.email,c.name FROM directory_claims c JOIN installers i ON i.id=c.installer_id WHERE c.id=$1 AND c.status IN ('verified','resolved') AND c.verification_channel IN ('business-domain-email','existing-business-phone','business-document-review') AND length(c.verification_evidence)>=20 AND i.status NOT IN ('removed','non_us_excluded') FOR SHARE OF c,i`,
+            `SELECT c.installer_id,c.email,c.name FROM directory_claims c JOIN installers i ON i.id=c.installer_id WHERE c.id=$1 AND c.status IN ('verified','resolved') AND c.verification_channel IN ('business-domain-email','verified-business-email','existing-business-phone','business-document-review') AND length(c.verification_evidence)>=20 AND i.status NOT IN ('removed','non_us_excluded') FOR SHARE OF c,i`,
             [id],
           )
         ).rows[0];

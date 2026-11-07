@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           message:
-            "If this email has approved owner access, a private sign-in link will arrive shortly. Each link expires after 30 minutes. For first-time access, submit an ownership request or contact support@vicrez.com.",
+            "If this email has approved owner access, a private sign-in link will arrive shortly. Each link expires after 30 minutes. For first-time access, submit an ownership request or contact b2bsupport@vicrezcom.zendesk.com.",
         },
         { headers: OWNER_HEADERS },
       );
