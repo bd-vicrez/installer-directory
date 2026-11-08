@@ -108,7 +108,7 @@ test('contact permission changes commit with their audit record and refresh the 
   const calls=[];let refreshed='';const client={query:async(sql,args)=>{calls.push({sql,args});return {rows:sql.startsWith('UPDATE')?[{...shop,slug:'test-shop'}]:[]};},release:()=>{}};
   const {POST}=load('app/api/admin/installer-contact/route.ts',{'@/lib/admin-auth':{requireAdmin:()=>null},'@/lib/db':{getPool:()=>({connect:async()=>client})},'@/lib/contact-refresh':{refreshContactPages:slug=>{refreshed=slug;}}});
   const response=await POST(request('/api/admin/installer-contact',{id:'shop',routing_email:'route@example.test',quote_routing_enabled:false,public_email:'public@example.test',public_email_approved:true,note:'Owner approved this public email'}));
-  assert.equal(response.status,200);assert.equal(refreshed,'test-shop');assert.match(calls[1].sql,/public_email_approved_at=CASE WHEN/);assert.equal(calls[1].args[2],false);assert.equal(calls[1].args[4],true);assert.match(calls[2].sql,/installer_contact_audit/);assert.equal(calls[3].sql,'COMMIT');
+  assert.equal(response.status,200);assert.equal(refreshed,'test-shop');const update=calls.find(c=>c.sql.startsWith('UPDATE installers'));assert.match(update.sql,/public_email_approved_at=CASE WHEN/);assert.equal(update.args[2],false);assert.equal(update.args[4],true);assert.ok(calls.some(c=>/installer_contact_audit/.test(c.sql)));assert.equal(calls.at(-1).sql,'COMMIT');
 });
 
 test('an audit write failure rolls back contact changes',async()=>{

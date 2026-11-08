@@ -12,6 +12,12 @@ type Contact = {
   public_email: string;
   public_email_approved: boolean;
   public_email_approved_at: string | null;
+  quote_setup?: {
+    recipient: string;
+    confirmed_at: string | null;
+    delivery_state: string | null;
+    ready: boolean;
+  } | null;
 };
 export default function ContactsPage() {
   const [query, setQuery] = useState(""),
@@ -124,6 +130,29 @@ export default function ContactsPage() {
               does not clear that pause.
             </p>
           )}
+          <div className="rounded border bg-blue-50 text-slate-900 p-3 space-y-2 text-sm">
+            <p className="font-semibold">Owner quote setup</p>
+            {contact.quote_setup ? (
+              <p>
+                {contact.quote_setup.ready
+                  ? "Participation and receipt confirmed for this shop’s current details."
+                  : "Setup is incomplete, expired, or the shop details changed."}{" "}
+                Inbox: {contact.quote_setup.recipient}. Provider state:{" "}
+                {contact.quote_setup.delivery_state || "Not sent"}.
+              </p>
+            ) : (
+              <p>
+                No completed setup test is recorded. The approved owner can
+                start the checklist in Manage Your Shop.
+              </p>
+            )}
+            <p>
+              New routing or a changed recipient requires a current, confirmed
+              setup test. Check participation evidence and existing suppressions
+              before saving; this page does not clear suppressions or owner
+              pauses.
+            </p>
+          </div>
           <div>
             <label htmlFor="routing-email" className="block text-sm mb-1">
               Private routing email

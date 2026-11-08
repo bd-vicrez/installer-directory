@@ -25,6 +25,7 @@ import {
 import { photoIds, validatePhotos } from "@/lib/shop-photos";
 import { canReceiveQuote } from "@/lib/installer-contact";
 import { refreshContactPages } from "@/lib/contact-refresh";
+import { ownerSetupStatus } from "@/lib/owner-quote-setup";
 export async function GET(request: NextRequest) {
   try {
     const owner = await ownerIdentity(request),
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
           accepting: canReceiveQuote(shop),
         },
         photos,
+        quote_setup: await ownerSetupStatus(pool, shop, owner),
         requests,
       },
       { headers: OWNER_HEADERS },

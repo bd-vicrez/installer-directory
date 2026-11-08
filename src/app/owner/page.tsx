@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import ListingReconfirmation from "@/components/ListingReconfirmation";
 import ShopProjectsEditor from "@/components/ShopProjectsEditor";
 import OwnerDetailsFields from "@/components/OwnerDetailsFields";
+import OwnerQuoteChecklist from "@/components/OwnerQuoteChecklist";
+import { QUOTE_SUPPORT_EMAIL } from "@/lib/quote-contact";
 export default function OwnerPortal() {
   const [data, setData] = useState<any>(null),
     [loaded, setLoaded] = useState(false),
@@ -165,8 +167,8 @@ export default function OwnerPortal() {
                   Claim or update a listing
                 </a>
                 , or email{" "}
-                <a href="mailto:support@vicrez.com" className="underline">
-                  support@vicrez.com
+                <a href={"mailto:" + QUOTE_SUPPORT_EMAIL} className="underline">
+                  {QUOTE_SUPPORT_EMAIL}
                 </a>
                 .
               </p>
@@ -237,6 +239,13 @@ export default function OwnerPortal() {
               Sign out
             </button>
           </section>
+          {data.quote_setup && (
+            <OwnerQuoteChecklist
+              setup={data.quote_setup}
+              shop={data.shop}
+              onSaved={() => load()}
+            />
+          )}
           <ListingReconfirmation
             snapshot={data.shop.snapshot}
             hash={data.shop.snapshot_hash}

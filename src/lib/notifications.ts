@@ -1,10 +1,15 @@
 import { rfqFetch } from "./directory-rfq";
 import { ownerLoginToken } from "./owner-access";
 import { claimVerificationToken } from "./claim-verification";
+import { quoteSetupToken } from "./owner-quote-setup";
 import { statusToken } from "./onboarding";
 import { timingSafeEqual, createHash } from "node:crypto";
 import type { Pool } from "pg";
-import { validCustomerEmail, customerReplyHref, QUOTE_SUPPORT_EMAIL } from './quote-contact';
+import {
+  validCustomerEmail,
+  customerReplyHref,
+  QUOTE_SUPPORT_EMAIL,
+} from "./quote-contact";
 
 export function operationsAuthorized(request: Request) {
   const expected = process.env.DIRECTORY_OPERATIONS_SECRET || "";
@@ -23,12 +28,20 @@ export function operationsAuthorized(request: Request) {
 export const PILOT_SUBJECT =
   "Invitation: confirm your shop for the Vicrez installer pilot";
 export function notificationMessage(row: Record<string, any>) {
-  const reminder = row.kind === 'inquiry-reminder';
-  const quoteAlert = row.kind === 'staff' && row.event_key?.startsWith('quote-delivery:');
-  const ownershipProof = row.kind === 'claim' && row.outcome === 'ownership_verification';
-  const businessSupport = quoteAlert || ['application','claim','owner'].includes(row.kind);
-  if (reminder && !validCustomerEmail(row.customer_email)) throw new Error('Reminder customer address is unavailable');
+  const reminder = row.kind === "inquiry-reminder";
+  const quoteAlert =
+    row.kind === "staff" && row.event_key?.startsWith("quote-delivery:");
+  const ownershipProof =
+    row.kind === "claim" && row.outcome === "ownership_verification";
+  const businessSupport =
+    quoteAlert ||
+    ["application", "claim", "owner", "owner-setup", "staff"].includes(
+      row.kind,
+    );
+  if (reminder && !validCustomerEmail(row.customer_email))
+    throw new Error("Reminder customer address is unavailable");
   const labels: Record<string, string> = {
+    quote_setup_test: "[TEST] Confirm your quote inbox",
     owner_login: "Owner sign-in",
     ownership_verification: "Confirm shop ownership",
     received: "Request received",
@@ -45,7 +58,8 @@ export function notificationMessage(row: Record<string, any>) {
   const type =
     row.kind === "application" ? "shop application" : "listing review request";
   const explanation: Record<string, string> = {
-    ownership_verification: "A request was made to manage this shop using this business email. We independently checked the business contact. Open the private link below only if you are the owner or an authorized employee who requested access. You must explicitly confirm before access is approved. This link works once and expires after 48 hours. If you did not request access, do not confirm or forward it; contact B2B support.",
+    ownership_verification:
+      "A request was made to manage this shop using this business email. We independently checked the business contact. Open the private link below only if you are the owner or an authorized employee who requested access. You must explicitly confirm before access is approved. This link works once and expires after 48 hours. If you did not request access, do not confirm or forward it; contact B2B support.",
     owner_login:
       "Use the private link below to manage your shop. It expires 30 minutes after being requested and works once. If you did not request this, ignore this message. Do not forward the link.",
     received: `We saved your ${type}. The Vicrez installer team will review it. Submission does not grant ownership access or guarantee a listing.`,
@@ -65,12 +79,19 @@ export function notificationMessage(row: Record<string, any>) {
       "The installer operations queue needs attention. Review the counts below and open https://installers.vicrez.com/admin/actions for prioritized tasks and https://installers.vicrez.com/admin/operations for delivery evidence. Sign in to view private requests.",
   };
   const link =
-    ownershipProof ? "https://installers.vicrez.com/claim/verify#" + claimVerificationToken(row.record_id) : row.kind === "owner"
-      ? "https://installers.vicrez.com/owner#" + ownerLoginToken(row.record_id)
-      : ["test", "staff", "pilot", "inquiry-reminder"].includes(row.kind)
-        ? ""
-        : "https://installers.vicrez.com/request-status#" +
-          statusToken(row.kind, row.record_id, row.created_at);
+    row.kind === "owner-setup"
+      ? "https://installers.vicrez.com/owner/quote-setup#" +
+        quoteSetupToken(row.record_id)
+      : ownershipProof
+        ? "https://installers.vicrez.com/claim/verify#" +
+          claimVerificationToken(row.record_id)
+        : row.kind === "owner"
+          ? "https://installers.vicrez.com/owner#" +
+            ownerLoginToken(row.record_id)
+          : ["test", "staff", "pilot", "inquiry-reminder"].includes(row.kind)
+            ? ""
+            : "https://installers.vicrez.com/request-status#" +
+              statusToken(row.kind, row.record_id, row.created_at);
   const text = `${label}\n\n${explanation[row.outcome] || explanation.pending}\n\nReference: ${row.reference}${row.public_message ? "\n\nReviewer update: " + row.public_message : ""}${link ? "\n\nPrivate status link: " + link + "\nKeep this link private." : ""}\n\nVicrez Installer Network\nhttps://installers.vicrez.com/\nReply to support@vicrez.com for assistance.`;
   return {
     personalizations: [
@@ -79,8 +100,20 @@ export function notificationMessage(row: Record<string, any>) {
         custom_args: { directory_notice_id: String(row.id) },
       },
     ],
-    from: { email: reminder || businessSupport ? "b2bsupport@vicrez.com" : "support@vicrez.com", name: "Vicrez Installer Network" },
-    reply_to: { email: reminder ? row.customer_email : businessSupport ? QUOTE_SUPPORT_EMAIL : "support@vicrez.com" },
+    from: {
+      email:
+        reminder || businessSupport
+          ? "b2bsupport@vicrez.com"
+          : "support@vicrez.com",
+      name: "Vicrez Installer Network",
+    },
+    reply_to: {
+      email: reminder
+        ? row.customer_email
+        : businessSupport
+          ? QUOTE_SUPPORT_EMAIL
+          : "support@vicrez.com",
+    },
     subject:
       row.kind === "inquiry-reminder"
         ? "Reminder: installation inquiry " + row.reference
@@ -103,9 +136,16 @@ ${row.reminder_url}
 Keep this shop link private. No appointment is confirmed.
 Vicrez Installer Network
 For help with the inquiry, contact ${QUOTE_SUPPORT_EMAIL}. Quotes and scheduling go directly to the customer.`
-            : row.kind === "pilot"
-              ? row.public_message
-            : businessSupport ? text.replace('Reply to support@vicrez.com for assistance.', `For help, contact ${QUOTE_SUPPORT_EMAIL}.`) : text,
+            : row.kind === "owner-setup"
+              ? `This is the single delivery test you requested for your shop. It is not a customer quote.\n\n${row.public_message}\n\nOpen this private link and explicitly confirm receipt within 48 hours:\n${link}\n\nEmail scanners do not confirm the test. This test does not change quote routing. New recipients require participation review. Keep this link private.\n\nFor help: ${QUOTE_SUPPORT_EMAIL}`
+              : row.kind === "pilot"
+                ? row.public_message
+                : businessSupport
+                  ? text.replace(
+                      "Reply to support@vicrez.com for assistance.",
+                      `For help, contact ${QUOTE_SUPPORT_EMAIL}.`,
+                    )
+                  : text,
       },
     ],
     tracking_settings: {
@@ -117,6 +157,7 @@ For help with the inquiry, contact ${QUOTE_SUPPORT_EMAIL}. Quotes and scheduling
 export async function processNotifications(
   pool: Pool,
   transport: typeof fetch = fetch,
+  eventPrefix: string | null = null,
 ) {
   if (process.env.DIRECTORY_NOTIFICATIONS_ENABLED !== "1")
     return { enabled: false, processed: 0 };
@@ -127,17 +168,44 @@ export async function processNotifications(
     "UPDATE directory_notifications SET state='uncertain',last_error='Worker stopped before acceptance was recorded',updated_at=NOW() WHERE state='sending' AND lease_until<NOW()",
   );
   const rows = (
-    await pool.query(`WITH candidates AS (
+    await pool.query(
+      `WITH candidates AS (
     SELECT id FROM directory_notifications WHERE state IN ('pending','retry') AND next_attempt_at<=NOW()
+    AND ($1::text IS NULL OR starts_with(event_key,$1))
     ORDER BY CASE WHEN kind='staff' AND event_key LIKE 'quote-delivery:%' THEN 0 ELSE 1 END,created_at FOR UPDATE SKIP LOCKED LIMIT 2
   ) UPDATE directory_notifications n SET state='sending',attempts=attempts+1,lease_until=NOW()+INTERVAL '3 minutes',updated_at=NOW()
-    FROM candidates c WHERE n.id=c.id RETURNING n.*`)
+    FROM candidates c WHERE n.id=c.id RETURNING n.*`,
+      [eventPrefix],
+    )
   ).rows;
   for (const row of rows) {
-    if (row.kind === 'claim' && row.outcome === 'ownership_verification') {
-      const proof=(await pool.query("SELECT recipient,directory_claim_proof_eligible(id) AS eligible FROM directory_claim_verifications WHERE id=$1",[row.record_id])).rows[0];
+    if (row.kind === "owner-setup") {
+      const s = (
+        await pool.query(
+          "SELECT recipient,directory_quote_setup_eligible(id,false) eligible FROM directory_owner_quote_setup WHERE id=$1",
+          [row.record_id],
+        )
+      ).rows[0];
+      if (!s?.eligible || s.recipient !== row.recipient) {
+        await pool.query(
+          "UPDATE directory_notifications SET state='expired',lease_until=NULL,last_error='Quote setup expired, changed or access withdrawn',updated_at=NOW() WHERE id=$1 AND state='sending'",
+          [row.id],
+        );
+        continue;
+      }
+    }
+    if (row.kind === "claim" && row.outcome === "ownership_verification") {
+      const proof = (
+        await pool.query(
+          "SELECT recipient,directory_claim_proof_eligible(id) AS eligible FROM directory_claim_verifications WHERE id=$1",
+          [row.record_id],
+        )
+      ).rows[0];
       if (!proof?.eligible || proof.recipient !== row.recipient) {
-        await pool.query("UPDATE directory_notifications SET state='expired',lease_until=NULL,last_error='Ownership proof expired, changed or needs staff review',updated_at=NOW() WHERE id=$1 AND state='sending'",[row.id]);
+        await pool.query(
+          "UPDATE directory_notifications SET state='expired',lease_until=NULL,last_error='Ownership proof expired, changed or needs staff review',updated_at=NOW() WHERE id=$1 AND state='sending'",
+          [row.id],
+        );
         continue;
       }
     }
@@ -185,7 +253,10 @@ export async function processNotifications(
       }
       row.reminder_url = detail.url;
       row.customer_email = detail.customer_email;
-      row.customer_reply_url = customerReplyHref(detail.customer_email,row.reference);
+      row.customer_reply_url = customerReplyHref(
+        detail.customer_email,
+        row.reference,
+      );
     }
     if (row.kind === "pilot") {
       const current = (
@@ -267,10 +338,11 @@ export async function processNotifications(
       [row.id, state, error, providerId],
     );
   }
-  await pool.query(
-    "INSERT INTO directory_operation_runs(name,ok,details) VALUES('notifications',true,$1) ON CONFLICT(name) DO UPDATE SET checked_at=NOW(),ok=true,details=EXCLUDED.details",
-    [JSON.stringify({ processed: rows.length })],
-  );
+  if (!eventPrefix)
+    await pool.query(
+      "INSERT INTO directory_operation_runs(name,ok,details) VALUES('notifications',true,$1) ON CONFLICT(name) DO UPDATE SET checked_at=NOW(),ok=true,details=EXCLUDED.details",
+      [JSON.stringify({ processed: rows.length })],
+    );
   return { enabled: true, processed: rows.length };
 }
 

@@ -8,6 +8,7 @@ import {
   payloadHash,
 } from "@/lib/onboarding";
 import { applicantChanges, requestRevision } from "@/lib/onboarding-updates";
+import { requestClaimRecovery } from "@/lib/claim-recovery";
 export async function POST(request: Request) {
   let client;
   try {
@@ -35,6 +36,10 @@ export async function POST(request: Request) {
       token.kind === "application" ? "applications" : "directory_claims";
     client = await getPool().connect();
     await client.query("BEGIN");
+    if (token.kind === "claim")
+      await client.query("SELECT pg_advisory_xact_lock(19313,hashtext($1))", [
+        "claim:" + token.id,
+      ]);
     const row = (
       await client.query(`SELECT * FROM ${table} WHERE id=$1 FOR UPDATE`, [
         token.id,
@@ -129,12 +134,21 @@ export async function POST(request: Request) {
         }),
       ],
     );
+    const requeued =
+      token.kind === "claim" &&
+      (await requestClaimRecovery(
+        client,
+        token.id,
+        body.request_id,
+        "information",
+      ));
     await client.query("COMMIT");
     return NextResponse.json(
       {
         success: true,
-        message:
-          "Your update is saved for review. Your existing request reference stays the same.",
+        message: requeued
+          ? "Your information is saved and a fresh verification review is queued. Owner access remains unapproved."
+          : "Your update is saved for review. Your existing request reference stays the same.",
       },
       { headers: { "Cache-Control": "no-store" } },
     );

@@ -26,7 +26,7 @@ def gather(app,cfg):
   ev['location']={'lat':loc.get('lat'),'lng':loc.get('lng'),'formatted_address':g['formatted_address'],'place_id':g['place_id'],
    'precision':precision,'eligible':not g.get('partial_match') and precision in ['ROOFTOP','RANGE_INTERPOLATED'] and comp('country')=='US' and comp('administrative_area_level_1')==app['state'] and comp('postal_code')==app['zip_code'][:5] and bool(comp('street_number')),
    'source':'Google Geocoding address match','checked_at':ev['checked_at']}
- try:ev['pages']=collect_pages(app['website'])
+ try:ev['pages']=collect_pages(app['website'],(app.get('details',{}).get('applicant_update') or {}).get('evidence_url'))
  except Exception as e:ev['errors'].append('website_'+type(e).__name__)
  # Optional, operator-collected public snapshot for a site inaccessible from the VPS.
  # The timer never creates these; imports expire after 24h and bind to exact input.
