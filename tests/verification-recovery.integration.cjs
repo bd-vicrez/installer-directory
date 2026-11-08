@@ -66,6 +66,16 @@ async function recover(x, id = crypto.randomUUID(), kind = "renewal") {
   }
 }
 test.after(() => pool.end());
+// These two singleton monitor fixtures must start fresh on each disposable-QA run.
+test.before(async () => {
+  await pool.query(
+    "DELETE FROM directory_notifications WHERE starts_with(event_key,'verification-watchdog:')",
+  );
+  await pool.query("DELETE FROM directory_verification_incidents");
+  await pool.query(
+    "DELETE FROM directory_operation_runs WHERE name IN ('installer-verification','verification-watchdog')",
+  );
+});
 test("real SQL: expired proof renewal is idempotent, preserves history and cannot grant access", async () => {
   const x = await seed(),
     id = crypto.randomUUID();
@@ -411,8 +421,22 @@ test("real SQL: independent watchdog sends one outage and one recovery, no custo
   }
 });
 test("real SQL: metrics separate mailbox delivery, explicit confirmation and held work", async () => {
-  const m = await load("lib/verification-metrics.ts").verificationMetrics(pool);
+  const metrics = load("lib/verification-metrics.ts").verificationMetrics;
+  const before = await metrics(pool);
+  const previous = before.queue.find((x) => x.kind === "claim");
+  const fresh = await seed();
+  const m = await metrics(pool);
   assert.ok(m.queue.some((x) => x.kind === "claim"));
+  const current = m.queue.find((x) => x.kind === "claim");
+  assert.equal(current.open, previous.open + 1);
+  assert.equal(current.awaiting_information, previous.awaiting_information + 1);
+  assert.equal(current.held, previous.held + 1);
+  await recover(fresh);
+  const recovered = (await metrics(pool)).queue.find((x) => x.kind === "claim");
+  assert.equal(recovered.open, current.open);
+  assert.equal(recovered.awaiting_information, current.awaiting_information);
+  assert.equal(recovered.held, current.held - 1);
+  assert.equal(recovered.recovery_requested, current.recovery_requested + 1);
   assert.ok(Array.isArray(m.delivery_30d));
   assert.equal(typeof m.attempts_used_utc_day, "number");
   assert.equal(m.watchdog.ok, true);

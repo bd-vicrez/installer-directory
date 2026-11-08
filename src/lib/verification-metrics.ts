@@ -9,6 +9,7 @@ export async function verificationMetrics(db: Pool) {
     SELECT r.kind,count(*)::int open,count(*) FILTER(WHERE a.task_key IS NULL AND r.reviewed_at IS NULL)::int unreviewed,
     MIN(r.submitted_at) FILTER(WHERE a.task_key IS NULL AND r.reviewed_at IS NULL) oldest_unreviewed_at,
     count(*) FILTER(WHERE a.state='awaiting_business_confirmation' AND EXISTS(SELECT 1 FROM directory_claim_verifications v WHERE v.claim_id=r.id AND v.cancelled_at IS NULL AND v.consumed_at IS NULL AND v.expires_at>NOW()))::int awaiting_confirmation,
+    count(*) FILTER(WHERE r.status='needs_information')::int awaiting_information,
     count(*) FILTER(WHERE a.paused)::int held,
     count(*) FILTER(WHERE a.state='recovery_requested')::int recovery_requested
     FROM requests r LEFT JOIN directory_automation_cases a ON a.task_key=r.kind||':'||r.id GROUP BY r.kind`),
