@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { InputError, readSmallJson, readStatusToken } from "@/lib/onboarding";
 import { requestRevision } from "@/lib/onboarding-updates";
+import { RECOVERY_SELECT, claimRecoveryStatus } from "@/lib/claim-recovery";
 export async function POST(request: Request) {
   try {
     const token = readStatusToken((await readSmallJson(request, 1000)).token),
@@ -14,6 +15,10 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         status: row.status,
+        reference:
+          token.kind === "claim"
+            ? "CLM-" + token.id.slice(0, 8).toUpperCase()
+            : "APP-" + token.id,
         public_message: row.public_message,
         submitted_at: row.submitted_at,
         reviewed_at: row.reviewed_at,
@@ -21,6 +26,16 @@ export async function POST(request: Request) {
         revision: requestRevision(row),
         last_update: row.details?.applicant_update?.submitted_at || null,
         can_update: ["pending", "needs_information"].includes(row.status),
+        recovery:
+          token.kind === "claim"
+            ? claimRecoveryStatus(
+                (
+                  await getPool().query(RECOVERY_SELECT + " WHERE c.id=$1", [
+                    token.id,
+                  ])
+                ).rows[0],
+              )
+            : null,
         business:
           token.kind === "application"
             ? {

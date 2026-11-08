@@ -40,18 +40,59 @@ export async function operationHealth(db: Pool) {
     /* Report unavailable. */
   }
   const issues: string[] = [];
-  if (!counts.last_installer_verification || Date.now()-new Date(counts.last_installer_verification).getTime()>2*3600000)
-    issues.push('Hourly shop and ownership verification has not checked in within two hours');
-  else if (!counts.installer_verification_ok) issues.push('Shop or ownership verification encountered an error; review the VPS report');
-  if (!counts.last_quote_delivery || Date.now()-new Date(counts.last_quote_delivery).getTime()>10*60000)
-    issues.push('Quote delivery monitoring has not checked in within ten minutes');
-  else if (!counts.quote_delivery_ok) issues.push('Quote delivery monitoring needs review');
-  if (!counts.last_contact_health || Date.now() - new Date(counts.last_contact_health).getTime() >= 30 * 3600000)
-    issues.push("Daily shop contact health check is missing or older than 30 hours");
+  if (process.env.DIRECTORY_VERIFICATION_WATCHDOG_ENABLED === "1") {
+    const watcher = (
+      await db.query(
+        "SELECT checked_at,ok FROM directory_operation_runs WHERE name='verification-watchdog'",
+      )
+    ).rows[0];
+    if (
+      !watcher?.ok ||
+      Date.now() - new Date(watcher.checked_at).getTime() >= 20 * 60000
+    )
+      issues.push(
+        "Independent verification alert monitor has not checked in successfully within twenty minutes",
+      );
+  }
+  if (
+    !counts.last_installer_verification ||
+    Date.now() - new Date(counts.last_installer_verification).getTime() >
+      2 * 3600000
+  )
+    issues.push(
+      "Hourly shop and ownership verification has not checked in within two hours",
+    );
+  else if (!counts.installer_verification_ok)
+    issues.push(
+      "Shop or ownership verification encountered an error; review the VPS report",
+    );
+  if (
+    !counts.last_quote_delivery ||
+    Date.now() - new Date(counts.last_quote_delivery).getTime() > 10 * 60000
+  )
+    issues.push(
+      "Quote delivery monitoring has not checked in within ten minutes",
+    );
+  else if (!counts.quote_delivery_ok)
+    issues.push("Quote delivery monitoring needs review");
+  if (
+    !counts.last_contact_health ||
+    Date.now() - new Date(counts.last_contact_health).getTime() >= 30 * 3600000
+  )
+    issues.push(
+      "Daily shop contact health check is missing or older than 30 hours",
+    );
   else if (!counts.contact_health_ok)
-    issues.push("Shop contact health needs review; see the affected shops in Operations");
-  if (!counts.last_installer_agent || Date.now() - new Date(counts.last_installer_agent).getTime() >= 30 * 3600000)
-    issues.push("Installer application and inquiry agent check-in is missing or older than 30 hours");
+    issues.push(
+      "Shop contact health needs review; see the affected shops in Operations",
+    );
+  if (
+    !counts.last_installer_agent ||
+    Date.now() - new Date(counts.last_installer_agent).getTime() >= 30 * 3600000
+  )
+    issues.push(
+      "Installer application and inquiry agent check-in is missing or older than 30 hours",
+    );
   for (const [key, label] of [
     ["applications_overdue", "applications awaiting review over 24 hours"],
     [

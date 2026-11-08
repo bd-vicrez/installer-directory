@@ -3,11 +3,36 @@ import { useEffect, useState, useRef } from "react";
 import { QUOTE_SUPPORT_EMAIL } from "@/lib/quote-contact";
 export default function VerifyClaimPage() {
   const token = useRef(""),
+    recoveryAttempt = useRef(""),
     started = useRef(false);
   const [detail, setDetail] = useState<any>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [confirmed, setConfirmed] = useState(false);
+  const [recovered, setRecovered] = useState("");
+  async function recover() {
+    setBusy(true);
+    setError("");
+    if (!recoveryAttempt.current) recoveryAttempt.current = crypto.randomUUID();
+    try {
+      const r = await fetch("/api/claims/recovery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          proof_token: token.current,
+          confirm: true,
+          request_id: recoveryAttempt.current,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setRecovered(d.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Please contact B2B support.");
+    } finally {
+      setBusy(false);
+    }
+  }
   async function submit(action: string) {
     setBusy(true);
     setError("");
@@ -52,6 +77,22 @@ export default function VerifyClaimPage() {
           {error}
         </p>
       )}
+      {error && token.current && !detail && !recovered && (
+        <div className="space-y-2">
+          <p>
+            If this link expired, you can request a fresh evidence review. Staff
+            holds and ownership conflicts still require support.
+          </p>
+          <button
+            className="btn-secondary"
+            disabled={busy}
+            onClick={() => void recover()}
+          >
+            Request a fresh verification review
+          </button>
+        </div>
+      )}
+      {recovered && <p role="status">{recovered}</p>}
       {detail && !detail.verified && (
         <>
           <h2 className="text-xl font-semibold">{detail.business_name}</h2>

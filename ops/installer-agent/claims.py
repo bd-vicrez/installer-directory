@@ -8,7 +8,7 @@ from evidence import gather
 
 def stamp():return datetime.now(timezone.utc)
 def fingerprint(c):
- return hashlib.sha256(json.dumps({'payload':c['payload_hash'],'shop':c['shop_snapshot']},sort_keys=True,default=str).encode()).hexdigest()
+ return hashlib.sha256(json.dumps({'payload':c['payload_hash'],'shop':c['shop_snapshot'],'update':(c.get('details') or {}).get('applicant_update')},sort_keys=True,default=str).encode()).hexdigest()
 def contact_basis(c,ev):
  email=c['email'].strip().lower();domain=email.rsplit('@',1)[-1];site=host(c['shop_snapshot'].get('website',''))
  # No guessed contact, arbitrary domain suffix matching, or agency delegation.
@@ -52,12 +52,16 @@ def commit(agent,c,ev,d):
    if not fresh or fresh['status'] not in ('pending','needs_information') or fingerprint(fresh)!=fp or (fresh['reviewer'] and fresh['reviewer']!=ACTOR) or (assignment and assignment['actor']!=ACTOR) or (case and case['paused']):return 'changed_or_human_owned'
    if fresh['ownership_conflict']:d={'state':'staff_attention','reason':'ownership_conflict'}
    # Existing proof is never silently resent. Expiry and changed inputs need staff review.
-   q.execute('SELECT id,expires_at,consumed_at FROM directory_claim_verifications WHERE claim_id=%s',(c['id'],));prior=q.fetchone()
-   if prior:
+   q.execute('SELECT id,expires_at,consumed_at,cancelled_at,created_at FROM directory_claim_verifications WHERE claim_id=%s ORDER BY created_at DESC,id DESC LIMIT 1',(c['id'],));prior=q.fetchone()
+   recovery=None
+   if case and case['state']=='recovery_requested':
+    q.execute('SELECT created_at FROM directory_claim_recovery_requests WHERE claim_id=%s ORDER BY created_at DESC LIMIT 1',(c['id'],));recovery=q.fetchone()
+   recovering=bool(recovery and prior and recovery['created_at']>=prior['created_at'] and prior['cancelled_at'] and not prior['consumed_at'])
+   if prior and not recovering:
     if case and case['state']=='awaiting_business_confirmation' and prior['expires_at']>stamp() and fingerprint(fresh)==case['fingerprint']:return 'awaiting_existing_proof'
     d={'state':'staff_attention','reason':'proof_expired_or_request_changed'}
    if d['state']=='awaiting_business_confirmation':
-    q.execute("SELECT 1 FROM directory_claim_verifications v JOIN directory_claims other ON other.id=v.claim_id WHERE other.installer_id=%s AND v.created_at>NOW()-INTERVAL '7 days'",(c['installer_id'],))
+    q.execute("SELECT 1 FROM directory_claim_verifications v JOIN directory_claims other ON other.id=v.claim_id WHERE other.installer_id=%s AND v.created_at>NOW()-INTERVAL '7 days' AND (v.claim_id<>%s OR NOT %s)",(c['installer_id'],c['id'],recovering))
     if q.fetchone():d={'state':'staff_attention','reason':'recent_verification_request'}
    if d['state']=='awaiting_business_confirmation':
     vid=str(uuid.uuid4());due=stamp()+timedelta(hours=48)
@@ -96,7 +100,8 @@ def run(agent):
   used+=1;attempted+=1
   if agent.live:agent.query('INSERT INTO directory_automation_attempts(application_id) VALUES(%s)',('claim:'+c['id'],))
   try:
-   app={**c['shop_snapshot'],'id':'claim-'+c['id'],'email':'','install_capabilities':[],'details':{},'consent_at':c['consent_at'],'consent_version':c['consent_version']}
+   # Only the public supporting URL reaches research; private applicant notes and email do not.
+   app={**c['shop_snapshot'],'id':'claim-'+c['id'],'email':'','install_capabilities':[],'details':{'applicant_update':{'evidence_url':((c.get('details') or {}).get('applicant_update') or {}).get('evidence_url')}},'consent_at':c['consent_at'],'consent_version':c['consent_version']}
    # Conflicts, missing sites and explicitly external/test relationships never need model calls.
    ev={'pages':[]} if c['ownership_conflict'] or (prior and prior['state']=='awaiting_business_confirmation') or not all(app.get(k) for k in ('website','phone','street_address','city','state','zip_code')) or re.search(r'\b(?:former|researcher|test|marketing|marketer|agency)\b',c['relationship'],re.I) else gather(app,agent.cfg)
    d=decide(c,ev);result=commit(agent,c,ev,d) if agent.live else d['state']

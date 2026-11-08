@@ -1,11 +1,20 @@
 {
   "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/internal/verification-watchdog",
+      "schedule": "7,17,27,37,47,57 * * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
         { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        },
         { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
       ]
     }

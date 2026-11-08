@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import OnboardingUpdateForm from "@/components/OnboardingUpdateForm";
+import ClaimRecovery from "@/components/ClaimRecovery";
+import { QUOTE_SUPPORT_EMAIL } from "@/lib/quote-contact";
 export default function StatusPage() {
   const [result, setResult] = useState<any>(null),
     [error, setError] = useState("");
@@ -32,6 +34,7 @@ export default function StatusPage() {
         <h1 className="text-3xl font-bold">Your request status</h1>
         {result ? (
           <div role="status" className="space-y-3">
+            <p className="font-semibold">{result.reference}</p>
             <p className="text-xl capitalize">
               {result.status.replaceAll("_", " ")}
             </p>
@@ -50,6 +53,9 @@ export default function StatusPage() {
         <button className="btn-secondary" onClick={refresh}>
           Refresh status
         </button>
+        {result?.recovery && (
+          <ClaimRecovery recovery={result.recovery} onSaved={refresh} />
+        )}
         {result?.last_update && (
           <p className="text-sm">
             Information last supplied{" "}
@@ -64,8 +70,8 @@ export default function StatusPage() {
           />
         )}
         <p>
-          <a className="underline" href="/contact">
-            Contact Vicrez
+          <a className="underline" href={"mailto:" + QUOTE_SUPPORT_EMAIL}>
+            Contact Vicrez B2B support
           </a>{" "}
           for help with identity changes or a completed request. Keep this
           status link private.

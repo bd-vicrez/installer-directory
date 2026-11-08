@@ -21,7 +21,7 @@ jobs:
       - run: npm test
       - run: pip install fastapi==0.129.0 httpx==0.28.1 requests==2.32.5 psycopg2-binary==2.9.11
       - run: python -B -m unittest discover -s backend
-      - run: python -B -m unittest test_rules test_evidence test_claims test_contact_health test_inquiry_routing test_quote_agent test_verification_run
+      - run: python -B -m unittest test_rules test_evidence test_claims test_contact_health test_inquiry_routing test_quote_agent test_verification_run test_recovery
         working-directory: ops/installer-agent
       - run: npm run build
         env:

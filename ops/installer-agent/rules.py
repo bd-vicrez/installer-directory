@@ -100,10 +100,10 @@ def fetch_page(url,root):
            'links':parser.links[:300],'sha256':hashlib.sha256(raw).hexdigest()}
   finally:con.close()
  raise ValueError('redirect_limit')
-def collect_pages(url):
+def collect_pages(url,supporting_url=None):
  if url.startswith('http://'):url='https://'+url[7:]
  root=host(url);pages=[fetch_page(url,root)]
- links=[urljoin(url,'/')]+[urljoin(url,x) for x in pages[0]['links'] if re.search(r'contact|about|location|service',x,re.I)]
+ links=([supporting_url] if supporting_url and host(supporting_url)==root else [])+[urljoin(url,'/')]+[urljoin(url,x) for x in pages[0]['links'] if re.search(r'contact|about|location|service',x,re.I)]
  for target in dict.fromkeys(links):
   if len(pages)>=4:break
   if host(target)!=root or target in [p['url'] for p in pages]:continue
