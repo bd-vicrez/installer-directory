@@ -9,6 +9,7 @@ export default function ReviewQueue({
   kind: "applications" | "claims";
 }) {
   const [rows, setRows] = useState<any[]>([]),
+    [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(""),
     [filter, setFilter] = useState("open");
@@ -19,17 +20,22 @@ export default function ReviewQueue({
   const endpoint =
     kind === "applications" ? "/api/applications" : "/api/admin/claims";
   async function load() {
-    const selected = window.location.hash.startsWith("#request-")
-      ? decodeURIComponent(window.location.hash.slice(9))
-      : "";
-    const r = await fetch(
-      endpoint + (selected ? "?id=" + encodeURIComponent(selected) : ""),
-      { cache: "no-store" },
-    );
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || "Unable to load review queue.");
-    setRows(d[kind]);
-    setError("");
+    setLoading(true);
+    try {
+      const selected = window.location.hash.startsWith("#request-")
+        ? decodeURIComponent(window.location.hash.slice(9))
+        : "";
+      const r = await fetch(
+        endpoint + (selected ? "?id=" + encodeURIComponent(selected) : ""),
+        { cache: "no-store" },
+      );
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Unable to load review queue.");
+      setRows(d[kind]);
+      setError("");
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => {
     void load().catch((e) =>
@@ -222,6 +228,7 @@ export default function ReviewQueue({
           {error}
         </p>
       )}
+      {loading && <p role="status">Loading review requests…</p>}
       {visibleRows.map((row) => {
         const d = drafts[row.id] || {};
         const field = (key: string, label: string, value = "") => (
@@ -729,7 +736,7 @@ export default function ReviewQueue({
           </article>
         );
       })}
-      {!visibleRows.length && (
+      {!loading && !error && !visibleRows.length && (
         <p>
           {filter === "open"
             ? "No open requests in the queue."

@@ -118,6 +118,25 @@ export default function VerificationStatus({
               </tbody>
             </table>
           </div>
+          <ul
+            className="text-sm space-y-1"
+            aria-label="Open verification requests"
+          >
+            {data.metrics.queue.map((q: any) => (
+              <li key={q.kind}>
+                {q.kind === "claim" ? "Ownership" : "Applications"}: {q.open}{" "}
+                open
+                {" · "}
+                {q.awaiting_information} awaiting more information
+                {" · "}
+                {q.recovery_requested} fresh reviews requested.
+              </li>
+            ))}
+          </ul>
+          <p className="text-sm">
+            These counts can overlap. A held request may also need more
+            information.
+          </p>
           <p className="text-sm">
             Ownership confirmations in the last 30 days:{" "}
             <strong>{data.metrics.proofs.confirmed_30d}</strong> · Expired,
